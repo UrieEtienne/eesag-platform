@@ -1,0 +1,5 @@
+Avant le premier lancement :
+1. Installer Flutter/Dart.
+2. Depuis ce dossier : flutter create --platforms=android,ios,windows,linux,macos .
+3. Puis flutter pub get.
+4. Configurer lib/api_client.dart avec l URL de votre API Django.
