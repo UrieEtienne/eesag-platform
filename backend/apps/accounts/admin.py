@@ -1,22 +1,28 @@
 from django import forms
-from django.contrib import admin
+from django.contrib import admin, messages
 from django.contrib.auth import password_validation
 from django.core.exceptions import ValidationError
 from django.db import transaction
-from django.utils import timezone
 from django.utils.html import format_html
 
 from .models import (
     Abonnement,
     DelegationEglise,
-    MandatBureauNational,
     JournalSMS,
+    MandatBureauNational,
     PermissionEglise,
-    ROLES_NATIONAUX,
     ROLES_BUREAU_NATIONAL,
+    ROLES_NATIONAUX,
     Role,
     Utilisateur,
     VerificationTelephone,
+)
+from .services_sms import normaliser_telephone
+from apps.core.admin_scopes import (
+    EESAGScopedAdminMixin,
+    is_coordinator,
+    is_local,
+    is_national_general,
 )
 
 
@@ -25,7 +31,6 @@ class UtilisateurAdminForm(forms.ModelForm):
         label="Mot de passe",
         widget=forms.PasswordInput(render_value=False),
         required=False,
-        help_text="Laisser vide lors de la modification pour conserver le mot de passe actuel.",
     )
     confirmation_mot_de_passe = forms.CharField(
         label="Confirmation du mot de passe",
@@ -38,51 +43,72 @@ class UtilisateurAdminForm(forms.ModelForm):
         fields = (
             "nom", "prenom", "sexe", "date_naissance", "telephone", "email", "photo",
             "nationalite", "date_bapteme_eau", "date_bapteme_saint_esprit", "fonction_eglise",
-            "role", "eglise", "departement", "role_eglise", "fonction_bureau_national", "actif", "is_staff", "is_superuser",
+            "role", "eglise", "departement", "role_eglise", "fonction_bureau_national",
+            "actif", "is_staff", "is_superuser",
         )
 
     def __init__(self, *args, request=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.request = request
-        # Le coordinateur est le seul à créer/gérer les comptes du Bureau national.
-        if request and request.user.role == Role.COORDINATEUR:
+        user = getattr(request, "user", None)
+
+        if user and user.role == Role.COORDINATEUR:
             self.fields["role"].choices = [
                 (Role.SUPERADMIN_NATIONAL, "Administrateur du Bureau national"),
-                (Role.MEMBRE, "Membre"),
-            ]
-        elif request and request.user.role in ROLES_NATIONAUX:
-            # Le Bureau national crée uniquement les comptes rattachés à une église.
-            self.fields["role"].choices = [
-                (Role.ADMIN_LOCAL, "Administrateur Local (église)"),
+                (Role.ADMIN_LOCAL, "Administrateur local"),
                 (Role.PASTEUR, "Pasteur"),
-                (Role.RESPONSABLE_DEPARTEMENT, "Responsable de département"),
                 (Role.MEMBRE, "Membre"),
+                (Role.RESPONSABLE_DEPARTEMENT, "Responsable de département"),
             ]
-        # Le rôle coordinateur ne doit jamais être créé depuis ce formulaire.
+        elif user and is_national_general(user):
+            self.fields["role"].choices = [
+                (Role.ADMIN_LOCAL, "Administrateur local"),
+                (Role.PASTEUR, "Pasteur"),
+            ]
+        elif user and user.role == Role.PASTEUR:
+            self.fields["role"].choices = [
+                (Role.ADMIN_LOCAL, "Administrateur local"),
+                (Role.MEMBRE, "Membre"),
+                (Role.RESPONSABLE_DEPARTEMENT, "Responsable de département"),
+            ]
+        elif user and user.role == Role.ADMIN_LOCAL:
+            self.fields["role"].choices = [
+                (Role.MEMBRE, "Membre"),
+                (Role.RESPONSABLE_DEPARTEMENT, "Responsable de département"),
+            ]
+
         self.fields["role"].empty_label = None
 
     def clean(self):
         cleaned = super().clean()
+        user = getattr(getattr(self, "request", None), "user", None)
         role = cleaned.get("role")
         eglise = cleaned.get("eglise")
         password = cleaned.get("mot_de_passe")
         confirmation = cleaned.get("confirmation_mot_de_passe")
-        requester = getattr(self, "request", None)
-        requester_role = getattr(getattr(requester, "user", None), "role", None)
 
-        if requester_role == Role.COORDINATEUR:
+        if user:
+            if role == Role.COORDINATEUR:
+                self.add_error("role", "Le rôle Coordinateur est réservé au propriétaire existant du système.")
+
             if role in ROLES_NATIONAUX and eglise:
-                self.add_error("eglise", "Un compte du Bureau national ne doit pas être lié à une église.")
-            if role not in ROLES_NATIONAUX and not eglise and role != Role.MEMBRE:
-                self.add_error("eglise", "Une église doit être sélectionnée pour ce rôle.")
-            if role == Role.MEMBRE and not eglise and not self.instance.pk:
-                # Le coordinateur peut aussi créer un compte national simple pour le bureau.
-                pass
-        elif requester_role in ROLES_NATIONAUX:
-            if role in ROLES_NATIONAUX:
-                self.add_error("role", "Seul le Coordinateur peut créer un compte du Bureau national.")
-            if not eglise:
-                self.add_error("eglise", "Une église doit être sélectionnée pour un compte local.")
+                self.add_error("eglise", "Un compte national ne doit pas être rattaché à une église.")
+
+            if user.role in (Role.ADMIN_LOCAL, Role.PASTEUR) and eglise and eglise.id != user.eglise_id:
+                self.add_error("eglise", "Vous ne pouvez gérer que votre propre église.")
+
+            if user.role in (Role.ADMIN_LOCAL, Role.PASTEUR) and not eglise:
+                self.add_error("eglise", "Une église est obligatoire pour ce compte.")
+
+            if user.role in ROLES_BUREAU_NATIONAL and not is_national_general(user):
+                self.add_error("role", "Un administrateur de bureau national spécialisé ne peut pas gérer les comptes utilisateurs.")
+
+        telephone = cleaned.get("telephone")
+        if telephone:
+            try:
+                cleaned["telephone"] = normaliser_telephone(telephone)
+            except ValueError as exc:
+                self.add_error("telephone", str(exc))
 
         if password or confirmation:
             if password != confirmation:
@@ -94,84 +120,89 @@ class UtilisateurAdminForm(forms.ModelForm):
                     self.add_error("mot_de_passe", exc)
         elif not self.instance.pk:
             self.add_error("mot_de_passe", "Le mot de passe est obligatoire à la création du compte.")
+
         return cleaned
 
     def save(self, commit=True):
         obj = super().save(commit=False)
         password = self.cleaned_data.get("mot_de_passe")
         role = self.cleaned_data.get("role")
-        requester_role = getattr(getattr(self.request, "user", None), "role", None)
+        requester = getattr(self, "request", None)
 
         if role in ROLES_NATIONAUX:
             obj.eglise = None
             obj.departement = None
             obj.is_staff = True
-            # Le Coordinateur est le seul propriétaire/superuser.
-            # Le Bureau national est staff sans devenir propriétaire du système.
             obj.is_superuser = False
             obj.fonction_eglise = "MEMBRE"
-        else:
+        elif role in (Role.ADMIN_LOCAL, Role.PASTEUR):
+            obj.is_staff = True
             obj.is_superuser = False
-            # Les comptes locaux utilisent l'application métier, pas l'administration globale.
+            if requester and requester.user.role in (Role.ADMIN_LOCAL, Role.PASTEUR):
+                obj.eglise = requester.user.eglise
+        else:
             obj.is_staff = False
+            obj.is_superuser = False
 
         if password:
             obj.set_password(password)
+
         if commit:
             obj.save()
             self.save_m2m()
         return obj
 
 
-class PerimetreUtilisateurFilter(admin.SimpleListFilter):
-    title = "Périmètre"
-    parameter_name = "perimetre"
+class UtilisateurAdmin(EESAGScopedAdminMixin, admin.ModelAdmin):
+    admin_scopes = {"COORDINATEUR", "BUREAU_GENERAL", "EGLISE"}
+    default_add = True
+    default_change = True
+    default_delete = False
 
-    def lookups(self, request, model_admin):
-        return (("national", "Bureau national"), ("eglise", "Églises locales"))
-
-    def queryset(self, request, queryset):
-        if self.value() == "national":
-            return queryset.filter(eglise__isnull=True).exclude(role=Role.COORDINATEUR)
-        if self.value() == "eglise":
-            return queryset.filter(eglise__isnull=False)
-        return queryset
-
-
-@admin.register(Utilisateur)
-class UtilisateurAdmin(admin.ModelAdmin):
     form = UtilisateurAdminForm
     list_display = ("miniature", "identifiant", "nom_complet", "role", "eglise", "fonction_bureau_national", "telephone", "actif")
-    list_filter = (PerimetreUtilisateurFilter, "role", "eglise", "sexe", "nationalite", "actif", "is_staff")
+    list_filter = ("role", "eglise", "sexe", "nationalite", "actif", "is_staff")
     search_fields = ("identifiant", "nom", "prenom", "telephone", "email")
     ordering = ("nom", "prenom")
     readonly_fields = ("identifiant", "last_login", "date_enregistrement")
 
+    def has_module_permission(self, request):
+        if not request.user.is_authenticated:
+            return False
+        return is_coordinator(request.user) or is_national_general(request.user) or is_local(request.user)
+
+    def has_view_permission(self, request, obj=None):
+        return self.has_module_permission(request)
+
     def get_form(self, request, obj=None, **kwargs):
         BaseForm = super().get_form(request, obj, **kwargs)
+
         class RequestAwareForm(BaseForm):
             def __init__(self, *args, **form_kwargs):
                 form_kwargs["request"] = request
                 super().__init__(*args, **form_kwargs)
+
         return RequestAwareForm
 
     def get_fieldsets(self, request, obj=None):
-        permissions = ("actif", "is_staff", "is_superuser") if request.user.role == Role.COORDINATEUR else ("actif",)
+        fields_status = ("actif", "is_staff", "is_superuser") if is_coordinator(request.user) else ("actif", "is_staff")
         return (
             ("Identité", {"fields": ("identifiant", "nom", "prenom", "sexe", "date_naissance", "nationalite", "photo")} ),
-            ("Contact & vie de l’église", {"fields": (
-                "telephone", "email", "date_bapteme_eau", "date_bapteme_saint_esprit", "fonction_eglise",
-            )}),
-            ("Rôle et rattachement", {"fields": ("role", "eglise", "departement", "role_eglise", "fonction_bureau_national")}),
+            ("Contact", {"fields": ("telephone", "email")} ),
+            ("Vie de l'église", {"fields": ("date_bapteme_eau", "date_bapteme_saint_esprit", "fonction_eglise", "eglise", "departement", "role_eglise")} ),
+            ("Rôle", {"fields": ("role", "fonction_bureau_national")} ),
             ("Mot de passe", {"fields": ("mot_de_passe", "confirmation_mot_de_passe")} ),
-            ("Statut technique", {"fields": permissions}),
+            ("Statut technique", {"fields": fields_status} ),
             ("Historique", {"fields": ("last_login", "date_enregistrement")} ),
         )
 
     def miniature(self, obj):
         if not obj.photo:
             return "—"
-        return format_html('<img src="{}" alt="" style="width:38px;height:38px;object-fit:cover;border-radius:50%;">', obj.photo.url)
+        return format_html(
+            '<img src="{}" alt="" style="width:38px;height:38px;object-fit:cover;border-radius:50%;">',
+            obj.photo.url,
+        )
     miniature.short_description = "Photo"
 
     def nom_complet(self, obj):
@@ -179,76 +210,76 @@ class UtilisateurAdmin(admin.ModelAdmin):
     nom_complet.short_description = "Nom complet"
 
     def get_queryset(self, request):
-        qs = super().get_queryset(request)
-        if request.user.role == Role.COORDINATEUR:
-            # Le propriétaire du système ne doit jamais apparaître dans la liste des utilisateurs.
-            # Il reste modifiable depuis le lien « Mon compte ».
-            object_id = str(getattr(getattr(request, "resolver_match", None), "kwargs", {}).get("object_id", ""))
-            if object_id == str(request.user.pk):
-                return qs.filter(pk=request.user.pk)
+        qs = super().get_queryset(request).select_related("eglise", "departement", "role_eglise")
+
+        if is_coordinator(request.user):
             return qs.exclude(role=Role.COORDINATEUR)
-        if request.user.role in ROLES_NATIONAUX:
-            from apps.bureaux.models import BureauAdministrateur
-            assigned = BureauAdministrateur.objects.filter(utilisateur=request.user, actif=True).values_list("bureau_id", flat=True)
-            if assigned.exists() and request.user.role != Role.COORDINATEUR:
-                return qs.filter(mandats_bureaux__bureau_id__in=assigned, mandats_bureaux__actif=True).exclude(role=Role.COORDINATEUR).distinct()
-            return qs.exclude(role=Role.COORDINATEUR)
-        if request.user.eglise_id:
-            return qs.filter(eglise_id=request.user.eglise_id)
+
+        if is_national_general(request.user):
+            return qs.filter(role__in=[Role.ADMIN_LOCAL, Role.PASTEUR]).exclude(role=Role.COORDINATEUR)
+
+        if is_local(request.user):
+            return qs.filter(eglise_id=request.user.eglise_id).exclude(role=Role.COORDINATEUR)
+
         return qs.none()
 
     def has_add_permission(self, request):
-        if request.user.role == Role.COORDINATEUR:
-            return True
-        if request.user.role in ROLES_BUREAU_NATIONAL:
-            from apps.bureaux.models import BureauAdministrateur
-            return not BureauAdministrateur.objects.filter(utilisateur=request.user, actif=True).exists()
-        return False
+        return is_coordinator(request.user) or is_national_general(request.user) or is_local(request.user)
 
     def has_delete_permission(self, request, obj=None):
-        return request.user.role == Role.COORDINATEUR
+        return is_coordinator(request.user)
 
     def has_change_permission(self, request, obj=None):
-        if obj is not None and request.user.role != Role.COORDINATEUR and obj.role in ROLES_NATIONAUX:
+        if not self.has_module_permission(request):
             return False
-        if obj is not None and request.user.role not in ROLES_NATIONAUX:
-            return obj.eglise_id == request.user.eglise_id
-        return super().has_change_permission(request, obj)
+        if obj is None:
+            return True
+        if is_coordinator(request.user):
+            return obj.role != Role.COORDINATEUR
+        if is_national_general(request.user):
+            return obj.role in (Role.ADMIN_LOCAL, Role.PASTEUR)
+        return obj.eglise_id == request.user.eglise_id and obj.role not in ROLES_NATIONAUX
 
     def save_model(self, request, obj, form, change):
-        # Les règles de rattachement et du mot de passe sont dans le formulaire.
-        # Toute nouvelle création déclenche une vérification téléphonique par OTP.
         with transaction.atomic():
             super().save_model(request, obj, form, change)
-            if not change:
-                from datetime import timedelta
-                VerificationTelephone.objects.filter(utilisateur=obj, utilise=False).update(utilise=True)
-                VerificationTelephone.objects.create(
-                    utilisateur=obj, code="000000", expire_le=timezone.now() + timedelta(minutes=10)
-                )
-                from .services_sms import notifier_nouvel_identifiant
-                origine = obj.eglise.nom if obj.eglise else "Bureau national EESAG"
-                mot_de_passe = form.cleaned_data.get("mot_de_passe") or "le code secret défini par votre administrateur"
-                resultats = notifier_nouvel_identifiant(obj, mot_de_passe, origine=origine)
-                if not all(item.get("ok") for item in resultats):
-                    raise ValidationError("Le compte est refusé : le SMS de confirmation n'a pas pu être envoyé. Consultez le Journal SMS.")
+            if not change and obj.role in (Role.ADMIN_LOCAL, Role.PASTEUR):
                 obj.actif = False
                 obj.save(update_fields=["actif"])
 
 
+@admin.register(Utilisateur)
+class RegisteredUtilisateurAdmin(UtilisateurAdmin):
+    pass
+
+
 @admin.register(PermissionEglise)
-class PermissionEgliseAdmin(admin.ModelAdmin):
+class PermissionEgliseAdmin(EESAGScopedAdminMixin, admin.ModelAdmin):
+    admin_scopes = {"COORDINATEUR", "EGLISE"}
+    default_add = True
+    default_change = True
     list_display = ("code", "libelle", "description")
     search_fields = ("code", "libelle", "description")
 
 
 @admin.register(DelegationEglise)
-class DelegationEgliseAdmin(admin.ModelAdmin):
+class DelegationEgliseAdmin(EESAGScopedAdminMixin, admin.ModelAdmin):
+    admin_scopes = {"COORDINATEUR", "EGLISE"}
+    default_add = True
+    default_change = True
     list_display = ("utilisateur", "eglise_utilisateur", "actif", "date_creation", "cree_par")
     list_filter = ("actif",)
     search_fields = ("utilisateur__nom", "utilisateur__prenom", "utilisateur__identifiant")
     filter_horizontal = ("permissions",)
     readonly_fields = ("date_creation", "cree_par")
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request).select_related("utilisateur", "utilisateur__eglise")
+        if is_coordinator(request.user):
+            return qs
+        if is_local(request.user):
+            return qs.filter(utilisateur__eglise_id=request.user.eglise_id)
+        return qs.none()
 
     def eglise_utilisateur(self, obj):
         return obj.utilisateur.eglise or "Bureau national"
@@ -261,7 +292,10 @@ class DelegationEgliseAdmin(admin.ModelAdmin):
 
 
 @admin.register(MandatBureauNational)
-class MandatBureauNationalAdmin(admin.ModelAdmin):
+class MandatBureauNationalAdmin(EESAGScopedAdminMixin, admin.ModelAdmin):
+    admin_scopes = {"COORDINATEUR", "BUREAU_GENERAL"}
+    default_add = True
+    default_change = True
     list_display = ("annee", "utilisateur", "poste", "actif", "date_nomination")
     list_filter = ("annee", "actif", "poste")
     search_fields = ("utilisateur__nom", "utilisateur__prenom", "poste")
@@ -269,28 +303,44 @@ class MandatBureauNationalAdmin(admin.ModelAdmin):
 
     def formfield_for_foreignkey(self, db_field, request, **kwargs):
         if db_field.name == "utilisateur":
-            kwargs["queryset"] = Utilisateur.objects.filter(role__in=ROLES_NATIONAUX, eglise__isnull=True).order_by("nom", "prenom")
+            kwargs["queryset"] = Utilisateur.objects.filter(
+                role__in=ROLES_NATIONAUX,
+                eglise__isnull=True,
+            ).order_by("nom", "prenom")
         return super().formfield_for_foreignkey(db_field, request, **kwargs)
 
     def save_model(self, request, obj, form, change):
-        if obj.utilisateur.role not in ROLES_NATIONAUX:
-            raise ValidationError("Un mandat du Bureau national doit être attribué à un compte national.")
-        if obj.utilisateur.eglise_id:
-            raise ValidationError("Un membre du Bureau national ne doit pas être rattaché à une église.")
+        if obj.utilisateur.role not in ROLES_NATIONAUX or obj.utilisateur.eglise_id:
+            raise ValidationError("Un mandat national doit appartenir à un compte national sans église.")
         super().save_model(request, obj, form, change)
 
 
 @admin.register(Abonnement)
-class AbonnementAdmin(admin.ModelAdmin):
+class AbonnementAdmin(EESAGScopedAdminMixin, admin.ModelAdmin):
+    admin_scopes = {"COORDINATEUR", "BUREAU_GENERAL", "BUREAU_SPECIAL", "EGLISE"}
+    default_add = False
+    default_change = False
     list_display = ("utilisateur", "eglise", "date_abonnement")
     list_filter = ("eglise",)
     search_fields = ("utilisateur__nom", "utilisateur__prenom", "eglise__nom")
 
 
 @admin.register(JournalSMS)
-class JournalSMSAdmin(admin.ModelAdmin):
+class JournalSMSAdmin(EESAGScopedAdminMixin, admin.ModelAdmin):
+    admin_scopes = {"COORDINATEUR"}
+    default_add = False
+    default_change = False
     list_display = ("cree_le", "telephone", "type_message", "fournisseur", "statut", "provider_sid")
     list_filter = ("statut", "fournisseur", "type_message", "cree_le")
     search_fields = ("telephone", "provider_sid", "erreur", "utilisateur__nom", "utilisateur__prenom")
     readonly_fields = ("cree_le", "telephone", "type_message", "fournisseur", "statut", "message", "provider_sid", "erreur", "utilisateur")
     ordering = ("-cree_le",)
+
+
+@admin.register(VerificationTelephone)
+class VerificationTelephoneAdmin(EESAGScopedAdminMixin, admin.ModelAdmin):
+    admin_scopes = {"COORDINATEUR"}
+    default_add = False
+    default_change = False
+    list_display = ("utilisateur", "code", "cree_le", "expire_le", "utilise", "tentatives")
+    readonly_fields = ("utilisateur", "code", "cree_le", "expire_le", "utilise", "tentatives")

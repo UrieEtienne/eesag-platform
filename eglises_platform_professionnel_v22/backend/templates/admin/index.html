@@ -1,0 +1,111 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+{% load admin_dashboard %}
+
+{% block title %}Tableau de bord · EESAG{% endblock %}
+
+{% block content %}
+{% platform_metrics as metrics %}
+<div class="ecg-dashboard-heading">
+  <div>
+    <span class="ecg-eyebrow">CENTRE DE CONTRÔLE EESAG</span>
+    <h1>Tableau de bord</h1>
+    <p>Vue d’ensemble du réseau, des comptes et des services de l’organisation.</p>
+  </div>
+  <div class="ecg-dashboard-actions">
+    {% if user.is_superuser or user.role == 'COORDINATEUR' %}<a class="ecg-button primary" href="{% url 'admin:accounts_utilisateur_add' %}">+ Créer un administrateur bureau</a>{% endif %}
+    <a class="ecg-button" href="/">Ouvrir l'application</a>
+  </div>
+</div>
+
+<div class="ecg-metrics-grid">
+  <div class="ecg-metric metric-cyan"><div class="metric-icon">◎</div><div><strong>{{ metrics.eglises_actives }}</strong><span>Églises actives</span></div><small>{{ metrics.nouvelles_eglises_7j }} nouvelle(s) cette semaine</small></div>
+  <div class="ecg-metric metric-indigo"><div class="metric-icon">♙</div><div><strong>{{ metrics.membres }}</strong><span>Membres actifs</span></div><small>+{{ metrics.nouveaux_membres_7j }} cette semaine</small></div>
+  <div class="ecg-metric metric-green"><div class="metric-icon">▣</div><div><strong>{{ metrics.documents }}</strong><span>Documents</span></div><small>{{ metrics.notifications }} notifications dans le réseau</small></div>
+  <div class="ecg-metric metric-red"><div class="metric-icon">★</div><div><strong>{{ metrics.bureau_national }}</strong><span>Bureau national</span></div><small>Comptes sans rattachement à une église</small></div>
+</div>
+
+<div class="ecg-dashboard-grid">
+  <section class="ecg-panel wide">
+    <div class="panel-head"><div><span class="panel-kicker">ACTIVITÉ DU RÉSEAU</span><h2>Indicateurs principaux</h2></div><span class="live-badge">● DONNÉES RÉELLES</span></div>
+    <div class="control-chart">
+      <div class="chart-y"><span>Réseau</span><span>Activité</span><span>Services</span><span>0</span></div>
+      <div class="chart-area">
+        <div class="gridline g1"></div><div class="gridline g2"></div><div class="gridline g3"></div><div class="gridline g4"></div>
+        <div class="bars">
+          <div class="chart-bar h-70"><span class="bar-fill cyan"></span></div>
+          <div class="chart-bar h-95"><span class="bar-fill blue"></span></div>
+          <div class="chart-bar h-55"><span class="bar-fill green"></span></div>
+          <div class="chart-bar h-78"><span class="bar-fill purple"></span></div>
+          <div class="chart-bar h-62"><span class="bar-fill orange"></span></div>
+          <div class="chart-bar h-86"><span class="bar-fill red"></span></div>
+          <div class="chart-bar h-74"><span class="bar-fill cyan"></span></div>
+          <div class="chart-bar h-90"><span class="bar-fill blue"></span></div>
+        </div>
+        <div class="chart-labels"><span>Églises</span><span>Membres</span><span>Départ.</span><span>Annexes</span><span>Docs</span><span>Alertes</span><span>Bureau</span><span>Comptes</span></div>
+      </div>
+    </div>
+    <div class="dashboard-progress-grid">
+      <div><div class="progress-label"><span>Églises actives</span><b>{{ metrics.eglises_actives }} / {{ metrics.eglises }}</b></div><div class="progress"><progress value="{{ metrics.eglises_actives|default:0 }}" max="{{ metrics.eglises|default:0 }}"></progress></div></div>
+      <div><div class="progress-label"><span>Bureau national</span><b>{{ metrics.bureau_national }} comptes</b></div><div class="progress gold"><i style="width:70%"></i></div></div>
+      <div><div class="progress-label"><span>Documents</span><b>{{ metrics.documents }}</b></div><div class="progress blue"><i style="width:82%"></i></div></div>
+      <div><div class="progress-label"><span>Notifications</span><b>{{ metrics.notifications }}</b></div><div class="progress red"><i style="width:58%"></i></div></div>
+    </div>
+  </section>
+
+  <aside class="ecg-side-stack">
+    <section class="ecg-color-card cyan"><span class="card-icon">⚙</span><strong>{{ metrics.eglises }}</strong><small>Églises recensées</small><b>Accès réseau</b></section>
+    <section class="ecg-color-card indigo"><span class="card-icon">▤</span><strong>{{ metrics.departements }}</strong><small>Départements</small><b>Structure interne</b></section>
+    <section class="ecg-color-card green"><span class="card-icon">⌂</span><strong>{{ metrics.annexes }}</strong><small>Annexes actives</small><b>Implantations</b></section>
+    <section class="ecg-color-card pink"><span class="card-icon">●</span><strong>{{ metrics.notifications }}</strong><small>Notifications</small><b>Centre de messages</b></section>
+  </aside>
+</div>
+
+<div class="ecg-finance-command">
+  <div class="ecg-finance-command-head">
+    <div>
+      <span class="panel-kicker">COMPTABILITÉ & FINANCES</span>
+      <h2>Centre financier</h2>
+      <p>Le Coordinateur et le Bureau national pilotent les finances nationales et celles de chaque église depuis un même espace.</p>
+    </div>
+    <div class="finance-total-card"><span>Solde consolidé</span><strong>{{ metrics.finance_solde|floatformat:0 }} GNF</strong></div>
+  </div>
+  <div class="finance-command-grid">
+    <a href="{% url 'admin:finance_transaction_changelist' %}" class="finance-command-card">
+      <span class="finance-icon">₣</span><div><b>Journal comptable</b><small>{{ metrics.transactions }} opérations • national + églises</small></div><i>→</i>
+    </a>
+    <a href="{% url 'admin:finance_projet_changelist' %}" class="finance-command-card">
+      <span class="finance-icon">▣</span><div><b>Projets & budgets</b><small>{{ metrics.projets }} projets suivis</small></div><i>→</i>
+    </a>
+    <div class="finance-mini-card"><span>Entrées réseau</span><b>{{ metrics.finance_entrees|floatformat:0 }} GNF</b><small>Recettes consolidées</small></div>
+    <div class="finance-mini-card danger"><span>Sorties réseau</span><b>{{ metrics.finance_sorties|floatformat:0 }} GNF</b><small>Dépenses consolidées</small></div>
+  </div>
+  <div class="finance-command-footer">
+    <span>Pour une église locale, utilisez le filtre <b>Église</b> dans le journal comptable. Pour le national, choisissez « Bureau national ».</span>
+    <a href="{% url 'admin:finance_transaction_changelist' %}">Ouvrir la comptabilité →</a>
+  </div>
+</div>
+
+<div class="ecg-dashboard-lower">
+  <section class="ecg-panel">
+    <div class="panel-head"><div><span class="panel-kicker">ADMINISTRATION</span><h2>Gestion rapide</h2></div></div>
+    <div class="quick-links">
+      <a href="{% url 'admin:churches_eglise_changelist' %}"><b>◎</b><span>Gérer les églises<small>{{ metrics.eglises }} enregistrées</small></span><i>→</i></a>
+      <a href="{% url 'admin:accounts_utilisateur_changelist' %}"><b>♙</b><span>Comptes & membres<small>{{ metrics.membres }} actifs</small></span><i>→</i></a>
+      <a href="{% url 'admin:documents_document_changelist' %}"><b>▣</b><span>Documents<small>{{ metrics.documents }} dans le système</small></span><i>→</i></a>
+      <a href="{% url 'admin:finance_transaction_changelist' %}"><b>₣</b><span>Finances<small>Suivi comptable</small></span><i>→</i></a>
+    </div>
+  </section>
+
+  <section class="ecg-panel">
+    <div class="panel-head"><div><span class="panel-kicker">APPLICATIONS</span><h2>Modules disponibles</h2></div></div>
+    <div class="module-grid">
+      {% for app in app_list %}
+        {% for model in app.models %}
+          {% if model.admin_url %}<a href="{{ model.admin_url }}" class="module-tile"><span>◈</span><b>{{ model.name }}</b>{% if model.add_url %}<small>Ajouter</small>{% endif %}</a>{% endif %}
+        {% endfor %}
+      {% endfor %}
+    </div>
+  </section>
+</div>
+{% endblock %}

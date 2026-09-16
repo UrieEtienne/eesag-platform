@@ -17,6 +17,7 @@ urlpatterns = [
     path("api/ia/", include("apps.ia_assistant.urls")),
     path("api/", include("apps.meetings.urls")),
     path("api/", include("apps.bureaux.urls")),
+    path("api/systeme/", include("apps.core.urls")),
 ]
 
 if settings.DEBUG:

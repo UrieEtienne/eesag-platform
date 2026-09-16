@@ -1,55 +1,43 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import client from "../api/client";
 
-const AuthContext = createContext(null);
+const AuthContext=createContext(null);
+const ROLES_NATIONAUX=["COORDINATEUR","SUPERADMIN_INTL","SUPERADMIN_NATIONAL"];
+const ROLES_BUREAU=["SUPERADMIN_INTL","SUPERADMIN_NATIONAL"];
+const ROLES_GESTION_EGLISE=["ADMIN_LOCAL","PASTEUR"];
 
-const ROLES_NATIONAUX = ["COORDINATEUR", "SUPERADMIN_INTL", "SUPERADMIN_NATIONAL"];
-const ROLES_BUREAU = ["SUPERADMIN_INTL", "SUPERADMIN_NATIONAL"];
-const ROLES_GESTION_EGLISE = ["ADMIN_LOCAL", "PASTEUR"];
+export function AuthProvider({children}){
+  const [utilisateur,setUtilisateur]=useState(null);
+  const [bureaux,setBureaux]=useState([]);
+  const [chargement,setChargement]=useState(true);
 
-export function AuthProvider({ children }) {
-  const [utilisateur, setUtilisateur] = useState(null);
-  const [chargement, setChargement] = useState(true);
-
-  useEffect(() => {
-    const token = localStorage.getItem("access_token");
-    if (!token) {
-      setChargement(false);
-      return;
-    }
-    client
-      .get("/auth/moi/")
-      .then((res) => setUtilisateur(res.data))
-      .catch(() => localStorage.clear())
-      .finally(() => setChargement(false));
-  }, []);
-
-  const connecter = async (identifiant, password) => {
-    const { data } = await client.post("/auth/login/", { identifiant, password });
-    localStorage.setItem("access_token", data.access);
-    localStorage.setItem("refresh_token", data.refresh);
-    setUtilisateur(data.utilisateur);
-    return data.utilisateur;
+  const chargerContexte=async()=>{
+    try{ const r=await client.get("/bureaux/mes-bureaux/"); setBureaux(r.data?.results||r.data||[]); }
+    catch{ setBureaux([]); }
   };
 
-  const deconnecter = () => {
-    localStorage.clear();
-    setUtilisateur(null);
+  useEffect(()=>{
+    const token=localStorage.getItem("access_token");
+    if(!token){setChargement(false);return;}
+    client.get("/auth/moi/").then(async r=>{setUtilisateur(r.data);await chargerContexte();}).catch(()=>{localStorage.clear();setUtilisateur(null);setBureaux([]);}).finally(()=>setChargement(false));
+  },[]);
+
+  const connecter=async(identifiant,password)=>{
+    const {data}=await client.post("/auth/login/",{identifiant,password});
+    localStorage.setItem("access_token",data.access);localStorage.setItem("refresh_token",data.refresh);
+    setUtilisateur(data.utilisateur);await chargerContexte();return data.utilisateur;
   };
+  const deconnecter=()=>{localStorage.clear();setUtilisateur(null);setBureaux([]);};
 
-  const estNational = utilisateur && ROLES_NATIONAUX.includes(utilisateur.role);
-  const estCoordinateur = utilisateur?.role === "COORDINATEUR" || utilisateur?.is_superuser;
-  const estBureauNational = utilisateur && ROLES_BUREAU.includes(utilisateur.role);
-  const estGestionnaireEglise = utilisateur && ROLES_GESTION_EGLISE.includes(utilisateur.role);
-  const peutGerer = estNational || estGestionnaireEglise;
-
-  return (
-    <AuthContext.Provider
-      value={{ utilisateur, connecter, deconnecter, chargement, estNational, estCoordinateur, estBureauNational, estGestionnaireEglise, peutGerer }}
-    >
-      {children}
-    </AuthContext.Provider>
-  );
+  const value=useMemo(()=>{
+    const estCoordinateur=Boolean(utilisateur?.role==="COORDINATEUR"||utilisateur?.is_superuser);
+    const estBureauNational=Boolean(utilisateur&&ROLES_BUREAU.includes(utilisateur.role));
+    const estBureauNationalGeneral=Boolean(estBureauNational && bureaux.length===0);
+    const estGestionnaireEglise=Boolean(utilisateur&&ROLES_GESTION_EGLISE.includes(utilisateur.role));
+    const estMembre=utilisateur?.role==="MEMBRE";
+    const peutGerer=estCoordinateur||estBureauNationalGeneral||estGestionnaireEglise||estBureauNational;
+    return {utilisateur,bureaux,connecter,deconnecter,chargement,estNational:utilisateur?ROLES_NATIONAUX.includes(utilisateur.role):false,estCoordinateur,estBureauNational,estBureauNationalGeneral,estGestionnaireEglise,estMembre,peutGerer};
+  },[utilisateur,bureaux,chargement]);
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
-
-export const useAuth = () => useContext(AuthContext);
+export const useAuth=()=>useContext(AuthContext);

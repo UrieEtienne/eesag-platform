@@ -138,8 +138,8 @@ du frontend.
 
 ```env
 SMS_PROVIDER=supabase
-SUPABASE_URL=https://VOTRE-PROJET.supabase.co
-SUPABASE_PUBLISHABLE_KEY=sb_publishable_VOTRE_CLE
+# SMS en développement : désactivé dans backend/.env (`SMS_ENABLED=False`).
+# La version production utilise FastAPI + Twilio.
 ```
 
 4. Vérifiez la configuration sans afficher de secret :
@@ -228,7 +228,3 @@ npm install
 npm run build
 npm run dev
 ```
-# eglises_platform
-# eglises_platform
-# eesag-platform
-# eesag-platform

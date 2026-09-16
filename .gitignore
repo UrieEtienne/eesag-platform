@@ -1,45 +1,20 @@
-# Python / Django
 venv/
 .venv/
-env/
-ENV/
-__pycache__/
+**/__pycache__/
 *.py[cod]
-*.pyo
-*.pyd
+*.sqlite3
 *.log
-
-# Django
-db.sqlite3
-db.sqlite3-journal
-media/
-uploads/
-staticfiles/
-
-# Secrets
-.env
-.env.*
-!.env.example
-
-# React / Node
+**/.env
+**/.env.*
+!**/.env.example
 node_modules/
-npm-debug.log*
-yarn-debug.log*
-pnpm-debug.log*
 dist/
 build/
-
-# Flutter / Dart
-mobile_desktop/.dart_tool/
-mobile_desktop/.flutter-plugins
-mobile_desktop/.flutter-plugins-dependencies
-mobile_desktop/.packages
-mobile_desktop/build/
-
-# IDE
-.vscode/
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
 .idea/
-
-# OS
-.DS_Store
-Thumbs.db
+.vscode/
+.git/
+media/
+backend/staticfiles/

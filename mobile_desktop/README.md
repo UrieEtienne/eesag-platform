@@ -27,3 +27,11 @@ flutter run --dart-define=API_URL=https://votre-domaine.tld/api
 ```
 
 Le client comprend déjà : connexion JWT, restauration de session, notifications, déconnexion et mise à jour de la photo de profil via l'API Django.
+
+
+### Sécurité des clés SMS
+Ne mettez jamais `VONAGE_API_SECRET`, une clé secrète Supabase ou un token privé dans Flutter. L'application mobile appelle uniquement l'API Django; les secrets restent dans `backend/.env`. Vonage demande de conserver l'API secret de façon sécurisée et Supabase réserve les clés secret aux composants serveur.
+
+
+### OTP
+Le mobile doit demander/vérifier l'OTP via l'API Django EESAG. Aucune clé Vonage n'est embarquée dans l'application Flutter.

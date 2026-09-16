@@ -8,7 +8,7 @@ from .models import (
     Utilisateur, Role, ROLES_NATIONAUX, generer_code_secret, Abonnement,
     VerificationTelephone, DelegationEglise, PermissionEglise, MandatBureauNational,
 )
-from .services_sms import notifier_nouvel_identifiant
+from .services_sms import notifier_nouvel_identifiant, normaliser_telephone, envoyer_sms_detail
 
 
 class LoginSerializer(TokenObtainPairSerializer):
@@ -27,6 +27,23 @@ class LoginSerializer(TokenObtainPairSerializer):
         data = super().validate(attrs)
         if not self.user.actif:
             raise serializers.ValidationError("Votre compte n'est pas encore activé. Confirmez d'abord votre numéro de téléphone.")
+
+        # Une église doit aussi être activée par le Bureau national avant
+        # qu'un compte local puisse accéder à la plateforme.
+        if (
+            self.user.eglise_id
+            and self.user.role in {
+                Role.ADMIN_LOCAL,
+                Role.PASTEUR,
+                Role.MEMBRE,
+                Role.RESPONSABLE_DEPARTEMENT,
+            }
+            and not self.user.eglise.plateforme_active
+        ):
+            raise serializers.ValidationError(
+                "La plateforme de votre église n'est pas encore activée par le Bureau national."
+            )
+
         data["utilisateur"] = UtilisateurSerializer(self.user).data
         return data
 
@@ -65,11 +82,7 @@ class UtilisateurSerializer(serializers.ModelSerializer):
 
 
 class CreerUtilisateurSerializer(serializers.ModelSerializer):
-    """
-    Utilisé par un administrateur (local ou national) pour enregistrer un nouveau
-    membre/pasteur/admin. Génère automatiquement identifiant + code secret et
-    déclenche l'envoi du SMS.
-    """
+    """Création d'un compte inactif jusqu'à la validation OTP."""
     class Meta:
         model = Utilisateur
         fields = [
@@ -81,35 +94,32 @@ class CreerUtilisateurSerializer(serializers.ModelSerializer):
     def validate(self, attrs):
         demandeur = self.context["request"].user
         role = attrs.get("role", Role.MEMBRE)
-        # L'administrateur local gère les membres de son église.
-        # Les nominations de pasteurs restent nationales ; les admins locaux peuvent
-        # être créés uniquement par le pasteur ou un rôle national.
+        if demandeur.role == Role.MEMBRE:
+            raise serializers.ValidationError({"role": "Un membre ne peut pas créer de compte."})
         if demandeur.role == Role.ADMIN_LOCAL and role not in [Role.MEMBRE, Role.RESPONSABLE_DEPARTEMENT]:
             raise serializers.ValidationError({"role": "Vous n'avez pas le droit de créer ce rôle."})
         if demandeur.role == Role.PASTEUR and role not in [Role.MEMBRE, Role.RESPONSABLE_DEPARTEMENT, Role.ADMIN_LOCAL]:
             raise serializers.ValidationError({"role": "Le pasteur peut créer des membres, responsables de département et administrateurs locaux délégués."})
-        if demandeur.role == Role.MEMBRE:
-            raise serializers.ValidationError({"role": "Un membre ne peut pas créer de compte."})
-
-        # Le Bureau national peut administrer les églises et nommer certains
-        # responsables, mais il ne crée jamais les comptes des membres ordinaires
-        # d'une église. Ceux-ci sont créés par l'église elle-même.
         if demandeur.role in ROLES_NATIONAUX and role in [Role.MEMBRE, Role.RESPONSABLE_DEPARTEMENT]:
-            raise serializers.ValidationError({
-                "role": "Seule l'église concernée peut créer les comptes de ses membres et responsables de département."
-            })
-
+            raise serializers.ValidationError({"role": "Seule l'église concernée peut créer les comptes de ses membres et responsables de département."})
         eglise_cible = attrs.get("eglise") or getattr(demandeur, "eglise", None)
         if demandeur.role in [Role.ADMIN_LOCAL, Role.PASTEUR]:
             if not eglise_cible or eglise_cible.id != demandeur.eglise_id:
                 raise serializers.ValidationError({"eglise": "Le membre doit obligatoirement appartenir à votre église."})
+            attrs["eglise"] = eglise_cible
         role_eglise = attrs.get("role_eglise")
         if role_eglise and not role_eglise.actif:
             raise serializers.ValidationError({"role_eglise": "Ce rôle dans l'église est désactivé."})
         return attrs
 
-    def validate_role(self, role):
-        return role
+    def validate_telephone(self, telephone):
+        try:
+            numero = normaliser_telephone(telephone)
+        except ValueError as exc:
+            raise serializers.ValidationError(str(exc)) from exc
+        if Utilisateur.objects.filter(telephone=numero).exists():
+            raise serializers.ValidationError("Ce numéro est déjà enregistré.")
+        return numero
 
     @transaction.atomic
     def create(self, validated_data):
@@ -118,40 +128,31 @@ class CreerUtilisateurSerializer(serializers.ModelSerializer):
             validated_data["eglise"] = demandeur.eglise
         if demandeur.role not in ROLES_NATIONAUX and validated_data.get("eglise") and validated_data["eglise"] != demandeur.eglise:
             raise serializers.ValidationError("Vous ne pouvez agir que dans votre propre église.")
-
-        import secrets
-        from datetime import timedelta
-
         code_secret = generer_code_secret()
-        utilisateur = Utilisateur(**validated_data, actif=False)
+        role = validated_data.get("role", Role.MEMBRE)
+        staff_role = role in ROLES_NATIONAUX
+        utilisateur = Utilisateur(**validated_data, actif=False, is_staff=staff_role)
         utilisateur.code_secret_clair = ""
         utilisateur.set_password(code_secret)
         utilisateur.save()
-
-        VerificationTelephone.objects.filter(utilisateur=utilisateur, utilise=False).update(utilise=True)
         origine = utilisateur.eglise.nom if utilisateur.eglise else "Bureau national EESAG"
-        resultats = notifier_nouvel_identifiant(
-            utilisateur, code_secret, origine=origine
-        )
-        if not all(item.get("ok") for item in resultats):
-            erreurs = [item.get("error") for item in resultats if not item.get("ok")]
-            raise serializers.ValidationError({
-                "telephone": "Le compte n'a pas été validé car le SMS n'a pas pu être envoyé. Corrigez la configuration SMS puis réessayez.",
-                "sms": erreurs,
-            })
-
-        from apps.notifications.models import Notification
-        Notification.objects.create(
-            destinataire=utilisateur,
-            eglise=utilisateur.eglise,
-            titre="Compte créé – confirmation SMS requise",
-            message=(
-                f"Votre compte EESAG a été créé par {origine}. "
-                f"Identifiant : {utilisateur.identifiant}. "
-                f"Confirmez votre téléphone avec le code reçu par SMS avant de vous connecter."
-            ),
-            type_notification="BIENVENUE",
-        )
+        resultats = notifier_nouvel_identifiant(utilisateur, code_secret, origine=origine)
+        otp_result = resultats[0] if resultats else {"ok": False, "error": "Aucun résultat OTP."}
+        if not otp_result.get("ok"):
+            raise serializers.ValidationError({"telephone": otp_result.get("error", "Impossible de générer le code de confirmation.")})
+        try:
+            from apps.notifications.models import Notification
+            Notification.objects.create(
+                destinataire=utilisateur,
+                eglise=utilisateur.eglise,
+                titre="Compte créé – confirmation du téléphone",
+                message=(f"Votre compte EESAG a été créé pour {origine}. "
+                         f"Identifiant : {utilisateur.identifiant}. "
+                         "Confirmez votre numéro pour activer le compte."),
+                type_notification="BIENVENUE",
+            )
+        except Exception:
+            pass
         return utilisateur
 
 
@@ -188,8 +189,14 @@ class InscriptionMembreSerializer(serializers.Serializer):
         eglise = Eglise.objects.filter(code__iexact=attrs["code_eglise"], statut=Eglise.Statut.ACTIVE).first()
         if not eglise:
             raise serializers.ValidationError({"code_eglise": "Code d’église invalide ou église inactive."})
+        if not eglise.plateforme_active:
+            raise serializers.ValidationError({"code_eglise": "Cette église n’est pas encore activée par le Bureau national."})
         if attrs["password"] != attrs["password_confirmation"]:
             raise serializers.ValidationError({"password_confirmation": "Les codes secrets ne correspondent pas."})
+        try:
+            attrs["telephone"] = normaliser_telephone(attrs["telephone"])
+        except ValueError as exc:
+            raise serializers.ValidationError({"telephone": str(exc)})
         if Utilisateur.objects.filter(telephone=attrs["telephone"]).exists():
             raise serializers.ValidationError({"telephone": "Ce numéro est déjà enregistré."})
         attrs["eglise"] = eglise
@@ -197,27 +204,18 @@ class InscriptionMembreSerializer(serializers.Serializer):
 
     @transaction.atomic
     def create(self, validated_data):
-        import secrets
-        from datetime import timedelta
         validated_data.pop("password_confirmation")
         password = validated_data.pop("password")
         eglise = validated_data.pop("eglise")
-        code_otp = f"{secrets.randbelow(1000000):06d}"
         user = Utilisateur(
-            **validated_data, eglise=eglise, role=Role.MEMBRE, actif=False,
+            **validated_data, eglise=eglise, role=Role.MEMBRE, actif=False, is_staff=False,
         )
         user.set_password(password)
         user.save()
-        VerificationTelephone.objects.create(
-            utilisateur=user, code="000000", expire_le=timezone.now()+timedelta(minutes=10)
-        )
-        from .services_sms import notifier_nouvel_identifiant
+        from .services_sms import notifier_nouvel_identifiant, normaliser_telephone, envoyer_sms_detail
         resultats = notifier_nouvel_identifiant(
             user, "le mot de passe que vous avez choisi", origine=eglise.nom
         )
-        if not all(item.get("ok") for item in resultats):
-            erreurs = [item.get("error") for item in resultats if not item.get("ok")]
-            raise serializers.ValidationError({"telephone": "Le SMS de confirmation n'a pas pu être envoyé.", "sms": erreurs})
         return user
 
 
@@ -226,26 +224,56 @@ class VerificationTelephoneSerializer(serializers.Serializer):
     code = serializers.CharField(min_length=6, max_length=6)
 
     def validate(self, attrs):
-        from .services_sms import verifier_otp_supabase
-
+        identifiant = attrs["identifiant"].strip()
+        code = str(attrs["code"] or "").strip()
+        if not code.isdigit() or len(code) != 6:
+            raise serializers.ValidationError({"code": "Le code doit contenir exactement 6 chiffres."})
+        try:
+            utilisateur = Utilisateur.objects.get(identifiant=identifiant)
+        except Utilisateur.DoesNotExist:
+            raise serializers.ValidationError({"identifiant": "Identifiant de compte invalide."})
+        if utilisateur.actif:
+            raise serializers.ValidationError({"code": "Ce compte est déjà activé."})
         verification = VerificationTelephone.objects.filter(
-            utilisateur__identifiant=attrs["identifiant"],
-            utilise=False,
-            expire_le__gt=timezone.now(),
-        ).select_related("utilisateur").first()
-
-        if not verification or verification.tentatives >= 5:
-            raise serializers.ValidationError("Aucun code de confirmation valide n'est disponible pour ce compte.")
-
-        result = verifier_otp_supabase(verification.utilisateur.telephone, attrs["code"])
-        if not result.get("ok"):
+            utilisateur=utilisateur, utilise=False, expire_le__gt=timezone.now()
+        ).order_by("-cree_le").first()
+        if not verification:
+            raise serializers.ValidationError({"code": "Aucun code de confirmation valide n'est disponible. Demandez un nouveau code."})
+        if verification.tentatives >= 5:
+            raise serializers.ValidationError({"code": "Nombre maximal de tentatives atteint. Demandez un nouveau code."})
+        if verification.code != code:
             verification.tentatives += 1
             verification.save(update_fields=["tentatives"])
-            raise serializers.ValidationError(result.get("error", "Code de confirmation incorrect ou expiré."))
-
+            raise serializers.ValidationError({"code": "Code de confirmation incorrect."})
+        attrs["utilisateur"] = utilisateur
         attrs["verification"] = verification
-        attrs["supabase_result"] = result
         return attrs
+
+    @transaction.atomic
+    def save(self, **kwargs):
+        utilisateur = self.validated_data["utilisateur"]
+        verification = self.validated_data["verification"]
+        verification.utilise = True
+        verification.save(update_fields=["utilise"])
+        utilisateur.actif = True
+        utilisateur.is_staff = (
+            utilisateur.role in ROLES_NATIONAUX
+            or (
+                utilisateur.role in {Role.ADMIN_LOCAL, Role.PASTEUR}
+                and bool(utilisateur.eglise_id and utilisateur.eglise.plateforme_active)
+            )
+        )
+        utilisateur.save(update_fields=["actif", "is_staff"])
+        origine = utilisateur.eglise.nom if utilisateur.eglise else "Bureau national EESAG"
+        envoyer_sms_detail(
+            utilisateur.telephone,
+            ("Merci pour votre inscription. Votre compte EESAG a été créé avec succès. "
+             f"Identifiant : {utilisateur.identifiant}."),
+            type_message="BIENVENUE",
+            utilisateur=utilisateur,
+            origine=origine,
+        )
+        return utilisateur
 
 
 class PermissionEgliseSerializer(serializers.ModelSerializer):

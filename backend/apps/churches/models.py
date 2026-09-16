@@ -58,6 +58,9 @@ class Eglise(models.Model):
     )
     responsable_email = models.EmailField(blank=True, help_text="Email du responsable (facultatif).")
     statut = models.CharField(max_length=20, choices=Statut.choices, default=Statut.ACTIVE)
+    plateforme_active = models.BooleanField(default=False, help_text="Accès activé uniquement par le Bureau national.")
+    date_activation_plateforme = models.DateTimeField(null=True, blank=True)
+    activee_par = models.ForeignKey("accounts.Utilisateur", null=True, blank=True, on_delete=models.SET_NULL, related_name="eglises_activees_plateforme")
     logo = models.ImageField(upload_to="logos_eglises/", null=True, blank=True)
 
     class Meta:

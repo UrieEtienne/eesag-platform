@@ -16,17 +16,23 @@ export default function DetailEglise() {
   const [ongletActif, setOngletActif] = useState("apercu");
   const [afficherAjoutMembre, setAfficherAjoutMembre] = useState(false);
   const [afficherAffectation, setAfficherAffectation] = useState(false);
-  const { estNational, utilisateur } = useAuth();
+  const { estNational, estCoordinateur, estBureauNational, estBureauNationalGeneral, estGestionnaireEglise, utilisateur } = useAuth();
 
-  const peutGererCetteEglise = estNational || utilisateur?.eglise === Number(id);
+  const peutGererCetteEglise = estGestionnaireEglise && utilisateur?.eglise === Number(id);
+  const lectureNationale = estBureauNational || estBureauNationalGeneral;
+  const peutVoirComplet = estCoordinateur || peutGererCetteEglise;
 
   const charger = () => {
     client.get(`/eglises/${id}/`).then((res) => setEglise(res.data));
-    client.get(`/stats/eglise/${id}/`).then((res) => setStats(res.data));
-    client.get("/utilisateurs/", { params: { eglise: id } }).then((res) => setMembres(res.data.results || res.data));
+    if (peutVoirComplet) {
+      client.get(`/stats/eglise/${id}/`).then((res) => setStats(res.data)).catch(() => setStats(null));
+      if (peutGererCetteEglise || estCoordinateur || estBureauNationalGeneral) {
+        client.get("/utilisateurs/", { params: { eglise: id } }).then((res) => setMembres(res.data.results || res.data)).catch(() => setMembres([]));
+      }
+    }
   };
 
-  useEffect(charger, [id]);
+  useEffect(charger, [id, peutVoirComplet, peutGererCetteEglise]);
 
   if (!eglise) return <p>Chargement...</p>;
 
@@ -56,15 +62,15 @@ export default function DetailEglise() {
         <p><b>Responsable actuel :</b> {eglise.responsable_nom || "Aucun pasteur affecté"}</p>
       </div>
 
-      <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
+      {lectureNationale && !estBureauNationalGeneral ? <div className="carte"><h3>Accès annuaire</h3><p>Votre bureau peut consulter les informations générales de cette église. Les membres, départements et opérations locales sont privés à l’église concernée.</p></div> : <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
         {["apercu", "membres", "departements"].map((o) => (
           <button key={o} className={`btn ${ongletActif === o ? "" : "btn-secondaire"}`} onClick={() => setOngletActif(o)}>
             {o === "apercu" ? "Tableau de bord" : o === "membres" ? "Membres" : "Départements"}
           </button>
         ))}
-      </div>
+      </div>}
 
-      {ongletActif === "apercu" && stats && (
+      {peutVoirComplet && ongletActif === "apercu" && stats && (
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
           <div className="grille-stats" style={{ gridColumn: "1 / -1" }}>
             <div className="carte"><div className="stat-chiffre">{stats.repartition_membres.total}</div><div className="stat-libelle">Total fidèles</div></div>
@@ -87,7 +93,7 @@ export default function DetailEglise() {
         </div>
       )}
 
-      {ongletActif === "membres" && (
+      {peutGererCetteEglise && ongletActif === "membres" && (
         <div className="carte">
           <table>
             <thead><tr><th>Identifiant</th><th>Nom</th><th>Sexe</th><th>Rôle</th><th>Département</th><th>Téléphone</th></tr></thead>
@@ -103,7 +109,7 @@ export default function DetailEglise() {
         </div>
       )}
 
-      {ongletActif === "departements" && (
+      {peutGererCetteEglise && ongletActif === "departements" && (
         <div className="carte">
           <table>
             <thead><tr><th>Nom</th><th>Responsable</th><th>Membres</th></tr></thead>

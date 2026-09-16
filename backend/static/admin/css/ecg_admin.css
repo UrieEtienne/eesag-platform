@@ -49,3 +49,14 @@ body{background:linear-gradient(180deg,#f0f4f8 0%,#e7edf4 100%)}
 #content-main h1,#content h1{font-size:32px}#content-main h2{font-size:21px}.object-tools a,.button,.submit-row input{font-size:13px!important}
 
 .progress progress{width:100%;height:8px;display:block;border:0;appearance:none;-webkit-appearance:none}.progress progress::-webkit-progress-bar{background:#e9edf2;border-radius:999px}.progress progress::-webkit-progress-value{background:#27c2e8;border-radius:999px}.progress progress::-moz-progress-bar{background:#27c2e8;border-radius:999px}
+
+
+/* V26 — palette de référence AdminLTE : barre bleue + sidebar sombre */
+#header{background:linear-gradient(90deg,#2f86b3,#3a94be)!important;margin-left:250px!important;height:64px!important;min-height:64px!important;box-shadow:0 3px 14px rgba(22,65,90,.18)!important}
+.ecg-admin-global{background:transparent!important;border:0!important;box-shadow:none!important;padding:8px 12px!important}
+.ecg-admin-global a{background:rgba(255,255,255,.12)!important;font-size:12px!important;padding:8px 11px!important;border-radius:7px!important}.ecg-admin-global a:hover,.ecg-admin-global a.is-active{background:rgba(255,255,255,.22)!important}.ecg-admin-global a.primary{background:#fff!important;color:#1d6289!important}
+#nav-sidebar{background:linear-gradient(180deg,#1c2b32,#17242a)!important;width:250px!important;padding-top:76px!important}
+.nav-sidebar a{font-size:13px!important;color:#c7d6de!important}.nav-sidebar a:hover{background:#29414d!important;color:#fff!important}.nav-sidebar .current-model{background:#304c59!important;border-radius:7px!important}.nav-sidebar .section{color:#718b98!important;font-size:9px!important}
+#branding .ecg-admin-brand strong{font-size:19px!important;letter-spacing:.02em!important}.ecg-admin-brand small{font-size:10px!important}
+#main.main{margin-left:250px!important;background:#edf2f6!important}.main>#content{padding:28px 32px 44px!important;max-width:1650px!important}
+.ecg-dashboard-heading h1{font-size:28px!important;color:#19394d!important}.ecg-dashboard-heading p{font-size:13px!important}.ecg-metric{border-radius:3px!important;min-height:104px!important;box-shadow:0 2px 6px rgba(22,53,70,.09)!important}.ecg-panel,.ecg-side-stack section,.ecg-finance-command,.ecg-dashboard-lower section{border-radius:3px!important;box-shadow:0 2px 6px rgba(22,53,70,.09)!important}

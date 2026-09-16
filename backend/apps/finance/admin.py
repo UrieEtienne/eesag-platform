@@ -1,3 +1,4 @@
+from apps.core.admin_scopes import EESAGScopedAdminMixin
 from django import forms
 from django.contrib import admin
 from django.core.exceptions import ValidationError
@@ -53,7 +54,9 @@ class TransactionAdminForm(PerimetreFormMixin, forms.ModelForm):
 
 
 @admin.register(Transaction)
-class TransactionAdmin(admin.ModelAdmin):
+class TransactionAdmin(EESAGScopedAdminMixin, admin.ModelAdmin):
+    admin_scopes = {"COORDINATEUR", "BUREAU_GENERAL", "BUREAU_SPECIAL", "EGLISE"}
+
     form = TransactionAdminForm
     list_display = ("date_transaction", "type_transaction", "montant_formate", "devise", "perimetre", "enregistre_par")
     list_filter = ("type_transaction", "devise", "date_transaction")
@@ -143,7 +146,7 @@ class ProjetAdminForm(PerimetreFormMixin, forms.ModelForm):
 
 
 @admin.register(Projet)
-class ProjetAdmin(admin.ModelAdmin):
+class ProjetAdmin(EESAGScopedAdminMixin, admin.ModelAdmin):
     form = ProjetAdminForm
     list_display = ("nom", "type_projet", "annee", "perimetre", "statut", "budget_prevu", "budget_utilise", "solde_disponible")
     list_filter = ("statut", "annee", "type_projet")

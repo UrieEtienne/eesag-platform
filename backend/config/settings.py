@@ -38,7 +38,7 @@ INSTALLED_APPS = [
     "apps.notifications",
     "apps.finance",
     "apps.dashboard",
-    "apps.core",
+    "apps.core.apps.CoreConfig",
     "apps.ia_assistant",
     "apps.meetings",
     "apps.bureaux",
@@ -92,7 +92,9 @@ else:
 AUTH_USER_MODEL = "accounts.Utilisateur"
 
 AUTH_PASSWORD_VALIDATORS = [
-    {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator", "OPTIONS": {"min_length": 4}},
+    {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator", "OPTIONS": {"min_length": 8}},
+    {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
+    {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
 ]
 
 LANGUAGE_CODE = "fr-fr"
@@ -124,6 +126,14 @@ REST_FRAMEWORK = {
     ),
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
     "PAGE_SIZE": 20,
+    "DEFAULT_THROTTLE_CLASSES": (
+        "rest_framework.throttling.AnonRateThrottle",
+        "rest_framework.throttling.UserRateThrottle",
+    ),
+    "DEFAULT_THROTTLE_RATES": {
+        "anon": "30/minute",
+        "user": "120/minute",
+    },
 }
 
 SIMPLE_JWT = {
@@ -141,13 +151,36 @@ CORS_ALLOWED_ORIGINS = [o.strip() for o in os.getenv(
 ).split(",") if o.strip()]
 CORS_ALLOW_CREDENTIALS = True
 
-# --- SMS / OTP : Supabase Auth ----------------------------------------------
-# Supabase Auth orchestre l'OTP de téléphone. La livraison physique du SMS
-# nécessite de configurer un fournisseur SMS dans le projet Supabase.
-SMS_PROVIDER = os.getenv("SMS_PROVIDER", "supabase")
-SUPABASE_URL = os.getenv("SUPABASE_URL", "")
-SUPABASE_PUBLISHABLE_KEY = os.getenv("SUPABASE_PUBLISHABLE_KEY", os.getenv("SUPABASE_ANON_KEY", ""))
+# --- SMS / OTP --------------------------------------------------------------
+SMS_ENABLED = os.getenv("SMS_ENABLED", "False").lower() in {"1", "true", "yes", "on"}
+SMS_PROVIDER = os.getenv("SMS_PROVIDER", "twilio")
+SMS_API_URL = os.getenv("SMS_API_URL", "http://127.0.0.1:8010").rstrip("/")
+SMS_API_KEY = os.getenv("SMS_API_KEY", "")
+SMS_REQUEST_TIMEOUT = int(os.getenv("SMS_REQUEST_TIMEOUT", "20"))
 
 # --- Assistant IA -----------------------------------------------------------
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-5.6-luna")
+
+# --- Sécurité HTTP ----------------------------------------------------------
+CSRF_TRUSTED_ORIGINS = [o.strip() for o in os.getenv(
+    "CSRF_TRUSTED_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173"
+).split(",") if o.strip()]
+SECURE_CONTENT_TYPE_NOSNIFF = True
+SECURE_REFERRER_POLICY = "same-origin"
+X_FRAME_OPTIONS = "DENY"
+if not DEBUG:
+    SECURE_SSL_REDIRECT = True
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SESSION_COOKIE_HTTPONLY = True
+    CSRF_COOKIE_HTTPONLY = False
+    SECURE_HSTS_SECONDS = 31536000
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+else:
+    SESSION_COOKIE_HTTPONLY = True
+
+# Cookies plus stricts par défaut
+SESSION_COOKIE_SAMESITE = "Lax"
+CSRF_COOKIE_SAMESITE = "Lax"

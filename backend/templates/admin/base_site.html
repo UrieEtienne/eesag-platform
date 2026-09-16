@@ -1,51 +1,8 @@
-
 {% extends "admin/base.html" %}
 {% load static %}
-
+{% load admin_scope %}
 {% block title %}{{ title }} · EESAG{% endblock %}
-
-{% block branding %}
-<a href="{% url 'admin:index' %}" class="ecg-admin-brand" aria-label="EESAG">
-  <span class="ecg-admin-brand-mark logo-admin-mark">
-    <img src="{% static 'admin/img/logo_eesag.jpg' %}" alt="Assemblées de Dieu">
-  </span>
-  <span><strong>EESAG</strong><small>Administration, finances &amp; coordination</small></span>
-</a>
-{% endblock %}
-
-{% block extrastyle %}
-{{ block.super }}
-<link rel="stylesheet" href="{% static 'admin/css/ecg_admin.css' %}">
-{% endblock %}
-
-{% block nav-global %}
-<div class="ecg-admin-global">
-  <a href="{% url 'admin:index' %}" class="is-active">Tableau de bord</a>
-  <a href="{% url 'admin:finance_transaction_changelist' %}">Comptabilité</a>
-  <a href="{% url 'admin:finance_projet_changelist' %}">Projets</a>
-  <a href="/reunions">Réunions vidéo</a>
-  <a href="/rapports">Rapports</a>
-  <a href="{% url 'admin:churches_eglise_changelist' %}">Églises</a>
-  {% if user.role == 'COORDINATEUR' or user.is_superuser %}
-    <a class="primary" href="{% url 'admin:accounts_utilisateur_add' %}">+ Administrateur bureau</a>
-    <a href="/parametres">Paramètres</a>
-    <a href="{% url 'admin:accounts_utilisateur_change' user.pk %}">Mon compte</a>
-  {% elif user.role == 'SUPERADMIN_INTL' or user.role == 'SUPERADMIN_NATIONAL' %}
-    <a class="primary" href="{% url 'admin:accounts_utilisateur_add' %}">+ Administrateur église</a>
-  {% endif %}
-  <a href="/">Ouvrir la plateforme</a>
-</div>
-{% endblock %}
-
-{% block userlinks %}
-  {% if user.is_active and user.is_staff %}
-    <span class="ecg-admin-user-preview">
-      {% if user.photo %}
-        <img src="{{ user.photo.url }}" alt="Photo de profil">
-      {% else %}
-        <img src="{% static 'admin/img/logo_eesag.jpg' %}" alt="EESAG">
-      {% endif %}
-    </span>
-  {% endif %}
-  {{ block.super }}
-{% endblock %}
+{% block branding %}<a href="{% url 'admin:index' %}" class="ecg-admin-brand"><span class="ecg-admin-brand-mark"><img src="{% static 'admin/img/logo_eesag.jpg' %}" alt="EESAG"></span><span><strong>EESAG</strong><small>Administration & centre de contrôle</small></span></a>{% endblock %}
+{% block extrastyle %}{{ block.super }}<link rel="stylesheet" href="{% static 'admin/css/ecg_admin.css' %}">{% endblock %}
+{% block nav-global %}<div class="ecg-admin-global"><div class="ecg-admin-scope-pill"><span>PÉRIMÈTRE</span><b>{% scope_label %}</b></div><a href="{% url 'admin:index' %}" class="is-active">Tableau</a>{% if user.role == 'COORDINATEUR' or user.is_superuser %}<a href="{% url 'admin:churches_eglise_changelist' %}">Églises</a><a href="{% url 'admin:accounts_utilisateur_changelist' %}">Comptes</a><a href="{% url 'admin:bureaux_bureau_changelist' %}">Bureaux</a><a href="{% url 'admin:finance_transaction_changelist' %}">Comptabilité</a><a href="/systeme">Fonctionnalités</a><a href="/informations">Informations</a>{% elif user.role == 'SUPERADMIN_INTL' or user.role == 'SUPERADMIN_NATIONAL' %}{% scope_is_national_general as general_national %}{% if general_national %}<a href="{% url 'admin:churches_eglise_changelist' %}">Églises</a><a href="{% url 'admin:accounts_utilisateur_changelist' %}">Administrateurs</a>{% else %}<a href="{% url 'admin:bureaux_bureau_changelist' %}">Mon bureau</a><a href="{% url 'admin:bureaux_bureaumembre_changelist' %}">Composition</a>{% endif %}<a href="/systeme">Mes options</a><a href="/informations">Informations</a>{% elif user.role == 'PASTEUR' or user.role == 'ADMIN_LOCAL' %}<a href="{% url 'admin:accounts_utilisateur_changelist' %}">Membres & comptes</a><a href="{% url 'admin:bureaux_bureau_changelist' %}">Bureaux</a><a href="{% url 'admin:finance_transaction_changelist' %}">Comptabilité</a><a href="/systeme">Mes options</a>{% endif %}<a href="/">Ouvrir la plateforme</a></div>{% endblock %}
+{% block userlinks %}{% if user.is_active and user.is_staff %}<span class="ecg-admin-user-preview">{% if user.photo %}<img src="{{ user.photo.url }}" alt="Photo">{% else %}<img src="{% static 'admin/img/logo_eesag.jpg' %}" alt="EESAG">{% endif %}</span>{% endif %}{{ block.super }}{% endblock %}

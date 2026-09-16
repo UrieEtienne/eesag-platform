@@ -72,8 +72,10 @@ class UtilisateurViewSet(viewsets.ModelViewSet):
             from apps.bureaux.models import BureauAdministrateur
             assigned = BureauAdministrateur.objects.filter(utilisateur=user, actif=True).values_list("bureau_id", flat=True)
             if assigned.exists():
-                return qs.filter(mandats_bureaux__bureau_id__in=assigned, mandats_bureaux__actif=True).exclude(role=Role.COORDINATEUR).distinct()
-            return qs.exclude(role=Role.COORDINATEUR)
+                # Un bureau national spécialisé n'utilise pas la gestion des comptes d'église.
+                return qs.none()
+            # Le Bureau national général ne gère que les comptes locaux d'églises.
+            return qs.filter(role__in=[Role.ADMIN_LOCAL, Role.PASTEUR]).exclude(role=Role.COORDINATEUR)
         return qs.filter(eglise_id=user.eglise_id).exclude(role=Role.COORDINATEUR)
 
 
@@ -135,7 +137,15 @@ class InscriptionMembreView(generics.CreateAPIView):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
-        return Response({"detail": "Compte créé. Vérifiez le SMS envoyé sur votre numéro.", "identifiant": user.identifiant, "eglise": user.eglise.nom}, status=status.HTTP_201_CREATED)
+        data = {"detail": "Compte créé. Confirmez votre numéro pour terminer l'inscription.", "identifiant": user.identifiant, "eglise": user.eglise.nom}
+        from django.conf import settings
+        if not getattr(settings, "SMS_ENABLED", False):
+            verification = user.verifications_telephone.filter(utilise=False).order_by("-cree_le").first()
+            if verification:
+                data.update({"test_mode": True, "test_code": verification.code, "sms": "Mode test : aucun SMS réel n'est envoyé. Utilisez le code affiché pour continuer."})
+        else:
+            data["sms"] = "Un code de confirmation a été envoyé par SMS."
+        return Response(data, status=status.HTTP_201_CREATED)
 
 
 class VerificationTelephoneView(generics.GenericAPIView):
@@ -145,16 +155,15 @@ class VerificationTelephoneView(generics.GenericAPIView):
     def post(self, request):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        verification = serializer.validated_data["verification"]
-        verification.utilise = True
-        verification.save(update_fields=["utilise"])
-        user = verification.utilisateur
-        user.actif = True
-        user.save(update_fields=["actif"])
-        from .serializers import LoginSerializer
+        user = serializer.save()
         from rest_framework_simplejwt.tokens import RefreshToken
         refresh = RefreshToken.for_user(user)
-        return Response({"detail": "Compte confirmé.", "access": str(refresh.access_token), "refresh": str(refresh), "utilisateur": UtilisateurSerializer(user).data})
+        data = {"detail": "Compte confirmé et activé.", "access": str(refresh.access_token), "refresh": str(refresh), "utilisateur": UtilisateurSerializer(user).data}
+        from django.conf import settings
+        if not getattr(settings, "SMS_ENABLED", False):
+            data["test_mode"] = True
+            data["sms"] = "Mode test : l'envoi SMS réel est désactivé."
+        return Response(data)
 
 
 class RenvoyerCodeTelephoneView(generics.GenericAPIView):
@@ -171,41 +180,38 @@ class RenvoyerCodeTelephoneView(generics.GenericAPIView):
         if not user or user.actif:
             return Response({"detail": "Si ce compte doit encore être confirmé, un nouveau code a été envoyé."})
 
-        import secrets
-        from datetime import timedelta
-        from .services_sms import envoyer_otp_supabase
+        from .services_sms import envoyer_otp
 
-        VerificationTelephone.objects.filter(utilisateur=user, utilise=False).update(utilise=True)
-        verification = VerificationTelephone.objects.create(
+        result = envoyer_otp(
+            user.telephone,
             utilisateur=user,
-            code="000000",
-            expire_le=timezone.now() + timedelta(minutes=10),
+            creer_utilisateur=True,
+            origine=(user.eglise.nom if user.eglise else "Bureau national EESAG"),
         )
-        result = envoyer_otp_supabase(user.telephone, utilisateur=user, creer_utilisateur=True)
         if not result.get("ok"):
-            verification.delete()
-            return Response({"detail": result.get("error", "Impossible d'envoyer le SMS.")}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
-        return Response({"detail": "Un nouveau code de confirmation Supabase a été envoyé."})
+            return Response({"detail": result.get("error", "Impossible d'envoyer le code de confirmation.")}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+        from django.conf import settings
+        data = {"detail": "Un nouveau code de confirmation a été généré."}
+        if not getattr(settings, "SMS_ENABLED", False):
+            data.update({"test_mode": True, "test_code": result.get("test_code"), "sms": "Mode test : aucun SMS réel n'est envoyé."})
+        else:
+            data["detail"] = "Un nouveau code de confirmation SMS a été envoyé."
+        return Response(data)
 
 
 class DiagnosticSMSView(generics.GenericAPIView):
-    """Diagnostic sécurisé de la configuration Supabase OTP."""
+    """Diagnostic sécurisé de la configuration SMS OTP."""
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
         if request.user.role != Role.COORDINATEUR:
             return Response({"detail": "Seul le Coordinateur peut consulter le diagnostic SMS."}, status=403)
         from django.conf import settings
-        provider = getattr(settings, "SMS_PROVIDER", "supabase")
-        url = getattr(settings, "SUPABASE_URL", "")
-        key = getattr(settings, "SUPABASE_PUBLISHABLE_KEY", "")
-        return Response({
-            "provider": provider,
-            "supabase_url_present": bool(url),
-            "supabase_publishable_key_present": bool(key),
-            "ready": provider == "supabase" and bool(url and key),
-            "note": "La livraison SMS nécessite également un fournisseur SMS configuré dans Supabase Auth.",
-        })
+        from .services_sms import diagnostic_sms
+        data = diagnostic_sms()
+        data["ready"] = bool(data["sms_api_url_present"] and data["sms_api_key_present"])
+        data["note"] = "Les secrets Twilio sont détenus uniquement par le microservice FastAPI SMS."
+        return Response(data)
 
 
 class ProfilView(generics.RetrieveUpdateAPIView):
@@ -229,12 +235,16 @@ class DelegationEgliseViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         u = self.request.user
         if u.role in ROLES_NATIONAUX:
+            if _est_bureau_specifique(u):
+                return DelegationEglise.objects.none()
             return DelegationEglise.objects.select_related("utilisateur", "cree_par").prefetch_related("permissions")
         return DelegationEglise.objects.filter(utilisateur__eglise_id=u.eglise_id).select_related("utilisateur", "cree_par").prefetch_related("permissions")
 
     def _allowed(self):
         u = self.request.user
-        if u.role in ROLES_NATIONAUX or u.role == Role.PASTEUR:
+        if u.role in ROLES_NATIONAUX:
+            return not _est_bureau_specifique(u)
+        if u.role == Role.PASTEUR:
             return True
         if u.role == Role.ADMIN_LOCAL:
             return u.delegation_eglise.permissions.filter(code="GESTION_ADMINISTRATEURS").exists() if hasattr(u, "delegation_eglise") else False

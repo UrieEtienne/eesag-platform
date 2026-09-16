@@ -5,6 +5,7 @@ from rest_framework import serializers
 
 from apps.accounts.models import Utilisateur, Role
 from .models import Religion, Eglise, Departement, RoleEglise, Annexe
+from apps.accounts.services_sms import normaliser_telephone
 
 
 class ReligionSerializer(serializers.ModelSerializer):
@@ -60,7 +61,7 @@ class EgliseListSerializer(serializers.ModelSerializer):
             "id", "code", "nom", "religion", "religion_nom",
             "region", "region_nom", "prefecture", "prefecture_nom",
             "district", "district_nom", "commune", "commune_nom",
-            "statut", "responsable", "responsable_nom", "responsable_source", "nombre_membres", "logo",
+            "statut", "plateforme_active", "responsable", "responsable_nom", "responsable_source", "nombre_membres", "logo",
         ]
         read_only_fields = ["code", "responsable", "nombre_membres"]
 
@@ -87,7 +88,7 @@ class EgliseAnnuaireSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Eglise
-        fields = ["id", "code", "nom", "religion_nom", "region_nom", "prefecture_nom", "district_nom", "commune_nom", "statut"]
+        fields = ["id", "code", "nom", "religion_nom", "region_nom", "prefecture_nom", "district_nom", "commune_nom", "statut", "plateforme_active"]
         read_only_fields = fields
 
 
@@ -127,12 +128,12 @@ class EgliseCreateSerializer(serializers.ModelSerializer):
         model = Eglise
         fields = [
             "id", "code", "nom", "religion", "region", "prefecture", "district", "commune",
-            "adresse_precise", "telephone", "email", "date_creation", "statut", "logo",
+            "adresse_precise", "telephone", "email", "date_creation", "statut", "plateforme_active", "logo",
             "responsable_utilisateur", "responsable_nom", "responsable_telephone", "responsable_email",
             "creer_compte_admin", "admin_nom", "admin_prenom", "admin_telephone", "admin_email",
             "admin_mot_de_passe", "admin_confirmation", "compte_admin", "sms",
         ]
-        read_only_fields = ["id", "code", "statut"]
+        read_only_fields = ["id", "code", "statut", "plateforme_active"]
 
     def validate(self, attrs):
         creer = attrs.get("creer_compte_admin", True)
@@ -143,7 +144,12 @@ class EgliseCreateSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError({"admin_confirmation": "Les mots de passe ne correspondent pas."})
         if creer:
             validate_password(attrs["admin_mot_de_passe"])
-            if Utilisateur.objects.filter(telephone=attrs["admin_telephone"]).exists():
+            try:
+                numero_admin = normaliser_telephone(attrs["admin_telephone"])
+            except ValueError as exc:
+                raise serializers.ValidationError({"admin_telephone": str(exc)})
+            attrs["admin_telephone"] = numero_admin
+            if Utilisateur.objects.filter(telephone=numero_admin).exists():
                 raise serializers.ValidationError({"admin_telephone": "Ce numéro est déjà utilisé."})
         responsable = attrs.get("responsable")
         responsable_nom = attrs.get("responsable_nom", "").strip()
@@ -165,6 +171,12 @@ class EgliseCreateSerializer(serializers.ModelSerializer):
         validated_data.pop("admin_confirmation", None)
         # Champs responsables manuels déjà intégrés au modèle.
         eglise = Eglise.objects.create(**validated_data)
+        # Une création d'église ne peut jamais activer la plateforme.
+        # L'activation est une opération exclusivement administrative du Bureau national.
+        eglise.plateforme_active = False
+        eglise.date_activation_plateforme = None
+        eglise.activee_par = None
+        eglise.save(update_fields=["plateforme_active", "date_activation_plateforme", "activee_par"])
         compte = None
         sms_resultats = []
 
@@ -177,26 +189,28 @@ class EgliseCreateSerializer(serializers.ModelSerializer):
             compte.code_secret_clair = ""
             compte.save()
 
-            from apps.accounts.models import VerificationTelephone
-            from datetime import timedelta
-            VerificationTelephone.objects.create(
-                utilisateur=compte, code="000000", expire_le=timezone.now() + timedelta(minutes=10)
-            )
             from apps.accounts.services_sms import notifier_nouvel_identifiant
             origine = eglise.nom
             sms_resultats = notifier_nouvel_identifiant(
                 compte, admin_password, origine=origine
             )
-            if not all(item.get("ok") for item in sms_resultats):
-                raise serializers.ValidationError({
-                    "admin_telephone": "Le compte administrateur a été refusé car les SMS n'ont pas pu être envoyés.",
-                    "sms": [item.get("error") for item in sms_resultats if not item.get("ok")],
-                })
+
+            # Le compte est bien créé, mais reste inactif tant que le téléphone
+            # n'est pas confirmé. Une panne temporaire du fournisseur SMS ne
+            # doit pas supprimer l'église ni le compte administrateur.
+            erreurs_sms = [item.get("error") for item in sms_resultats if not item.get("ok")]
 
             from apps.notifications.models import Notification
             Notification.objects.create(
                 destinataire=compte, eglise=eglise, titre="Compte administrateur créé",
-                message=f"Votre compte administrateur de {eglise.nom} est créé par le Bureau national. Confirmez votre téléphone avec le code reçu par SMS.",
+                message=(
+                    f"Votre compte administrateur de {eglise.nom} a été créé par le Bureau national. "
+                    + (
+                        "Un code de confirmation a été demandé par SMS. Confirmez votre téléphone avant de vous connecter."
+                        if not erreurs_sms
+                        else "Le compte est en attente de confirmation téléphonique. Un nouveau code pourra être demandé depuis l'écran de confirmation."
+                    )
+                ),
                 type_notification="BIENVENUE",
             )
         eglise._compte_admin_cree = compte
@@ -220,7 +234,17 @@ class EgliseCreateSerializer(serializers.ModelSerializer):
         if not resultats:
             return {"statut": "AUCUN"}
         return {
-            "statut": "ENVOYE" if all(item.get("ok") for item in resultats) else "ECHEC",
-            "messages": [{"type": i, "provider": r.get("provider"), "sid": r.get("sid")} for i, r in zip(("OTP", "BIENVENUE"), resultats)],
+            "statut": "ENVOYE" if all(item.get("ok") for item in resultats) else "EN_ATTENTE",
+            "messages": [
+                {
+                    "type": "OTP",
+                    "provider": r.get("provider"),
+                    "sid": r.get("message_sid") or r.get("sid") or r.get("supabase_user_id"),
+                    "to": r.get("to"),
+                    "test_code": r.get("test_code"),
+                    "error": r.get("error"),
+                }
+                for r in resultats
+            ],
         }
 

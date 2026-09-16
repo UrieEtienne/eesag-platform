@@ -16,52 +16,62 @@ def count_model(app_label, model_name, **filters):
 
 @register.simple_tag(takes_context=True)
 def platform_metrics(context):
+    user = context.get("user")
+    empty = {
+        "eglises": 0, "eglises_actives": 0, "membres": 0, "membres_nationaux": 0,
+        "documents": 0, "notifications": 0, "departements": 0, "annexes": 0,
+        "projets": 0, "projets_nationaux": 0, "transactions": 0,
+        "finance_entrees": 0, "finance_sorties": 0, "finance_solde": 0,
+        "finance_nationale_entrees": 0, "finance_nationale_sorties": 0,
+        "bureau_national": 0, "nouvelles_eglises_7j": 0, "nouveaux_membres_7j": 0,
+        "eglises_actives_percent": 0, "bureau_membres": 0, "scope_label": "EESAG",
+    }
     try:
+        from apps.accounts.models import Role, Utilisateur
+        from apps.bureaux.models import BureauAdministrateur, BureauMembre
         eglise_model = apps.get_model("churches", "Eglise")
-        user_model = apps.get_model("accounts", "Utilisateur")
+        document_model = apps.get_model("documents", "Document")
+        notification_model = apps.get_model("notifications", "Notification")
         transaction_model = apps.get_model("finance", "Transaction")
         project_model = apps.get_model("finance", "Projet")
-        notification_model = apps.get_model("notifications", "Notification")
-        document_model = apps.get_model("documents", "Document")
-        departement_model = apps.get_model("churches", "Departement")
-        annexe_model = apps.get_model("churches", "Annexe")
-
-        eglises = eglise_model.objects.all()
-        utilisateurs = user_model.objects.filter(actif=True)
-        transactions = transaction_model.objects.all()
+        if not user or not user.is_authenticated:
+            return empty
+        is_coord = user.role == Role.COORDINATEUR or user.is_superuser
+        assigned = BureauAdministrateur.objects.filter(utilisateur=user, actif=True).select_related("bureau").first()
+        if is_coord:
+            scope = "Coordinateur · Propriétaire du système"
+            eglises = eglise_model.objects.all()
+            utilisateurs = Utilisateur.objects.filter(actif=True)
+        elif assigned:
+            scope = assigned.bureau.nom
+            bureau = assigned.bureau
+            bm = BureauMembre.objects.filter(bureau=bureau, actif=True).count()
+            empty.update({"scope_label": scope, "bureau_membres": bm})
+            return empty
+        elif user.role in (Role.ADMIN_LOCAL, Role.PASTEUR) and user.eglise_id:
+            scope = user.eglise.nom
+            eglises = eglise_model.objects.filter(pk=user.eglise_id)
+            utilisateurs = Utilisateur.objects.filter(actif=True, eglise_id=user.eglise_id)
+        else:
+            scope = "Bureau national"
+            eglises = eglise_model.objects.all()
+            utilisateurs = Utilisateur.objects.filter(actif=True, eglise__isnull=True)
+        transactions = transaction_model.objects.filter(eglise__in=eglises) if hasattr(transaction_model, "eglise") else transaction_model.objects.none()
         entrees = transactions.exclude(type_transaction="SORTIE").aggregate(s=Sum("montant"))["s"] or 0
         sorties = transactions.filter(type_transaction="SORTIE").aggregate(s=Sum("montant"))["s"] or 0
-        projets = project_model.objects.all()
-        week_ago = timezone.now() - timedelta(days=7)
-
+        total = eglises.count()
+        actifs = eglises.filter(statut="ACTIVE").count()
         return {
-            "eglises": eglises.count(),
-            "eglises_actives": eglises.filter(statut="ACTIVE").count(),
-            "membres": utilisateurs.exclude(eglise__isnull=True).count(),
-            "membres_nationaux": utilisateurs.filter(eglise__isnull=True).count(),
-            "documents": document_model.objects.count(),
-            "notifications": notification_model.objects.count(),
-            "departements": departement_model.objects.count(),
-            "annexes": annexe_model.objects.filter(active=True).count(),
-            "projets": projets.count(),
-            "projets_nationaux": projets.filter(eglise__isnull=True).count(),
-            "transactions": transactions.count(),
-            "finance_entrees": entrees,
-            "finance_sorties": sorties,
-            "finance_solde": entrees - sorties,
-            "finance_nationale_entrees": transactions.filter(eglise__isnull=True).exclude(type_transaction="SORTIE").aggregate(s=Sum("montant"))["s"] or 0,
-            "finance_nationale_sorties": transactions.filter(eglise__isnull=True, type_transaction="SORTIE").aggregate(s=Sum("montant"))["s"] or 0,
-            "bureau_national": user_model.objects.filter(role__in=["SUPERADMIN_INTL", "SUPERADMIN_NATIONAL"], eglise__isnull=True, actif=True).count(),
-            "nouvelles_eglises_7j": eglise_model.objects.filter(date_enregistrement_systeme__gte=week_ago).count(),
-            "nouveaux_membres_7j": user_model.objects.filter(date_enregistrement__gte=week_ago).count(),
-            "eglises_actives_percent": round((eglises.filter(statut="ACTIVE").count() / eglises.count()) * 100) if eglises.count() else 0,
+            **empty,
+            "eglises": total, "eglises_actives": actifs,
+            "membres": utilisateurs.count(), "membres_nationaux": utilisateurs.filter(eglise__isnull=True).count(),
+            "documents": document_model.objects.filter(eglise__in=eglises).count() if hasattr(document_model, "eglise") else 0,
+            "notifications": notification_model.objects.filter(destinataire=user).count() if hasattr(notification_model, "destinataire") else 0,
+            "departements": apps.get_model("churches", "Departement").objects.count() if not assigned else 0,
+            "annexes": apps.get_model("churches", "Annexe").objects.filter(eglise__in=eglises, active=True).count(),
+            "transactions": transactions.count(), "finance_entrees": entrees, "finance_sorties": sorties, "finance_solde": entrees-sorties,
+            "bureau_national": Utilisateur.objects.filter(role__in=["SUPERADMIN_INTL", "SUPERADMIN_NATIONAL"], eglise__isnull=True, actif=True).count(),
+            "scope_label": scope,
         }
     except Exception:
-        return {
-            "eglises": 0, "eglises_actives": 0, "membres": 0, "membres_nationaux": 0,
-            "documents": 0, "notifications": 0, "departements": 0, "annexes": 0,
-            "projets": 0, "projets_nationaux": 0, "transactions": 0,
-            "finance_entrees": 0, "finance_sorties": 0, "finance_solde": 0,
-            "finance_nationale_entrees": 0, "finance_nationale_sorties": 0,
-            "bureau_national": 0, "nouvelles_eglises_7j": 0, "nouveaux_membres_7j": 0, "eglises_actives_percent": 0,
-        }
+        return empty
