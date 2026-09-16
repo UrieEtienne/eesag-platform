@@ -123,6 +123,8 @@ class EgliseCreateSerializer(serializers.ModelSerializer):
     responsable_email = serializers.EmailField(write_only=True, required=False, allow_blank=True)
     compte_admin = serializers.SerializerMethodField(read_only=True)
     sms = serializers.SerializerMethodField(read_only=True)
+    admin_identifiant = serializers.SerializerMethodField(read_only=True)
+    admin_code_secret_initial = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = Eglise
@@ -132,6 +134,7 @@ class EgliseCreateSerializer(serializers.ModelSerializer):
             "responsable_utilisateur", "responsable_nom", "responsable_telephone", "responsable_email",
             "creer_compte_admin", "admin_nom", "admin_prenom", "admin_telephone", "admin_email",
             "admin_mot_de_passe", "admin_confirmation", "compte_admin", "sms",
+            "admin_identifiant", "admin_code_secret_initial",
         ]
         read_only_fields = ["id", "code", "statut", "plateforme_active"]
 
@@ -153,8 +156,20 @@ class EgliseCreateSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError({"admin_telephone": "Ce numéro est déjà utilisé."})
         responsable = attrs.get("responsable")
         responsable_nom = attrs.get("responsable_nom", "").strip()
+
+        # Pour simplifier la création : si un administrateur local est créé
+        # en même temps que l'église, ses informations servent aussi de
+        # responsable provisoire. L'utilisateur n'a donc pas à saisir deux fois
+        # les mêmes informations.
+        if creer and not responsable and not responsable_nom:
+            responsable_nom = f"{attrs.get('admin_prenom', '')} {attrs.get('admin_nom', '')}".strip()
+            attrs["responsable_nom"] = responsable_nom
+            attrs["responsable_telephone"] = attrs.get("admin_telephone", "")
+            attrs["responsable_email"] = attrs.get("admin_email", "")
+
         if not responsable and not responsable_nom:
-            raise serializers.ValidationError({"responsable_nom": "Saisissez le nom du responsable si aucun compte EESAG n'existe encore."})
+            raise serializers.ValidationError({"responsable_nom": "Saisissez le nom du responsable ou créez le compte administrateur local en même temps."})
+
         if responsable and responsable.role == Role.COORDINATEUR:
             raise serializers.ValidationError({"responsable_utilisateur": "Le propriétaire du système ne peut pas être responsable d'une église."})
         return attrs
@@ -188,6 +203,9 @@ class EgliseCreateSerializer(serializers.ModelSerializer):
             compte.set_password(admin_password)
             compte.code_secret_clair = ""
             compte.save()
+            # Mot de passe transmis une seule fois dans la réponse de création.
+            # Il n'est jamais enregistré en clair dans la base de données.
+            compte._code_secret_initial = admin_password
 
             from apps.accounts.services_sms import notifier_nouvel_identifiant
             origine = eglise.nom
@@ -227,7 +245,16 @@ class EgliseCreateSerializer(serializers.ModelSerializer):
             "nom_complet": f"{compte.prenom} {compte.nom}",
             "role": compte.role,
             "actif": compte.actif,
+            "code_secret_initial": getattr(compte, "_code_secret_initial", None),
         }
+
+    def get_admin_identifiant(self, obj):
+        compte = getattr(obj, "_compte_admin_cree", None)
+        return compte.identifiant if compte else None
+
+    def get_admin_code_secret_initial(self, obj):
+        compte = getattr(obj, "_compte_admin_cree", None)
+        return getattr(compte, "_code_secret_initial", None) if compte else None
 
     def get_sms(self, obj):
         resultats = getattr(obj, "_sms_resultats", None) or []

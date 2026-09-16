@@ -63,6 +63,6 @@ export default function App(){
     <Route path="/profil" element={protect(<Profil/>)}/>
     <Route path="/parametres" element={protect(<Parametres/>, {roles:["COORDINATEUR"]})}/>
     <Route path="/informations" element={protect(<Informations/>)}/>
-    <Route path="/systeme" element={protect(<Systeme/>, {roles:["COORDINATEUR","SUPERADMIN_INTL","SUPERADMIN_NATIONAL","ADMIN_LOCAL","PASTEUR"]})}/>
+    <Route path="/systeme" element={protect(<Systeme/>, {roles:["COORDINATEUR"]})}/>
   </Routes>
 }

@@ -1,6 +1,7 @@
 from django import forms
 from django.contrib import admin, messages
 from django.core.exceptions import ValidationError
+from django.db import transaction
 from django.utils import timezone
 
 from apps.accounts.models import Role, Utilisateur
@@ -10,29 +11,145 @@ from .models import Annexe, Departement, Eglise, Religion, RoleEglise
 
 
 def _synchroniser_acces_admin_eglise(eglise, actif):
-    """Active/désactive l’accès Django admin des pasteurs et admins locaux de l’église."""
+    """
+    Synchronise les comptes de gestion de l'église avec son activation.
+
+    L'activation de la plateforme par le Bureau national ouvre le compte
+    de gestion local (Django + plateforme) pour les ADMIN_LOCAL/PASTEUR.
+    La désactivation referme leurs accès.
+    """
     Utilisateur.objects.filter(
         eglise=eglise,
         role__in=[Role.ADMIN_LOCAL, Role.PASTEUR],
-    ).update(is_staff=bool(actif))
+    ).update(
+        is_staff=bool(actif),
+        actif=bool(actif),
+    )
 
 
 class EgliseAdminForm(forms.ModelForm):
+    """
+    Formulaire simplifié de création d'une église.
+
+    Le Bureau national peut créer l'église et, dans le même écran,
+    créer son premier administrateur local.
+    """
+
+    creer_compte_admin = forms.BooleanField(
+        label="Créer immédiatement le compte administrateur local",
+        required=False,
+        initial=True,
+        help_text="Le compte sera rattaché automatiquement à cette église.",
+    )
+    admin_nom = forms.CharField(label="Nom de l'administrateur", max_length=100, required=False)
+    admin_prenom = forms.CharField(label="Prénom de l'administrateur", max_length=100, required=False)
+    admin_telephone = forms.CharField(label="Téléphone", max_length=20, required=False)
+    admin_email = forms.EmailField(label="Email", required=False)
+    admin_mot_de_passe = forms.CharField(
+        label="Code secret / mot de passe",
+        widget=forms.PasswordInput(render_value=False),
+        required=False,
+        min_length=6,
+    )
+    admin_confirmation = forms.CharField(
+        label="Confirmation",
+        widget=forms.PasswordInput(render_value=False),
+        required=False,
+        min_length=6,
+    )
+
     class Meta:
         model = Eglise
         fields = "__all__"
+
+    def __init__(self, *args, request=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.request = request
+        self._can_create_admin = bool(
+            request and (is_coordinator(request.user) or is_national_general(request.user))
+        )
+
+        # Ces champs supplémentaires ne sont affichés qu'à la création et
+        # uniquement au Coordinateur/Bureau national général.
+        if self.instance and self.instance.pk:
+            for name in (
+                "creer_compte_admin", "admin_nom", "admin_prenom",
+                "admin_telephone", "admin_email", "admin_mot_de_passe",
+                "admin_confirmation",
+            ):
+                self.fields.pop(name, None)
+        elif not self._can_create_admin:
+            for name in (
+                "creer_compte_admin", "admin_nom", "admin_prenom",
+                "admin_telephone", "admin_email", "admin_mot_de_passe",
+                "admin_confirmation",
+            ):
+                self.fields.pop(name, None)
 
     def clean(self):
         cleaned = super().clean()
         responsable = cleaned.get("responsable")
         responsable_nom = (cleaned.get("responsable_nom") or "").strip()
+
+        creer = cleaned.get("creer_compte_admin", False)
+        admin_nom = (cleaned.get("admin_nom") or "").strip()
+        admin_prenom = (cleaned.get("admin_prenom") or "").strip()
+        admin_telephone = cleaned.get("admin_telephone")
+        admin_password = cleaned.get("admin_mot_de_passe")
+        admin_confirmation = cleaned.get("admin_confirmation")
+
         if not responsable and not responsable_nom:
-            self.add_error(
-                "responsable_nom",
-                "Saisissez le nom du responsable si aucun compte EESAG n'est encore lié.",
-            )
+            if creer and admin_nom and admin_prenom:
+                cleaned["responsable_nom"] = f"{admin_prenom} {admin_nom}".strip()
+                cleaned["responsable_telephone"] = admin_telephone or ""
+                cleaned["responsable_email"] = cleaned.get("admin_email") or ""
+            else:
+                self.add_error(
+                    "responsable_nom",
+                    "Saisissez le nom du responsable ou créez son compte ci-dessous.",
+                )
+
         if responsable and responsable.role == Role.COORDINATEUR:
-            self.add_error("responsable", "Le Coordinateur du système ne peut pas être responsable d'une église.")
+            self.add_error(
+                "responsable",
+                "Le Coordinateur du système ne peut pas être responsable d'une église.",
+            )
+
+        if creer:
+            required = {
+                "admin_nom": admin_nom,
+                "admin_prenom": admin_prenom,
+                "admin_telephone": admin_telephone,
+                "admin_mot_de_passe": admin_password,
+                "admin_confirmation": admin_confirmation,
+            }
+            for field, value in required.items():
+                if not value:
+                    self.add_error(field, "Ce champ est obligatoire.")
+
+            if admin_password and admin_confirmation and admin_password != admin_confirmation:
+                self.add_error("admin_confirmation", "Les deux mots de passe sont différents.")
+
+            if admin_password and admin_confirmation and admin_password == admin_confirmation:
+                try:
+                    password_validation.validate_password(admin_password)
+                except Exception as exc:
+                    self.add_error("admin_mot_de_passe", exc)
+
+            if admin_telephone:
+                try:
+                    cleaned["admin_telephone"] = normaliser_telephone(admin_telephone)
+                except ValueError as exc:
+                    self.add_error("admin_telephone", str(exc))
+
+            if cleaned.get("admin_telephone") and Utilisateur.objects.filter(
+                telephone=cleaned["admin_telephone"]
+            ).exists():
+                self.add_error(
+                    "admin_telephone",
+                    "Ce numéro est déjà associé à un compte EESAG.",
+                )
+
         return cleaned
 
 
@@ -118,11 +235,11 @@ class EgliseAdmin(EESAGScopedAdminMixin, admin.ModelAdmin):
 
     def get_fieldsets(self, request, obj=None):
         activation_help = (
-            "Lecture seule : l'activation est exclusivement réalisée par le Bureau national."
+            "Lecture seule : seule l'activation faite par le Bureau national est autorisée."
             if is_coordinator(request.user)
-            else "Le Bureau national peut activer ou désactiver l'accès à la plateforme."
+            else "Le Bureau national général peut activer ou désactiver l'accès à la plateforme."
         )
-        return (
+        fieldsets = [
             ("Identité de l'église", {
                 "fields": (
                     "code", "nom", "religion", "region", "prefecture", "district", "commune",
@@ -137,14 +254,35 @@ class EgliseAdmin(EESAGScopedAdminMixin, admin.ModelAdmin):
             ("Contact & fondation", {
                 "fields": ("telephone", "email", "date_creation", "date_enregistrement_systeme")
             }),
+        ]
+
+        if obj is None and (is_coordinator(request.user) or is_national_general(request.user)):
+            fieldsets.append((
+                "Compte administrateur local",
+                {
+                    "fields": (
+                        "creer_compte_admin",
+                        "admin_nom", "admin_prenom",
+                        "admin_telephone", "admin_email",
+                        "admin_mot_de_passe", "admin_confirmation",
+                    ),
+                    "description": (
+                        "Ce compte sera automatiquement rattaché à cette église. "
+                        "Conservez l'identifiant et le code secret affichés après l'enregistrement. "
+                        "L'église reste inactive jusqu'à son activation par le Bureau national."
+                    ),
+                },
+            ))
+
+        fieldsets.extend([
             ("Activation de la plateforme", {
                 "fields": ("plateforme_active", "date_activation_plateforme", "activee_par"),
                 "description": activation_help,
             }),
-            ("Statut administratif", {
-                "fields": ("statut",)
-            }),
-        )
+            ("Statut administratif", {"fields": ("statut",)}),
+        ])
+
+        return tuple(fieldsets)
 
     def responsable_affichage(self, obj):
         if obj.responsable:
@@ -200,17 +338,19 @@ class EgliseAdmin(EESAGScopedAdminMixin, admin.ModelAdmin):
         self.message_user(request, f"{count} église(s) désactivée(s).", level=messages.SUCCESS)
 
     def save_model(self, request, obj, form, change):
-        # Personne ne peut injecter plateforme_active=True en contournant l'UI.
+        # L'activation de plateforme n'est jamais faite à la création.
+        if not change:
+            obj.plateforme_active = False
+            obj.date_activation_plateforme = None
+            obj.activee_par = None
+
+        # Le Coordinateur peut consulter mais ne peut pas activer l'église.
         if not is_national_general(request.user):
             if change:
                 previous = Eglise.objects.get(pk=obj.pk)
                 obj.plateforme_active = previous.plateforme_active
                 obj.date_activation_plateforme = previous.date_activation_plateforme
                 obj.activee_par = previous.activee_par
-            else:
-                obj.plateforme_active = False
-                obj.date_activation_plateforme = None
-                obj.activee_par = None
 
         if is_national_general(request.user) and change and "plateforme_active" in form.changed_data:
             if obj.plateforme_active:
@@ -220,15 +360,63 @@ class EgliseAdmin(EESAGScopedAdminMixin, admin.ModelAdmin):
                 obj.date_activation_plateforme = None
                 obj.activee_par = None
 
-        # Toute nouvelle église commence toujours inactive.
-        if not change:
-            obj.plateforme_active = False
-            obj.date_activation_plateforme = None
-            obj.activee_par = None
+        with transaction.atomic():
+            super().save_model(request, obj, form, change)
 
-        super().save_model(request, obj, form, change)
-        if is_national_general(request.user) and change and "plateforme_active" in form.changed_data:
-            _synchroniser_acces_admin_eglise(obj, obj.plateforme_active)
+            # À la création, le premier administrateur local est créé dans
+            # le même écran et immédiatement rattaché à l'église.
+            if not change and (is_coordinator(request.user) or is_national_general(request.user)):
+                creer = form.cleaned_data.get("creer_compte_admin", False)
+                if creer:
+                    password = form.cleaned_data.get("admin_mot_de_passe")
+                    compte = Utilisateur(
+                        nom=form.cleaned_data.get("admin_nom", "").strip(),
+                        prenom=form.cleaned_data.get("admin_prenom", "").strip(),
+                        telephone=form.cleaned_data.get("admin_telephone", ""),
+                        email=form.cleaned_data.get("admin_email", ""),
+                        role=Role.ADMIN_LOCAL,
+                        eglise=obj,
+                        actif=False,
+                        is_staff=False,
+                    )
+                    compte.set_password(password)
+                    compte.code_secret_clair = ""
+                    compte.save()
+                    self._created_admin_credentials = (
+                        compte.identifiant,
+                        password,
+                        compte,
+                    )
+                    if not obj.responsable:
+                        obj.responsable = compte
+                        obj.responsable_nom = f"{compte.prenom} {compte.nom}".strip()
+                        obj.responsable_telephone = compte.telephone
+                        obj.responsable_email = compte.email or ""
+                        obj.save(update_fields=[
+                            "responsable", "responsable_nom",
+                            "responsable_telephone", "responsable_email",
+                        ])
+
+            # Si une activation a été faite par le Bureau national,
+            # synchroniser les comptes locaux concernés.
+            if is_national_general(request.user) and change and "plateforme_active" in form.changed_data:
+                _synchroniser_acces_admin_eglise(obj, obj.plateforme_active)
+
+    def response_add(self, request, obj, post_url_continue=None):
+        creds = getattr(self, "_created_admin_credentials", None)
+        if creds:
+            identifiant, password, compte = creds
+            self.message_user(
+                request,
+                format_html(
+                    "<strong>Église créée.</strong> Compte administrateur local : "
+                    "<strong>{}</strong> · Code secret : <strong>{}</strong>. "
+                    "L'église reste inactive jusqu'à son activation par le Bureau national.",
+                    identifiant, password,
+                ),
+                level=messages.SUCCESS,
+            )
+        return super().response_add(request, obj, post_url_continue)
 
 
 @admin.register(Departement)

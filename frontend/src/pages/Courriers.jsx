@@ -114,6 +114,7 @@ function FormulaireCourrier({ onFerme, onCree }) {
   const [eglises, setEglises] = useState([]);
   const [terme, setTerme] = useState("");
   const [membresTrouves, setMembresTrouves] = useState([]);
+  const [membreSelectionne, setMembreSelectionne] = useState(null);
   const [preview, setPreview] = useState(null);
   const [erreur, setErreur] = useState("");
   const [busy, setBusy] = useState(false);
@@ -188,11 +189,29 @@ function FormulaireCourrier({ onFerme, onCree }) {
                   {membresTrouves.map((m) => <option key={m.id} value={m.id}>{m.nom_complet} — {m.identifiant}</option>)}
                 </select>
               )}
+              {membreSelectionne && (
+                <div className="member-selection-card">
+                  <div className="member-selection-head">
+                    <div>
+                      <span className="eyebrow">FICHE DU MEMBRE</span>
+                      <strong>{membreSelectionne.nom_complet}</strong>
+                    </div>
+                    <span className="status-chip ok">Sélectionné</span>
+                  </div>
+                  <div className="member-selection-grid">
+                    <span><b>Identifiant</b>{membreSelectionne.identifiant}</span>
+                    <span><b>Fonction</b>{membreSelectionne.fonction_eglise || "Membre"}</span>
+                    <span><b>Téléphone</b>{membreSelectionne.telephone || "—"}</span>
+                    <span><b>Église</b>{membreSelectionne.eglise_nom || utilisateur?.eglise_nom || "—"}</span>
+                  </div>
+                  <small>Les autres informations disponibles seront reprises automatiquement dans l'aperçu et le document.</small>
+                </div>
+              )}
             </div>
 
             <div className="form-champ">
               <label>Localité / église destinataire *</label>
-              <select required value={form.eglise_destinataire} onChange={(e) => modifier("eglise_destinataire", e.target.value)}>
+              <select required value={form.eglise_destinataire} onChange={(e) => { modifier("eglise_destinataire", e.target.value); setPreview(null); }}>
                 <option value="">-- Choisir l’église --</option>
                 {eglises.map((eg) => <option key={eg.id} value={eg.id}>{eg.nom} ({eg.code})</option>)}
               </select>
@@ -203,7 +222,7 @@ function FormulaireCourrier({ onFerme, onCree }) {
             <div className="form-champ">
               <label>Document Word préparé, signé et cacheté</label>
               <input type="file" accept=".doc,.docx" onChange={(e) => modifier("fichier_word", e.target.files?.[0] || null)} />
-              <small className="helper-text">Le système remplace automatiquement les champs {"{{NOM}}"}, {"{{PRENOM}}"}, {"{{FONCTION}}"}, {"{{EGLISE}}"}, {"{{CODE_EGLISE}}"}, {"{{DATE}}"} lorsqu’ils sont présents.</small>
+              <small className="helper-text">Le système remplit automatiquement les champs Word disponibles : {"{{NOM_COMPLET}}"}, {"{{IDENTIFIANT}}"}, {"{{TELEPHONE}}"}, {"{{EMAIL}}"}, {"{{FONCTION}}"}, {"{{ROLE_EGLISE}}"}, {"{{DEPARTEMENT}}"}, {"{{EGLISE}}"}, {"{{CODE_EGLISE}}"}, {"{{EGLISE_DESTINATION}}"}, {"{{CODE_EGLISE_DESTINATION}}"}, {"{{DATE}}"}.</small>
               <small className="helper-text">{fichierNom}</small>
             </div>
 
@@ -229,15 +248,25 @@ function FormulaireCourrier({ onFerme, onCree }) {
                 <div className="preview-paper">
                   <div className="preview-brand">EESAG</div>
                   <h4>{preview.objet}</h4>
-                  <p><b>Membre :</b> {preview.membre_nom}</p>
-                  <p><b>Identifiant :</b> {preview.membre_identifiant}</p>
-                  <p><b>Fonction :</b> {preview.fonction || "Membre"}</p>
-                  <p><b>Église d'origine :</b> {preview.eglise_origine}</p>
-                  <p><b>Église destinataire :</b> {preview.eglise_destinataire}</p>
+                  <div className="preview-identity-grid">
+                    <p><b>Membre</b>{preview.membre_nom}</p>
+                    <p><b>Identifiant</b>{preview.membre_identifiant}</p>
+                    <p><b>Fonction</b>{preview.fonction || "Membre"}</p>
+                    <p><b>Département</b>{preview.departement || "—"}</p>
+                    <p><b>Téléphone</b>{preview.telephone || "—"}</p>
+                    <p><b>Nationalité</b>{preview.nationalite || "—"}</p>
+                  </div>
+                  <hr />
+                  <p><b>Départ :</b> {preview.eglise_origine} ({preview.code_origine})</p>
+                  <p><b>Destination :</b> {preview.eglise_destinataire} ({preview.code_destination})</p>
+                  <p><b>Localité :</b> {preview.localite_destination || "—"}</p>
                   <hr />
                   <p className="preview-text">{preview.contenu}</p>
                 </div>
-                <button className="btn" type="button" onClick={envoyer} disabled={busy}>Valider et envoyer</button>
+                <div className="preview-actions">
+                  <span className="preview-confirmation">Relisez le document avant l'envoi définitif.</span>
+                  <button className="btn" type="button" onClick={envoyer} disabled={busy}>Valider et envoyer</button>
+                </div>
               </>
             )}
           </div>

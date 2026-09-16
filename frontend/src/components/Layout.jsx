@@ -33,15 +33,19 @@ export default function Layout({ children }) {
       .then((r) => setAnnonces(Array.isArray(r.data) ? r.data : []))
       .catch(() => setAnnonces([]));
 
-    client.get("/systeme/fonctionnalites/")
-      .then((r) => {
-        const map = {};
-        (Array.isArray(r.data) ? r.data : []).forEach((f) => {
-          map[f.code] = f;
-        });
-        setFeatures(map);
-      })
-      .catch(() => setFeatures({}));
+    if (estCoordinateur) {
+      client.get("/systeme/fonctionnalites/")
+        .then((r) => {
+          const map = {};
+          (Array.isArray(r.data) ? r.data : []).forEach((f) => {
+            map[f.code] = f;
+          });
+          setFeatures(map);
+        })
+        .catch(() => setFeatures({}));
+    } else {
+      setFeatures({});
+    }
   }, [utilisateur?.id, location.pathname]);
 
   const featureActive = (feature) => {
@@ -175,10 +179,10 @@ export default function Layout({ children }) {
             </>
           )}
 
-          {(estCoordinateur || estBureauNational || estGestionnaireEglise) && (
+          {estCoordinateur && (
             <>
-              <div className="nav-section-label">Configuration</div>
-              {estCoordinateur && link("/parametres", "Paramètres système", "⚙")}
+              <div className="nav-section-label">Configuration propriétaire</div>
+              {link("/parametres", "Paramètres système", "⚙")}
               {link("/systeme", "Mes fonctionnalités", "◈")}
             </>
           )}

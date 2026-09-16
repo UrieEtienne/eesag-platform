@@ -60,3 +60,5 @@ body{background:linear-gradient(180deg,#f0f4f8 0%,#e7edf4 100%)}
 #branding .ecg-admin-brand strong{font-size:19px!important;letter-spacing:.02em!important}.ecg-admin-brand small{font-size:10px!important}
 #main.main{margin-left:250px!important;background:#edf2f6!important}.main>#content{padding:28px 32px 44px!important;max-width:1650px!important}
 .ecg-dashboard-heading h1{font-size:28px!important;color:#19394d!important}.ecg-dashboard-heading p{font-size:13px!important}.ecg-metric{border-radius:3px!important;min-height:104px!important;box-shadow:0 2px 6px rgba(22,53,70,.09)!important}.ecg-panel,.ecg-side-stack section,.ecg-finance-command,.ecg-dashboard-lower section{border-radius:3px!important;box-shadow:0 2px 6px rgba(22,53,70,.09)!important}
+
+.ecg-admin-footer-team{font-size:10px;color:#7d8da0}.ecg-admin-footer-team a{font-weight:700;text-decoration:none;color:#6a7c90}.ecg-admin-footer-team a:hover{text-decoration:underline}

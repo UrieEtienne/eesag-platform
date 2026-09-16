@@ -41,7 +41,11 @@ class CourrierViewSet(viewsets.ModelViewSet):
         from apps.accounts.models import Utilisateur
         from apps.churches.models import Eglise
         membre = Utilisateur.objects.filter(pk=membre_id, eglise_id=request.user.eglise_id, actif=True).select_related("eglise").first()
-        destination = Eglise.objects.filter(pk=destination_id, statut=Eglise.Statut.ACTIVE).first()
+        destination = Eglise.objects.filter(
+            pk=destination_id,
+            statut=Eglise.Statut.ACTIVE,
+            plateforme_active=True,
+        ).first()
         if not membre:
             raise PermissionDenied("Le fidèle doit appartenir à votre église.")
         if not destination:
@@ -59,13 +63,29 @@ class CourrierViewSet(viewsets.ModelViewSet):
             "objet": request.data.get("objet") or "Recommandation de déplacement",
             "membre_nom": f"{membre.prenom} {membre.nom}",
             "membre_identifiant": membre.identifiant,
+            "telephone": membre.telephone,
+            "email": membre.email or "",
+            "sexe": membre.get_sexe_display(),
+            "date_naissance": membre.date_naissance.strftime("%d/%m/%Y") if membre.date_naissance else "",
+            "nationalite": membre.get_nationalite_display() if membre.nationalite else "",
             "fonction": membre.get_fonction_eglise_display(),
+            "role_eglise": membre.role_eglise.nom if getattr(membre, "role_eglise", None) else "",
+            "departement": membre.departement.nom if getattr(membre, "departement", None) else "",
             "eglise_origine": membre.eglise.nom,
+            "code_origine": membre.eglise.code,
+            "adresse_origine": membre.eglise.adresse_precise or "",
             "eglise_destinataire": destination.nom,
             "code_destination": destination.code,
+            "localite_destination": ", ".join(
+                str(v) for v in [
+                    getattr(destination.commune, "nom", None) if destination.commune_id else None,
+                    getattr(destination.district, "nom", None) if destination.district_id else None,
+                    getattr(destination.prefecture, "nom", None) if destination.prefecture_id else None,
+                ] if v
+            ),
             "contenu": contenu,
             "word_importe": bool(request.FILES.get("fichier_word")),
-            "message": "Aperçu uniquement : le courrier n'est pas encore enregistré.",
+            "message": "Aperçu généré : les données personnelles sont remplies automatiquement. Aucun enregistrement n'est effectué avant validation.",
         })
 
     def create(self, request, *args, **kwargs):

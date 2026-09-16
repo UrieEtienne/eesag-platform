@@ -22,7 +22,11 @@ def is_bureau_general(user):
 
 class FonctionnalitesView(APIView):
     permission_classes = [IsAuthenticated]
+
     def get(self, request):
+        if not is_coordinator(request.user):
+            return Response({"detail": "Cette section est réservée au Coordinateur du système."}, status=403)
+
         ensure_default_features()
         bureau_admin = assigned_bureau(request.user)
         scope = "GLOBAL" if is_coordinator(request.user) else "BUREAU" if bureau_admin else "EGLISE" if request.user.eglise_id else "NATIONAL"
@@ -43,42 +47,28 @@ class FonctionnalitesView(APIView):
 
 class FonctionnaliteToggleView(APIView):
     permission_classes = [IsAuthenticated]
+
     def post(self, request, code):
+        if not is_coordinator(request.user):
+            return Response(
+                {"detail": "Seul le Coordinateur peut activer ou désactiver une fonctionnalité globale."},
+                status=403,
+            )
+
         ensure_default_features()
         feature = FonctionnaliteSysteme.objects.filter(code=code).first()
         if not feature:
             return Response({"detail": "Fonctionnalité inconnue."}, status=404)
+
         actif = bool(request.data.get("actif", True))
-        if is_coordinator(request.user):
-            feature.actif_global = actif
-            feature.save(update_fields=["actif_global"])
-            return Response({"code": code, "actif": actif, "scope": "GLOBAL"})
+        feature.actif_global = actif
+        feature.save(update_fields=["actif_global"])
 
-        # Une fonctionnalité désactivée globalement est un verrou propriétaire.
-        # Aucun bureau ou église ne peut la réactiver.
-        if not feature.actif_global and actif:
-            return Response(
-                {"detail": "Cette fonctionnalité est désactivée par le Coordinateur. Seul le propriétaire du système peut la réactiver.", "scope": "GLOBAL"},
-                status=403,
-            )
-
-        bureau_admin = assigned_bureau(request.user)
-        if bureau_admin:
-            target_kwargs = {"bureau": bureau_admin.bureau, "eglise": None}
-            scope = "BUREAU"
-        elif request.user.role in (Role.ADMIN_LOCAL, Role.PASTEUR) and request.user.eglise_id:
-            target_kwargs = {"eglise": request.user.eglise, "bureau": None}
-            scope = "EGLISE"
-        else:
-            return Response({"detail": "Vous n'avez pas le droit de modifier les fonctionnalités."}, status=403)
-
-        activation, _ = ActivationFonctionnalite.objects.get_or_create(
-            fonctionnalite=feature, **target_kwargs
-        )
-        activation.actif = actif
-        activation.active_par = request.user
-        activation.save()
-        return Response({"code": code, "actif": feature_active(code, user=request.user), "scope": scope})
+        return Response({
+            "code": code,
+            "actif": actif,
+            "scope": "GLOBAL",
+        })
 
 
 class AnnoncesView(APIView):

@@ -14,6 +14,7 @@ export default function Systeme() {
     .catch((e) => setErreur(e.response?.data?.detail || "Impossible de charger les fonctionnalités."));
 
   useEffect(() => {
+    if (!estCoordinateur) return;
     charger();
     client.get("/systeme/offres-mise-a-jour/")
       .then((r) => setOffres(Array.isArray(r.data) ? r.data : []))
@@ -32,6 +33,8 @@ export default function Systeme() {
       setErreur(e.response?.data?.detail || "Modification refusée.");
     }
   };
+
+  if (!estCoordinateur) return null;
 
   return (
     <div className="system-page">

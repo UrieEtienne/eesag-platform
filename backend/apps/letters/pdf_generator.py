@@ -83,11 +83,31 @@ def generer_pdf_courrier(courrier) -> ContentFile:
             styles["CorpsTexte"],
         ))
     if courrier.membre_concerne:
-        elements.append(Paragraph(
-            f"<b>Concernant :</b> {courrier.membre_concerne.prenom} {courrier.membre_concerne.nom} "
-            f"(Identifiant : {courrier.membre_concerne.identifiant})",
-            styles["CorpsTexte"],
-        ))
+        membre = courrier.membre_concerne
+        identity_rows = [
+            ["Nom complet", f"{membre.prenom} {membre.nom}"],
+            ["Identifiant", membre.identifiant or "—"],
+            ["Téléphone", membre.telephone or "—"],
+            ["Fonction", membre.get_fonction_eglise_display() or "Membre"],
+        ]
+        if membre.departement:
+            identity_rows.append(["Département", membre.departement.nom])
+        if membre.role_eglise:
+            identity_rows.append(["Rôle dans l'église", membre.role_eglise.nom])
+        table = Table(identity_rows, colWidths=[4.0 * cm, 12.0 * cm], hAlign="LEFT")
+        table.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (0, -1), colors.HexColor("#eef3f7")),
+            ("TEXTCOLOR", (0, 0), (0, -1), colors.HexColor("#17324d")),
+            ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"),
+            ("FONTNAME", (1, 0), (1, -1), "Helvetica"),
+            ("FONTSIZE", (0, 0), (-1, -1), 9),
+            ("GRID", (0, 0), (-1, -1), 0.35, colors.HexColor("#cad5df")),
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("TOPPADDING", (0, 0), (-1, -1), 5),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+        ]))
+        elements.append(table)
+        elements.append(Spacer(1, 10))
 
     elements.append(Paragraph(f"<b>Objet :</b> {courrier.objet}", styles["CorpsTexte"]))
     elements.append(Spacer(1, 10))
@@ -125,10 +145,9 @@ def texte_exemple(type_courrier: str, nom_cible: str = "") -> str:
         )
     if type_courrier == "RECOMMANDATION":
         return (
-            f"Nous soussignés attestons que {nom_cible or '[Nom du membre]'} est un membre actif et "
-            "en règle au sein de notre communauté.\n\n"
-            "Nous le/la recommandons auprès de qui de droit pour toute démarche nécessitant une "
-            "attestation de bonne conduite et d'appartenance à notre église.\n\n"
-            "[Texte à modifier selon le contexte précis de la recommandation.]"
+            f"Nous soussignés attestons que {nom_cible or '[Nom complet du membre]'} appartient régulièrement à notre communauté et y est connu(e) comme membre actif(ve).\n\n"
+            "Dans le cadre de son déplacement vers une autre localité, nous le/la recommandons fraternellemment auprès de l'église destinataire et sollicitons son accueil, son accompagnement pastoral et son intégration dans la nouvelle communauté.\n\n"
+            "Les informations d'identification et d'appartenance sont complétées automatiquement à partir du dossier EESAG. Le pasteur peut personnaliser ce passage avant validation finale.\n\n"
+            "[Ajouter ici, si nécessaire, le motif ou les circonstances particulières du déplacement.]"
         )
     return "[Contenu à rédiger]"

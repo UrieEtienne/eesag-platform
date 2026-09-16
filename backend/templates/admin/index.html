@@ -7,7 +7,7 @@
 {% platform_metrics as metrics %}
 <div class="ecg-dashboard-heading">
   <div><span class="ecg-eyebrow">CENTRE DE CONTRÔLE EESAG</span><h1>Tableau de bord</h1><p>Interface adaptée à votre périmètre et à vos habilitations.</p></div>
-  <div class="ecg-dashboard-actions"><a class="ecg-button" href="/">Ouvrir l'application</a></div>
+  <div class="ecg-dashboard-actions"><a class="ecg-button" href="/">Ouvrir l'application</a>{% if user.role == 'COORDINATEUR' or user.role == 'SUPERADMIN_INTL' or user.role == 'SUPERADMIN_NATIONAL' %}<a class="ecg-button ecg-button-secondary" href="{% url 'admin:accounts_utilisateur_changelist' %}?actif__exact=0">Comptes en attente</a>{% endif %}</div>
 </div>
 
 {% if user.role == 'COORDINATEUR' or user.is_superuser %}

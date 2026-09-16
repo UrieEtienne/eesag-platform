@@ -78,6 +78,11 @@ class UtilisateurAdminForm(forms.ModelForm):
             ]
 
         self.fields["role"].empty_label = None
+        # L'église locale peut gérer les informations de ses comptes,
+        # mais ne peut jamais modifier l'état d'activation.
+        if user and is_local(user):
+            self.fields["actif"].disabled = True
+
 
     def clean(self):
         cleaned = super().clean()
@@ -184,8 +189,60 @@ class UtilisateurAdmin(EESAGScopedAdminMixin, admin.ModelAdmin):
 
         return RequestAwareForm
 
+    @admin.action(description="Activer les comptes en attente")
+    def activer_comptes_en_attente(self, request, queryset):
+        if not (is_coordinator(request.user) or is_national_general(request.user)):
+            self.message_user(
+                request,
+                "Seul le Coordinateur ou le Bureau national peut activer un compte.",
+                level=messages.ERROR,
+            )
+            return
+        qs = queryset.filter(actif=False).exclude(role=Role.COORDINATEUR)
+        count = qs.update(actif=True)
+        self.message_user(
+            request,
+            f"{count} compte(s) activé(s).",
+            level=messages.SUCCESS,
+        )
+
+    @admin.action(description="Désactiver les comptes sélectionnés")
+    def desactiver_comptes(self, request, queryset):
+        if not (is_coordinator(request.user) or is_national_general(request.user)):
+            self.message_user(
+                request,
+                "Seul le Coordinateur ou le Bureau national peut désactiver un compte.",
+                level=messages.ERROR,
+            )
+            return
+        qs = queryset.exclude(role=Role.COORDINATEUR)
+        count = qs.update(actif=False)
+        self.message_user(
+            request,
+            f"{count} compte(s) désactivé(s).",
+            level=messages.SUCCESS,
+        )
+
+    def get_actions(self, request):
+        actions = super().get_actions(request)
+        if not (is_coordinator(request.user) or is_national_general(request.user)):
+            actions.pop("activer_comptes_en_attente", None)
+            actions.pop("desactiver_comptes", None)
+        return actions
+
+    def get_list_display(self, request):
+        base = (
+            "miniature", "identifiant", "nom_complet", "role",
+            "eglise", "telephone", "actif"
+        )
+        if is_coordinator(request.user):
+            return base + ("fonction_bureau_national", "is_staff")
+        return base
+
     def get_fieldsets(self, request, obj=None):
         fields_status = ("actif", "is_staff", "is_superuser") if is_coordinator(request.user) else ("actif", "is_staff")
+        if is_national_general(request.user):
+            fields_status = ("actif", "is_staff")
         return (
             ("Identité", {"fields": ("identifiant", "nom", "prenom", "sexe", "date_naissance", "nationalite", "photo")} ),
             ("Contact", {"fields": ("telephone", "email")} ),
@@ -195,6 +252,14 @@ class UtilisateurAdmin(EESAGScopedAdminMixin, admin.ModelAdmin):
             ("Statut technique", {"fields": fields_status} ),
             ("Historique", {"fields": ("last_login", "date_enregistrement")} ),
         )
+
+    def get_readonly_fields(self, request, obj=None):
+        fields = list(self.readonly_fields)
+        if is_local(request.user) and "actif" not in fields:
+            fields.append("actif")
+        if not is_coordinator(request.user) and "is_superuser" in fields:
+            fields.remove("is_superuser")
+        return tuple(fields)
 
     def miniature(self, obj):
         if not obj.photo:
@@ -210,16 +275,22 @@ class UtilisateurAdmin(EESAGScopedAdminMixin, admin.ModelAdmin):
     nom_complet.short_description = "Nom complet"
 
     def get_queryset(self, request):
-        qs = super().get_queryset(request).select_related("eglise", "departement", "role_eglise")
+        qs = super().get_queryset(request).select_related(
+            "eglise", "departement", "role_eglise"
+        )
 
         if is_coordinator(request.user):
             return qs.exclude(role=Role.COORDINATEUR)
 
         if is_national_general(request.user):
+            # Le Bureau national général ne voit ici que les comptes de gestion
+            # des églises. Les membres ordinaires restent dans le périmètre local.
             return qs.filter(role__in=[Role.ADMIN_LOCAL, Role.PASTEUR]).exclude(role=Role.COORDINATEUR)
 
         if is_local(request.user):
-            return qs.filter(eglise_id=request.user.eglise_id).exclude(role=Role.COORDINATEUR)
+            return qs.filter(
+                eglise_id=request.user.eglise_id
+            ).exclude(role=Role.COORDINATEUR)
 
         return qs.none()
 
@@ -238,14 +309,26 @@ class UtilisateurAdmin(EESAGScopedAdminMixin, admin.ModelAdmin):
             return obj.role != Role.COORDINATEUR
         if is_national_general(request.user):
             return obj.role in (Role.ADMIN_LOCAL, Role.PASTEUR)
-        return obj.eglise_id == request.user.eglise_id and obj.role not in ROLES_NATIONAUX
+        # L'église locale ne peut jamais modifier l'état actif directement.
+        return (
+            obj.eglise_id == request.user.eglise_id
+            and obj.role not in ROLES_NATIONAUX
+        )
 
     def save_model(self, request, obj, form, change):
         with transaction.atomic():
+            if is_local(request.user):
+                if change:
+                    previous = Utilisateur.objects.get(pk=obj.pk)
+                    obj.actif = previous.actif
+                else:
+                    obj.actif = False
+            elif is_national_general(request.user):
+                # Le Bureau national peut activer/désactiver, mais pas créer
+                # un compte déjà actif par défaut pour une nouvelle création.
+                if not change:
+                    obj.actif = False
             super().save_model(request, obj, form, change)
-            if not change and obj.role in (Role.ADMIN_LOCAL, Role.PASTEUR):
-                obj.actif = False
-                obj.save(update_fields=["actif"])
 
 
 @admin.register(Utilisateur)
