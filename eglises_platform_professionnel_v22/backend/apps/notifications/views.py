@@ -5,7 +5,6 @@ from rest_framework.response import Response
 
 from apps.accounts.models import ROLES_NATIONAUX, ROLES_GESTION_EGLISE, ROLES_BUREAU_NATIONAL, Role
 from apps.accounts.permissions import EstAdminLocalOuPlus
-from apps.bureaux.views import a_droit_bureau
 from apps.bureaux.models import BureauAdministrateur
 from .models import Notification, Publication, DiffusionNotification
 from .serializers import NotificationSerializer, PublicationSerializer

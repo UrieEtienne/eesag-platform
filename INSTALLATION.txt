@@ -1,0 +1,73 @@
+EESAG — Correction espaces des églises locales
+===============================================
+
+Cette archive corrige le frontend pour :
+
+1. Membres
+   - page robuste même si l'API renvoie une erreur ;
+   - recherche des membres ;
+   - création réservée au gestionnaire de l'église ;
+   - périmètre limité à l'église de l'utilisateur.
+
+2. Départements
+   - création ;
+   - affichage du nombre de membres ;
+   - modification ;
+   - suppression ;
+   - périmètre limité à l'église connectée.
+
+3. Annexes
+   - création ;
+   - affichage ;
+   - modification ;
+   - suppression ;
+   - périmètre limité à l'église connectée.
+
+4. Bureau interne
+   - /bureaux est désormais réservé aux rôles nationaux ;
+   - un ADMIN_LOCAL ou PASTEUR ne peut plus ouvrir cet espace ;
+   - le lien de navigation doit être masqué pour les utilisateurs locaux.
+
+5. Fonctionnalités
+   - RouteProtegee ne bloque plus une page avec un paramètre feature ;
+   - les restrictions de rôle restent actives.
+
+Fichiers à remplacer
+--------------------
+frontend/src/App.
+frontend/src/components/RouteProtegee.
+frontend/src/pages/Membres.
+frontend/src/pages/Departements.
+frontend/src/pages/Annexes.
+
+IMPORTANT — Layout.
+----------------------
+Le lien « Bureaux » de Layout. doit être affiché uniquement pour les rôles
+nationaux. Comme Layout. n'a pas été fourni dans la conversation, un script
+apply_layout_fix.py est inclus pour effectuer automatiquement la modification
+sur le fichier existant.
+
+Installation
+------------
+Depuis : ~/Documents/Eglise AD/eglises_platform
+
+1) Décompresser l'archive.
+2) Copier les 5 fichiers dans frontend/src/ en respectant les dossiers.
+3) Exécuter :
+
+   python apply_layout_fix.py
+
+4) Puis :
+
+   cd frontend
+   npm run build
+   npm run dev
+
+5) Dans le navigateur : Ctrl+Shift+R
+
+Note backend
+------------
+Les pages Départements et Annexes utilisent PATCH et DELETE pour la modification
+et la suppression. Si votre ViewSet Django n'autorise pas ces méthodes, la
+création et l'affichage continueront de fonctionner, mais il faudra ajouter les
+actions correspondantes côté API.

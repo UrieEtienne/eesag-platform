@@ -33,7 +33,9 @@ export default function Finances() {
 
   const labelPerimetre = () => {
     if (resume?.perimetre?.type === "GLOBAL") return "Réseau EESAG · Coordinateur";
-    if (resume?.perimetre?.type === "BUREAU") return `Bureau · ${resume.perimetre.bureau_nom || "mon bureau"}`;
+    if (resume?.perimetre?.type === "BUREAU") {
+  return `Bureau · ${resume.perimetre.bureau_nom || "mon bureau"}`;
+}
     if (resume?.perimetre?.type === "NATIONAL") return "Bureau national";
     return utilisateur?.eglise_nom || "Mon église";
   };

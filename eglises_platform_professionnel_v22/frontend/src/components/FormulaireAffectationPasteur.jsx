@@ -18,7 +18,7 @@ export default function FormulaireAffectationPasteur({ egliseId, onFerme, onAffe
   const confirmer = async () => {
     setErreur("");
     try {
-      await client.post(`/eglises/${egliseId}/affecter_pasteur/`, { utilisateur_id: selectionne.id });
+      await client.post(/eglises/${egliseId}/affecter_pasteur/, { utilisateur_id: selectionne.id });
       onAffecte();
     } catch (err) {
       setErreur("Erreur lors de l'affectation.");

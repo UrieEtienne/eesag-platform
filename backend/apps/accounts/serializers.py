@@ -96,7 +96,12 @@ class CreerUtilisateurSerializer(serializers.ModelSerializer):
         role = attrs.get("role", Role.MEMBRE)
         if demandeur.role == Role.MEMBRE:
             raise serializers.ValidationError({"role": "Un membre ne peut pas créer de compte."})
-        if demandeur.role == Role.ADMIN_LOCAL and role not in [Role.MEMBRE, Role.RESPONSABLE_DEPARTEMENT]:
+        if demandeur.role == Role.ADMIN_LOCAL and role not in [
+            Role.ADMIN_LOCAL,
+            Role.PASTEUR,
+            Role.RESPONSABLE_DEPARTEMENT,
+            Role.MEMBRE,
+        ]:
             raise serializers.ValidationError({"role": "Vous n'avez pas le droit de créer ce rôle."})
         if demandeur.role == Role.PASTEUR and role not in [Role.MEMBRE, Role.RESPONSABLE_DEPARTEMENT, Role.ADMIN_LOCAL]:
             raise serializers.ValidationError({"role": "Le pasteur peut créer des membres, responsables de département et administrateurs locaux délégués."})

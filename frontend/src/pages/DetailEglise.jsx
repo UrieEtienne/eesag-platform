@@ -57,7 +57,7 @@ export default function DetailEglise() {
 
       <div className="carte">
         <p><b>Religion :</b> {eglise.religion_nom} &nbsp;|&nbsp; <b>Statut :</b> {eglise.statut}</p>
-        <p><b>Localisation :</b> {eglise.region_nom} &gt; {eglise.prefecture_nom} &gt; {eglise.district_nom} {eglise.commune_nom ? `> ${eglise.commune_nom}` : ""}</p>
+        <p><b>Localisation :</b> {eglise.region_nom} &gt; {eglise.prefecture_nom} &gt; {eglise.district_nom} {eglise.commune_nom ? ` > ${eglise.commune_nom}` : ""}</p>
         <p><b>Adresse :</b> {eglise.adresse_precise || "—"} &nbsp;|&nbsp; <b>Téléphone :</b> {eglise.telephone || "—"}</p>
         <p><b>Responsable actuel :</b> {eglise.responsable_nom || "Aucun pasteur affecté"}</p>
       </div>

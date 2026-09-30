@@ -90,7 +90,7 @@ def _data_rapport(user, debut, fin, inclure_membres, inclure_finances, inclure_p
         membres = Utilisateur.objects.filter(eglise_id=scope["eglise_id"], actif=True)
         operations = Transaction.objects.filter(eglise_id=scope["eglise_id"], date_transaction__range=(debut, fin))
         projets = Projet.objects.filter(eglise_id=scope["eglise_id"])
-        meta = Eglise.objects.select_related("religion", "region", "prefecture", "district", "commune", "responsable").get(pk=scope["eglise_id"])
+        meta = Eglise.objects.select_related("region", "prefecture", "district", "commune", "responsable").get(pk=scope["eglise_id"])
         label = meta.nom
     elif scope["type"] == "BUREAU":
         membres = Utilisateur.objects.filter(actif=True, mandats_bureaux__bureau_id=scope["bureau_id"], mandats_bureaux__actif=True).distinct()

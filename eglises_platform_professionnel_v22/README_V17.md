@@ -7,12 +7,12 @@ Cette version renforce l'isolation des espaces et la gestion par structure.
 - Un administrateur de bureau national ne voit et ne gère que le bureau qui lui est attribué.
 - Un bureau local est limité à l'église concernée.
 - La composition des bureaux est annuelle et inclut photo, nom, identifiant et poste.
-- Le Bureau National générique est créé automatiquement au premier `post_migrate`.
+- Le Bureau National générique est créé automatiquement au premier post_migrate.
 
 ## Courriers
 - Lettre de recommandation : création, aperçu, personnalisation Word et envoi réservés au pasteur.
 - Le pasteur de l'église destinataire réceptionne le courrier.
-- Les marqueurs Word `{{NOM}}`, `{{PRENOM}}`, `{{NOM_COMPLET}}`, `{{IDENTIFIANT}}`, `{{TELEPHONE}}`, `{{FONCTION}}`, `{{EGLISE}}`, `{{CODE_EGLISE}}`, `{{EGLISE_DESTINATION}}`, `{{CODE_EGLISE_DESTINATION}}`, `{{DATE}}` peuvent être remplacés automatiquement.
+- Les marqueurs Word {{NOM}}, {{PRENOM}}, {{NOM_COMPLET}}, {{IDENTIFIANT}}, {{TELEPHONE}}, {{FONCTION}}, {{EGLISE}}, {{CODE_EGLISE}}, {{EGLISE_DESTINATION}}, {{CODE_EGLISE_DESTINATION}}, {{DATE}} peuvent être remplacés automatiquement.
 
 ## Finances et projets
 Le périmètre est déterminé côté serveur :

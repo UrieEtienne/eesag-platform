@@ -36,7 +36,8 @@ class InscriptionMembreForm(forms.ModelForm):
 
     def clean(self):
         cleaned=super().clean(); eglise=cleaned.get("eglise"); departement=cleaned.get("departement"); role_eglise=cleaned.get("role_eglise")
-        if eglise and departement and departement.eglise_id != eglise.id: self.add_error("departement","Le département sélectionné n'appartient pas à cette église.")
+        # Les départements sont actuellement un référentiel partagé ; le rattachement réel
+        # d'un membre à son église est porté par Utilisateur.eglise.
         if eglise and role_eglise and role_eglise.eglise_id != eglise.id: self.add_error("role_eglise","Le rôle sélectionné n'appartient pas à cette église.")
         return cleaned
 

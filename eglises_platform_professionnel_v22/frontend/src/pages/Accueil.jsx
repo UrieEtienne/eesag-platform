@@ -12,7 +12,7 @@ function formatDate(date) {
 }
 
 function initials(user) {
-  return `${user?.prenom?.[0] || ""}${user?.nom?.[0] || ""}`.toUpperCase();
+  return ${user?.prenom?.[0] || ""}${user?.nom?.[0] || ""}.toUpperCase();
 }
 
 export default function Accueil() {
@@ -45,13 +45,13 @@ export default function Accueil() {
 
   const unread = notifications.filter((n) => !n.lu).length;
   const recent = notifications.slice(0, 4);
-  const displayName = `${utilisateur?.prenom || ""} ${utilisateur?.nom || ""}`.trim();
+  const displayName = ${utilisateur?.prenom || ""} ${utilisateur?.nom || ""}.trim();
   const perimeter = estNational ? "Bureau national" : utilisateur?.eglise_nom || "Mon église";
 
   const kpis = useMemo(() => {
     if (estNational && stats) {
       return [
-        { label: "Églises actives", value: stats.nombre_eglises_actives ?? 0, meta: `${stats.nombre_eglises ?? 0} recensées`, tone: "cyan" },
+        { label: "Églises actives", value: stats.nombre_eglises_actives ?? 0, meta: ${stats.nombre_eglises ?? 0} recensées, tone: "cyan" },
         { label: "Membres actifs", value: stats.repartition_membres?.total ?? 0, meta: "Réseau national", tone: "blue" },
         { label: "Bureau national", value: stats.bureau_national?.length ?? 0, meta: "Membres en fonction", tone: "green" },
         { label: "Notifications", value: unread, meta: "À traiter", tone: "pink" },
@@ -115,7 +115,7 @@ export default function Accueil() {
               <div className="control-card-head"><span>NOTIFICATIONS</span><Link to="/notifications">Voir tout →</Link></div>
               <div className="notification-count"><strong>{unread}</strong><small>non lue(s)</small></div>
               <div className="notification-list-mini">
-                {recent.map((n) => <Link to="/notifications" key={n.id} className="mini-notif"><span className={`mini-dot ${n.lu ? "read" : ""}`} /><div><b>{n.titre}</b><small>{n.message}</small></div></Link>)}
+                {recent.map((n) => <Link to="/notifications" key={n.id} className="mini-notif"><span className={mini-dot ${n.lu ? "read" : ""}} /><div><b>{n.titre}</b><small>{n.message}</small></div></Link>)}
                 {!recent.length && <div className="console-empty">Aucune nouvelle notification.</div>}
               </div>
             </section>
@@ -130,7 +130,7 @@ export default function Accueil() {
               <div className="control-card-head"><span>INDICATEURS</span><span className="tiny-live">● TEMPS RÉEL</span></div>
               <div className="metric-dial-grid">
                 {kpis.map((kpi, index) => (
-                  <div className={`metric-dial tone-${kpi.tone}`} key={kpi.label}>
+                  <div className={metric-dial tone-${kpi.tone}} key={kpi.label}>
                     <div className="dial-circle"><b>{kpi.value}</b></div>
                     <strong>{kpi.label}</strong>
                     <small>{kpi.meta}</small>

@@ -29,7 +29,6 @@ class Eglise(models.Model):
 
     code = models.CharField(max_length=10, unique=True, editable=False)
     nom = models.CharField(max_length=200)
-    religion = models.ForeignKey(Religion, on_delete=models.PROTECT, related_name="eglises")
 
     region = models.ForeignKey("geo.Region", on_delete=models.PROTECT, related_name="eglises")
     prefecture = models.ForeignKey("geo.Prefecture", on_delete=models.PROTECT, related_name="eglises")

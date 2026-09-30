@@ -8,7 +8,7 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 from django_filters.rest_framework import DjangoFilterBackend
 
 from .models import (
-    Utilisateur, Role, ROLES_NATIONAUX, Abonnement, MandatBureauNational,
+    Utilisateur, Role, ROLES_NATIONAUX, ROLES_BUREAU_NATIONAL, Abonnement, MandatBureauNational,
     VerificationTelephone, PermissionEglise, DelegationEglise,
 )
 from .permissions import EstAdminLocalOuPlus, EstSuperAdminNationalOuPlus
@@ -17,7 +17,36 @@ from .serializers import (
     ChangerCodeSecretSerializer, AbonnementSerializer, InscriptionMembreSerializer, VerificationTelephoneSerializer, DelegationEgliseSerializer, PermissionEgliseSerializer, ProfilSerializer, MandatBureauNationalSerializer,
 )
 
+def _est_bureau_specifique(user):
+    """
+    Retourne True si l'utilisateur est rattaché à un bureau national spécialisé.
 
+    Le Bureau national général est un utilisateur national sans bureau
+    spécifique associé.
+    """
+    if not user or not user.is_authenticated:
+        return False
+
+    # Un utilisateur qui n'est pas un rôle national
+    # ne peut pas être considéré comme bureau spécifique.
+    if user.role not in {
+        Role.SUPERADMIN_INTL,
+        Role.SUPERADMIN_NATIONAL,
+    }:
+        return False
+
+    # Si l'utilisateur possède des bureaux nationaux associés,
+    # il s'agit d'un bureau spécialisé.
+    bureaux = getattr(user, "bureaux_nationaux", None)
+
+    if bureaux is None:
+        return False
+
+    try:
+        return bureaux.exists()
+    except AttributeError:
+        return False
+    
 class LoginView(TokenObtainPairView):
     """POST { identifiant, password } -> access, refresh, utilisateur."""
     serializer_class = LoginSerializer
@@ -63,6 +92,30 @@ class UtilisateurViewSet(viewsets.ModelViewSet):
             return CreerUtilisateurSerializer
         return UtilisateurSerializer
 
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(
+            data=request.data,
+            context={"request": request}
+        )
+        serializer.is_valid(raise_exception=True)
+        utilisateur = serializer.save()
+
+        return Response(
+            {
+                "detail": "Compte créé. Confirmez le numéro de téléphone pour terminer l'activation.",
+                "identifiant": utilisateur.identifiant,
+                "nom": f"{utilisateur.prenom} {utilisateur.nom}",
+                "role": utilisateur.role,
+                "role_libelle": utilisateur.get_role_display(),
+                "eglise": utilisateur.eglise.nom if utilisateur.eglise else None,
+                "utilisateur": UtilisateurSerializer(
+                    utilisateur,
+                    context={"request": request}
+                ).data,
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
     def get_queryset(self):
         user = self.request.user
         qs = Utilisateur.objects.select_related("eglise", "departement", "role_eglise")
@@ -77,6 +130,41 @@ class UtilisateurViewSet(viewsets.ModelViewSet):
             # Le Bureau national général ne gère que les comptes locaux d'églises.
             return qs.filter(role__in=[Role.ADMIN_LOCAL, Role.PASTEUR]).exclude(role=Role.COORDINATEUR)
         return qs.filter(eglise_id=user.eglise_id).exclude(role=Role.COORDINATEUR)
+
+
+    @action(detail=True, methods=["post"])
+    def activer(self, request, pk=None):
+        """Active plus tard un administrateur local/pasteur déjà créé."""
+        if not (request.user.role == Role.COORDINATEUR or (request.user.role in ROLES_BUREAU_NATIONAL and not _est_bureau_specifique(request.user))):
+            return Response({"detail": "Seul le Coordinateur ou le Bureau national général peut activer ce compte."}, status=status.HTTP_403_FORBIDDEN)
+
+        compte = self.get_object()
+        if compte.role not in (Role.ADMIN_LOCAL, Role.PASTEUR):
+            return Response({"detail": "Seuls les comptes administrateurs locaux ou pasteurs peuvent être activés ici."}, status=status.HTTP_400_BAD_REQUEST)
+        if not compte.eglise_id:
+            return Response({"detail": "Le compte doit être lié à une église."}, status=status.HTTP_400_BAD_REQUEST)
+        if not compte.eglise.plateforme_active:
+            return Response({"detail": "L'église doit d'abord être activée par le Bureau national."}, status=status.HTTP_400_BAD_REQUEST)
+
+        compte.actif = True
+        compte.is_staff = True
+        compte.save(update_fields=["actif", "is_staff"])
+        return Response(self.get_serializer(compte).data)
+
+    @action(detail=True, methods=["post"])
+    def desactiver(self, request, pk=None):
+        """Désactive ultérieurement un compte administrateur/pasteur."""
+        if not (request.user.role == Role.COORDINATEUR or (request.user.role in ROLES_BUREAU_NATIONAL and not _est_bureau_specifique(request.user))):
+            return Response({"detail": "Seul le Coordinateur ou le Bureau national général peut désactiver ce compte."}, status=status.HTTP_403_FORBIDDEN)
+
+        compte = self.get_object()
+        if compte.role not in (Role.ADMIN_LOCAL, Role.PASTEUR):
+            return Response({"detail": "Ce compte ne peut pas être désactivé depuis cette interface."}, status=status.HTTP_400_BAD_REQUEST)
+
+        compte.actif = False
+        compte.is_staff = False
+        compte.save(update_fields=["actif", "is_staff"])
+        return Response(self.get_serializer(compte).data)
 
 
 class RechercheMembreView(generics.ListAPIView):
@@ -242,12 +330,29 @@ class DelegationEgliseViewSet(viewsets.ModelViewSet):
 
     def _allowed(self):
         u = self.request.user
+
+        # Le Coordinateur du système possède tous les droits.
+        if u.role == Role.COORDINATEUR or u.is_superuser:
+            return True
+
+        # Bureau national général uniquement.
         if u.role in ROLES_NATIONAUX:
             return not _est_bureau_specifique(u)
+
+        # Le pasteur peut gérer les administrateurs de son église.
         if u.role == Role.PASTEUR:
-            return True
+            return bool(u.eglise_id)
+
+        # Administrateur local : uniquement si la permission lui est attribuée.
         if u.role == Role.ADMIN_LOCAL:
-            return u.delegation_eglise.permissions.filter(code="GESTION_ADMINISTRATEURS").exists() if hasattr(u, "delegation_eglise") else False
+            return (
+                bool(u.eglise_id)
+                and hasattr(u, "delegation_eglise")
+                and u.delegation_eglise.permissions.filter(
+                    code="GESTION_ADMINISTRATEURS"
+                ).exists()
+            )
+
         return False
 
     def get_permissions(self):

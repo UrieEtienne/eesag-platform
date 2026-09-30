@@ -37,7 +37,7 @@ class AssistantIAView(APIView):
             stats = {
                 "eglises_actives": 1,
                 "membres": Utilisateur.objects.filter(actif=True, eglise_id=eglise_id).count(),
-                "departements": Departement.objects.filter(eglise_id=eglise_id).count(),
+                "departements": Utilisateur.objects.filter(eglise_id=eglise_id, departement_id__isnull=False).values("departement_id").distinct().count(),
                 "notifications": Notification.objects.filter(eglise_id=eglise_id).count(),
             }
 

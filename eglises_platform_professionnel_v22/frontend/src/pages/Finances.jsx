@@ -33,7 +33,9 @@ export default function Finances() {
 
   const labelPerimetre = () => {
     if (resume?.perimetre?.type === "GLOBAL") return "Réseau EESAG · Coordinateur";
-    if (resume?.perimetre?.type === "BUREAU") return `Bureau · ${resume.perimetre.bureau_nom || "mon bureau"}`;
+    if (resume?.perimetre?.type === "BUREAU") {
+  return `Bureau · ${resume.perimetre.bureau_nom || "mon bureau"}`;
+}
     if (resume?.perimetre?.type === "NATIONAL") return "Bureau national";
     return utilisateur?.eglise_nom || "Mon église";
   };
@@ -42,9 +44,9 @@ export default function Finances() {
     try {
       const params = "?periode=annee&membres=1&finances=1&projets=1";
       let path = "/stats/rapport-national/";
-      if (resume?.perimetre?.type === "EGLISE") path = `/stats/rapport/${resume.perimetre.eglise_id}/`;
-      if (resume?.perimetre?.type === "BUREAU") path = `/stats/rapport-bureau/${resume.perimetre.bureau_id}/`;
-      const r = await client.get(`${path}${params}`, { responseType: "blob" });
+      if (resume?.perimetre?.type === "EGLISE") path = /stats/rapport/${resume.perimetre.eglise_id}/;
+      if (resume?.perimetre?.type === "BUREAU") path = /stats/rapport-bureau/${resume.perimetre.bureau_id}/;
+      const r = await client.get(${path}${params}, { responseType: "blob" });
       const url = URL.createObjectURL(r.data); const a = document.createElement("a"); a.href = url; a.download = "rapport-financier-eesag.pdf"; a.click(); URL.revokeObjectURL(url);
     } catch (err) { setErreur(err.response?.data?.detail || "Le rapport financier n’est pas disponible."); }
   };

@@ -1,0 +1,506 @@
+/* =========================================================
+   EESAG V32 — Interface Église locale
+   Ajouter ce fichier à app.css ou l'importer dans main..
+   ========================================================= */
+
+.local-nav-shell {
+  margin: 8px 10px 0;
+}
+
+.local-nav-title {
+  margin: 0 0 14px;
+  padding: 14px 15px;
+  border: 1px solid rgba(255,255,255,.10);
+  border-radius: 14px;
+  background: rgba(255,255,255,.045);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.03);
+}
+
+.local-nav-title span {
+  display: block;
+  margin-bottom: 6px;
+  color: #9fb2c7;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .14em;
+}
+
+.local-nav-title strong {
+  display: block;
+  color: #fff;
+  font-size: 14px;
+  line-height: 1.25;
+}
+
+.local-nav-title small {
+  display: inline-block;
+  margin-top: 7px;
+  color: #87a0b7;
+  font-size: 9px;
+  letter-spacing: .08em;
+}
+
+.local-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.local-nav-group-title {
+  display: block;
+  padding: 8px 12px 7px;
+  color: #7890a7;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .15em;
+}
+
+.local-nav-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-height: 40px;
+  gap: 11px;
+  padding: 8px 12px;
+  border-radius: 9px;
+  color: #d5e0eb;
+  text-decoration: none;
+  font-size: 12px;
+  transition: background .16s ease, color .16s ease, transform .16s ease;
+}
+
+.local-nav-item:hover {
+  color: #fff;
+  background: rgba(255,255,255,.065);
+  transform: translateX(1px);
+}
+
+.local-nav-item.active {
+  color: #fff;
+  background: linear-gradient(90deg, rgba(40,143,224,.20), rgba(40,143,224,.07));
+  box-shadow: inset 3px 0 0 #43a4e9;
+}
+
+.local-nav-icon {
+  display: grid;
+  width: 22px;
+  height: 22px;
+  flex: 0 0 22px;
+  place-items: center;
+  border-radius: 7px;
+  background: rgba(255,255,255,.055);
+  color: #b8cadb;
+  font-size: 13px;
+}
+
+.local-nav-item.active .local-nav-icon {
+  color: #fff;
+  background: rgba(67,164,233,.18);
+}
+
+.local-nav-label {
+  flex: 1;
+}
+
+.local-admin-zone {
+  margin-top: 12px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255,255,255,.08);
+}
+
+.local-nav-admin {
+  font-weight: 700;
+}
+
+.local-admin-badge {
+  padding: 3px 6px;
+  border: 1px solid rgba(255,255,255,.13);
+  border-radius: 999px;
+  color: #a8c6df;
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: .08em;
+}
+
+.page-admin-eglise .page-hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.admin-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin: 18px 0;
+}
+
+.admin-summary-card {
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 15px;
+  background: #fff;
+}
+
+.admin-summary-card strong {
+  display: block;
+  color: var(--navy);
+  font-size: 25px;
+}
+
+.admin-summary-card span {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.permissions-admin-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 16px 0 22px;
+}
+
+.permission-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  padding: 13px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fff;
+  cursor: pointer;
+  transition: border-color .15s ease, box-shadow .15s ease, transform .15s ease;
+}
+
+.permission-card:hover {
+  border-color: #b8c8d8;
+  box-shadow: 0 5px 18px rgba(18,45,70,.06);
+  transform: translateY(-1px);
+}
+
+.permission-card input {
+  margin-top: 3px;
+}
+
+.permission-card span {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.permission-card b {
+  color: var(--navy);
+  font-size: 12px;
+}
+
+.permission-card small {
+  color: var(--muted);
+  line-height: 1.4;
+  font-size: 10px;
+}
+
+.admin-modal {
+  width: min(850px, calc(100vw - 32px));
+  max-height: calc(100vh - 36px);
+  overflow: auto;
+}
+
+@media (max-width: 850px) {
+  .permissions-admin-grid,
+  .admin-summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .page-admin-eglise .page-hero {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+/* ============================================================
+   PHOTO DE PROFIL — ADMINISTRATEUR
+   ============================================================ */
+
+.photo-upload-zone {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  max-width: 380px;
+}
+
+
+/* ============================================================
+   PHOTO DANS LE FORMULAIRE — TRÈS PETITE
+   ============================================================ */
+
+.photo-upload-zone .photo-profile-preview {
+  width: 24px !important;
+  height: 24px !important;
+
+  min-width: 24px !important;
+  min-height: 24px !important;
+
+  max-width: 24px !important;
+  max-height: 24px !important;
+
+  flex: 0 0 24px !important;
+
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+
+  overflow: hidden !important;
+
+  border-radius: 50% !important;
+  border: 1px solid #d9e1e8;
+
+  background: #f3f6f9;
+
+  box-sizing: border-box !important;
+}
+
+
+/* ============================================================
+   IMAGE — 24 x 24 PX
+   ============================================================ */
+
+.photo-upload-zone .photo-profile-image,
+.photo-upload-zone img {
+  width: 24px !important;
+  height: 24px !important;
+
+  min-width: 24px !important;
+  min-height: 24px !important;
+
+  max-width: 24px !important;
+  max-height: 24px !important;
+
+  margin: 0 !important;
+  padding: 0 !important;
+
+  display: block !important;
+
+  object-fit: cover !important;
+  object-position: center !important;
+
+  border-radius: 50% !important;
+
+  box-sizing: border-box !important;
+}
+
+
+/* ============================================================
+   AVATAR VIDE — 24 x 24 PX
+   ============================================================ */
+
+.photo-upload-zone .photo-profile-placeholder {
+  width: 24px !important;
+  height: 24px !important;
+
+  min-width: 24px !important;
+  min-height: 24px !important;
+
+  max-width: 24px !important;
+  max-height: 24px !important;
+
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+
+  border-radius: 50% !important;
+
+  box-sizing: border-box !important;
+}
+
+.photo-upload-zone .photo-profile-placeholder span {
+  font-size: 11px !important;
+  line-height: 1 !important;
+}
+
+
+/* ============================================================
+   COMMANDES PHOTO
+   ============================================================ */
+
+.photo-upload-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+
+  gap: 3px;
+
+  min-width: 0;
+}
+
+.photo-upload-actions small {
+  max-width: 240px;
+
+  color: var(--muted);
+
+  font-size: 9px;
+  line-height: 1.3;
+}
+
+
+/* ============================================================
+   PHOTO DANS LA LISTE DES ADMINISTRATEURS — 20 x 20 PX
+   ============================================================ */
+
+.admin-avatar {
+  width: 20px !important;
+  height: 20px !important;
+
+  min-width: 20px !important;
+  min-height: 20px !important;
+
+  max-width: 20px !important;
+  max-height: 20px !important;
+
+  margin: 0 !important;
+  padding: 0 !important;
+
+  display: block !important;
+
+  flex: 0 0 20px !important;
+
+  border-radius: 50% !important;
+
+  object-fit: cover !important;
+  object-position: center !important;
+
+  box-sizing: border-box !important;
+}
+
+
+/* ============================================================
+   AVATAR SANS PHOTO
+   ============================================================ */
+
+.admin-avatar-placeholder {
+  width: 20px !important;
+  height: 20px !important;
+
+  min-width: 20px !important;
+  min-height: 20px !important;
+
+  max-width: 20px !important;
+  max-height: 20px !important;
+
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+
+  flex: 0 0 20px !important;
+
+  border-radius: 50% !important;
+
+  font-size: 8px !important;
+  font-weight: 700 !important;
+
+  box-sizing: border-box !important;
+}
+
+
+/* ============================================================
+   MODALE ADMINISTRATEUR
+   ============================================================ */
+
+.admin-modal {
+  width: min(680px, calc(100vw - 32px));
+  max-width: 680px;
+
+  max-height: calc(100vh - 36px);
+
+  overflow-y: auto;
+  overflow-x: hidden;
+
+  box-sizing: border-box;
+}
+
+/* ============================================================
+   RÉSULTAT APRÈS CRÉATION DU COMPTE
+   ============================================================ */
+
+.creation-success-card {
+  border: 1px solid #cfe8d5;
+}
+
+.creation-resultat {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 14px 0;
+}
+
+.creation-resultat > div {
+  padding: 10px;
+  border: 1px solid #e4e9ee;
+  border-radius: 8px;
+  background: #fafbfc;
+}
+
+.creation-resultat span {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 10px;
+  color: var(--muted);
+}
+
+.creation-resultat strong {
+  display: block;
+  font-size: 13px;
+}
+
+.creation-resultat .identifiant-resultat {
+  grid-column: 1 / -1;
+  background: #f4f8fc;
+}
+
+.creation-resultat .identifiant-resultat strong {
+  font-size: 18px;
+  letter-spacing: 0.4px;
+}
+
+
+/* ============================================================
+   SELECT DU RÔLE
+   ============================================================ */
+
+.form-champ select {
+  width: 100%;
+  min-height: 40px;
+  padding: 8px 10px;
+
+  border: 1px solid #d9e1e8;
+  border-radius: 7px;
+
+  background: #fff;
+  color: inherit;
+
+  font: inherit;
+
+  box-sizing: border-box;
+}
+
+.form-champ select:focus {
+  outline: none;
+  border-color: #7a9bb8;
+}
+
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+
+@media (max-width: 640px) {
+  .creation-resultat {
+    grid-template-columns: 1fr;
+  }
+
+  .creation-resultat .identifiant-resultat {
+    grid-column: auto;
+  }
+}

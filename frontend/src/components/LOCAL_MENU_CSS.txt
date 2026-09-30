@@ -1,0 +1,13 @@
+/* A ajouter dans frontend/src/styles/app.css */
+.menu-eglise-locale { display:flex; flex-direction:column; gap:4px; }
+.menu-eglise-locale .menu-item { display:flex; align-items:center; gap:10px; text-decoration:none; }
+.menu-eglise-locale .menu-item .menu-icon { width:22px; text-align:center; }
+.menu-eglise-locale .menu-item.menu-admin { margin-top:10px; border-top:1px solid var(--line); padding-top:12px; font-weight:700; }
+.permissions-admin-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; margin:14px 0 20px; }
+.permission-card { display:flex; gap:12px; align-items:flex-start; padding:14px; border:1px solid var(--line); border-radius:12px; background:#fff; cursor:pointer; }
+.permission-card.disabled { opacity:.55; cursor:not-allowed; }
+.permission-card input { margin-top:3px; }
+.permission-card span { display:flex; flex-direction:column; gap:4px; }
+.permission-card small { color:var(--muted); line-height:1.4; }
+.permission-card em { color:#a26f00; font-size:11px; font-style:normal; }
+@media (max-width:800px) { .permissions-admin-grid { grid-template-columns:1fr; } }

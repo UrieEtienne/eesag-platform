@@ -1,10 +1,52 @@
 from rest_framework.routers import DefaultRouter
-from .views import BureauViewSet, BureauMembreMandatViewSet, BureauAdministrateurViewSet, BureauMembreIndependantViewSet
+
+from .views import (
+    BureauViewSet,
+    BureauMembreMandatViewSet,
+    BureauAdministrateurViewSet,
+    BureauMembreIndependantViewSet,
+    BureauZoneViewSet,
+    BureauZonalViewSet,
+)
+
 
 router = DefaultRouter()
-router.register(r"bureaux", BureauViewSet, basename="bureaux")
-router.register(r"bureau-membres", BureauMembreMandatViewSet, basename="bureau-membres")
-router.register(r"bureau-administrateurs", BureauAdministrateurViewSet, basename="bureau-administrateurs")
-router.register(r"bureau-membres-independants", BureauMembreIndependantViewSet, basename="bureau-membres-independants")
+
+router.register(
+    r"bureaux",
+    BureauViewSet,
+    basename="bureaux",
+)
+
+router.register(
+    r"bureau-membres",
+    BureauMembreMandatViewSet,
+    basename="bureau-membres",
+)
+
+router.register(
+    r"bureau-administrateurs",
+    BureauAdministrateurViewSet,
+    basename="bureau-administrateurs",
+)
+
+router.register(
+    r"bureau-membres-independants",
+    BureauMembreIndependantViewSet,
+    basename="bureau-membres-independants",
+)
+
+router.register(
+    r"bureau-zones",
+    BureauZoneViewSet,
+    basename="bureau-zones",
+)
+
+router.register(
+    r"bureaux-zonaux",
+    BureauZonalViewSet,
+    basename="bureaux-zonaux",
+)
+
 
 urlpatterns = router.urls

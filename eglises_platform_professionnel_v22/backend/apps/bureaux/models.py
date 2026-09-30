@@ -8,17 +8,17 @@ class NiveauBureau(models.TextChoices):
 
 
 class TypeBureau(models.TextChoices):
+    GENERAL = "GENERAL", "Bureau national des hommes"
+
     FEMMES = "FEMMES", "Bureau national des femmes"
-    JEUNESSE = "JEUNESSE", "Bureau national de la jeunesse"
+    JEUNESSE = "JEUNESSE", "Bureau national des jeunes"
     ENFANTS = "ENFANTS", "Bureau national des enfants"
+
     EVANGELISATION = "EVANGELISATION", "Équipe nationale d'évangélisation"
-    HOMMES = "HOMMES", "Bureau national des hommes"
-    FAMILLES = "FAMILLES", "Bureau national des familles"
     COMMUNICATION = "COMMUNICATION", "Bureau de la communication"
     MUSIQUE = "MUSIQUE", "Bureau de la musique / chorale"
     MISSIONS = "MISSIONS", "Bureau des missions"
     AUTRE = "AUTRE", "Autre bureau / commission"
-
 
 class Bureau(models.Model):
     """Espace de gouvernance indépendant : national ou interne à une église."""

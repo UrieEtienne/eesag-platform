@@ -1,6 +1,9 @@
 from datetime import date, timedelta
 
+from django.db import OperationalError
 from django.db.models import Count, Q, Sum
+from django.core.exceptions import FieldError
+from django.db.models.functions import TruncMonth
 from django.http import HttpResponse
 from django.utils import timezone
 from django.utils.dateparse import parse_date
@@ -90,7 +93,7 @@ def _data_rapport(user, debut, fin, inclure_membres, inclure_finances, inclure_p
         membres = Utilisateur.objects.filter(eglise_id=scope["eglise_id"], actif=True)
         operations = Transaction.objects.filter(eglise_id=scope["eglise_id"], date_transaction__range=(debut, fin))
         projets = Projet.objects.filter(eglise_id=scope["eglise_id"])
-        meta = Eglise.objects.select_related("religion", "region", "prefecture", "district", "commune", "responsable").get(pk=scope["eglise_id"])
+        meta = Eglise.objects.select_related("region", "prefecture", "district", "commune", "responsable").get(pk=scope["eglise_id"])
         label = meta.nom
     elif scope["type"] == "BUREAU":
         membres = Utilisateur.objects.filter(actif=True, mandats_bureaux__bureau_id=scope["bureau_id"], mandats_bureaux__actif=True).distinct()
@@ -180,22 +183,140 @@ def _rapport_pdf(data):
     return response
 
 
+def _safe_documents_count():
+    try:
+        from django.apps import apps
+        from apps.documents.models import Document
+        return Document.objects.filter(
+            Q(eglise_expediteur__isnull=False) | Q(destinataires__isnull=False)
+        ).distinct().count()
+    except (LookupError, AttributeError, TypeError, FieldError, OperationalError):
+        return 0
+
+
+def _safe_count_model(app_label, model_name, **filters):
+    try:
+        from django.apps import apps
+        model = apps.get_model(app_label, model_name)
+        return model.objects.filter(**filters).count()
+    except (LookupError, AttributeError, TypeError, FieldError, OperationalError):
+        return 0
+
+
 class StatistiquesNationalesView(APIView):
     permission_classes = [IsAuthenticated]
+
     def get(self, request):
         if not _est_coordinateur(request.user) and not _est_national_general(request.user):
-            return Response({"detail": "Les statistiques nationales sont réservées au Coordinateur ou au Bureau national général."}, status=403)
-        eglises = Eglise.objects.all(); membres = Utilisateur.objects.filter(actif=True)
-        operations = Transaction.objects.all() if _est_coordinateur(request.user) else Transaction.objects.filter(eglise__isnull=True, bureau__isnull=True)
+            return Response({
+                "detail": "Les statistiques nationales sont réservées au Coordinateur ou au Bureau national général."
+            }, status=403)
+
+        eglises = Eglise.objects.all()
+        membres_eglises = Utilisateur.objects.filter(actif=True, eglise__isnull=False)
+        comptes_admin_eglises = Utilisateur.objects.filter(
+            role__in=[Role.ADMIN_LOCAL, Role.PASTEUR],
+            eglise__isnull=False,
+        )
+        operations = (
+            Transaction.objects.all()
+            if _est_coordinateur(request.user)
+            else Transaction.objects.filter(eglise__isnull=True, bureau__isnull=True)
+        )
         entrees = operations.exclude(type_transaction="SORTIE").aggregate(s=Sum("montant"))["s"] or 0
         sorties = operations.filter(type_transaction="SORTIE").aggregate(s=Sum("montant"))["s"] or 0
+
+        # Six derniers mois, y compris les mois à zéro.
+        today = timezone.localdate()
+        first_month = today.replace(day=1)
+        month_keys = []
+        year, month = first_month.year, first_month.month
+        for _ in range(5, -1, -1):
+            m = month - _
+            y = year
+            while m <= 0:
+                m += 12
+                y -= 1
+            month_keys.append((y, m))
+
+        monthly_qs = (
+            eglises.annotate(mois=TruncMonth("date_enregistrement_systeme"))
+            .values("mois")
+            .annotate(
+                total=Count("id"),
+                actives=Count("id", filter=Q(plateforme_active=True)),
+            )
+            .order_by("mois")
+        )
+        monthly_map = {
+            (row["mois"].year, row["mois"].month): row
+            for row in monthly_qs
+            if row.get("mois")
+        }
+        evolution_eglises = []
+        for y, m in month_keys:
+            row = monthly_map.get((y, m), {})
+            label = date(y, m, 1).strftime("%b")
+            evolution_eglises.append({
+                "mois": f"{y}-{m:02d}",
+                "mois_label": label,
+                "total": row.get("total", 0),
+                "actives": row.get("actives", 0),
+            })
+
+        top_eglises = list(
+            eglises.filter(utilisateurs__actif=True)
+            .values("id", "nom")
+            .annotate(nb=Count("utilisateurs", filter=Q(utilisateurs__actif=True)))
+            .order_by("-nb", "nom")[:20]
+        )
+        # Garder la forme historique attendue par le frontend.
+        membres_par_eglise_top20 = [
+            {"eglise__nom": row["nom"], "nb": row["nb"]} for row in top_eglises
+        ]
+
+        bureau_national = list(
+            Utilisateur.objects.filter(
+                role__in=ROLES_BUREAU_NATIONAL,
+                eglise__isnull=True,
+            ).order_by("nom", "prenom").values(
+                "id", "nom", "prenom", "fonction_bureau_national", "role", "actif"
+            )[:20]
+        )
+        role_labels = dict(Role.choices)
+        for item in bureau_national:
+            item["role_libelle"] = role_labels.get(item["role"], item["role"])
+
         return Response({
+            "scope": "GLOBAL" if _est_coordinateur(request.user) else "NATIONAL",
             "nombre_eglises": eglises.count(),
-            "nombre_eglises_actives": eglises.filter(statut="ACTIVE").count(),
+            "nombre_eglises_actives": eglises.filter(statut="ACTIVE", plateforme_active=True).count(),
+            "eglises_a_activer": eglises.filter(plateforme_active=False).count(),
             "nombre_religions": Religion.objects.count(),
-            "repartition_membres": _repartition_membres(membres),
-            "eglises_par_region": list(eglises.values("region__nom").annotate(nb_eglises=Count("id")).order_by("-nb_eglises")),
-            "finance": {"entrees": entrees, "sorties": sorties, "solde": entrees - sorties, "transactions": operations.count()},
+            "repartition_membres": _repartition_membres(membres_eglises),
+            "eglises_par_region": list(
+                eglises.values("region__nom").annotate(nb_eglises=Count("id")).order_by("-nb_eglises")
+            ),
+            "membres_par_eglise_top20": membres_par_eglise_top20,
+            "evolution_eglises": evolution_eglises,
+            "comptes_admin_eglises": comptes_admin_eglises.count(),
+            "comptes_en_attente": comptes_admin_eglises.filter(actif=False).count(),
+            "departements": Departement.objects.count(),
+            "annexes": sum(eglise.annexes.count() for eglise in eglises),
+            # Document est lié à une église via eglise_expediteur (pas eglise).
+            # On compte aussi les documents reçus par au moins une église.
+            "documents": _safe_documents_count(),
+            "bureau_national_total": Utilisateur.objects.filter(
+                role__in=ROLES_BUREAU_NATIONAL, eglise__isnull=True
+            ).count(),
+            "bureau_national": bureau_national,
+            "notifications": _safe_count_model("notifications", "Notification", destinataire=request.user),
+            "finance": {
+                "entrees": entrees,
+                "sorties": sorties,
+                "solde": entrees - sorties,
+                "transactions": operations.count(),
+            },
         })
 
 
@@ -204,9 +325,25 @@ class StatistiquesEgliseView(APIView):
     def get(self, request, eglise_id):
         if not _est_coordinateur(request.user) and request.user.eglise_id != eglise_id:
             return Response({"detail": "Accès refusé : cette église ne fait pas partie de votre espace."}, status=403)
-        eglise = Eglise.objects.get(pk=eglise_id)
+        eglise = Eglise.objects.filter(pk=eglise_id).first()
+        if not eglise:
+            return Response({"detail": "Église introuvable."}, status=404)
         membres = Utilisateur.objects.filter(eglise=eglise, actif=True)
-        return Response({"eglise": {"id": eglise.id, "nom": eglise.nom, "code": eglise.code}, "repartition_membres": _repartition_membres(membres), "nombre_departements": eglise.departements.count()})
+        # Les départements sont actuellement un référentiel partagé. Pour
+        # l'espace d'une église, on compte uniquement ceux effectivement
+        # utilisés par les membres de cette église. Cela évite l'ancien appel
+        # eglise.departements qui n'existe pas dans le modèle actuel.
+        nombre_departements = (
+            membres.exclude(departement_id__isnull=True)
+            .values("departement_id")
+            .distinct()
+            .count()
+        )
+        return Response({
+            "eglise": {"id": eglise.id, "nom": eglise.nom, "code": eglise.code},
+            "repartition_membres": _repartition_membres(membres),
+            "nombre_departements": nombre_departements,
+        })
 
 
 class RapportApercuView(APIView):

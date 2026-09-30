@@ -41,7 +41,7 @@ export default function AssistantIA() {
         </form>
         <p className="ai-note">L'IA ne modifie pas directement les membres, finances, rôles ou transferts. Elle produit une proposition que le responsable valide.</p>
       </section>
-      <section className="carte ai-result"><div className="section-header"><div><h3>Résultat</h3><p>{fournisseur ? `Fournisseur : ${fournisseur}` : "Aucune exécution"}</p></div></div>{erreur&&<p className="erreur">{erreur}</p>}{resultat?<pre className="ai-output">{resultat}</pre>:<div className="empty-state">Le résultat de l'assistant apparaîtra ici.</div>}</section>
+      <section className="carte ai-result"><div className="section-header"><div><h3>Résultat</h3><p>{fournisseur ? Fournisseur : ${fournisseur} : "Aucune exécution"}</p></div></div>{erreur&&<p className="erreur">{erreur}</p>}{resultat?<pre className="ai-output">{resultat}</pre>:<div className="empty-state">Le résultat de l'assistant apparaîtra ici.</div>}</section>
     </div>
   </div>;
 }

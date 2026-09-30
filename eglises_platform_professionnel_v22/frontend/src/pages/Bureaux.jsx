@@ -107,7 +107,7 @@ export default function Bureaux() {
             <div><span className="eyebrow">BUREAUX</span><h3>Choisir un bureau</h3></div>
           </div>
           {chargement ? <div className="empty-state">Chargement…</div> : <div className="bureau-select-list">
-            {bureaux.map((b) => <button key={b.id} className={`bureau-select-row ${selection?.id === b.id ? "selected" : ""}`} onClick={() => setSelection(b)}>
+            {bureaux.map((b) => <button key={b.id} className={bureau-select-row ${selection?.id === b.id ? "selected" : ""}} onClick={() => setSelection(b)}>
               <span className="bureau-select-icon">{TYPES[b.type_bureau] || "◆"}</span>
               <span><b>{b.nom}</b><small>{b.code}</small></span>
               <strong>{b.membres_actifs || 0}</strong>

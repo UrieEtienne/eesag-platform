@@ -13,8 +13,8 @@ export default function Documents() {
   const charger = () => client.get("/documents/").then((r) => setDocuments(r.data.results || r.data));
   useEffect(() => { charger(); if (peutGerer) client.get("/eglises/").then((r) => setEglises(r.data.results || r.data)); }, []);
 
-  const marquer = async (id) => { await client.post(`/documents/${id}/marquer_recu/`); charger(); };
-  const filtrerEglises = eglises.filter((e) => !recherche || `${e.nom} ${e.code}`.toLowerCase().includes(recherche.toLowerCase()));
+  const marquer = async (id) => { await client.post(/documents/${id}/marquer_recu/); charger(); };
+  const filtrerEglises = eglises.filter((e) => !recherche || ${e.nom} ${e.code}.toLowerCase().includes(recherche.toLowerCase()));
 
   return <div>
     <div className="barre-superieure"><div><h2>Documents</h2><p className="sous-titre">Échange sécurisé de documents entre le bureau national et les églises.</p></div>{peutGerer && <button className="btn" onClick={() => setAfficher(true)}>＋ Envoyer un document</button>}</div>
@@ -41,7 +41,7 @@ function FormulaireDocument({ egliseId, estNational, eglises, recherche, setRech
       <div className="form-grid"><div className="form-champ"><label>Titre *</label><input required value={form.titre} onChange={(e) => modifier("titre", e.target.value)} /></div><div className="form-champ"><label>Catégorie</label><select value={form.categorie} onChange={(e) => modifier("categorie", e.target.value)}><option value="OFFICIEL">Officiel</option><option value="ADMINISTRATIF">Administratif</option><option value="RAPPORT">Rapport</option><option value="PROJET">Projet</option><option value="AUTRE">Autre</option></select></div></div>
       <div className="form-champ"><label>Description</label><textarea rows="3" value={form.description} onChange={(e) => modifier("description", e.target.value)} /></div>
       <div className="form-champ"><label>Rechercher une église</label><input placeholder="Nom ou code de l'église…" value={recherche} onChange={(e) => setRecherche(e.target.value)} /></div>
-      <div className="selection-grid">{eglises.map((eg) => <label className={`selection-card ${form.destinataires.includes(eg.id) ? "selected" : ""}`} key={eg.id}><input type="checkbox" checked={form.destinataires.includes(eg.id)} onChange={(e) => modifier("destinataires", e.target.checked ? [...form.destinataires, eg.id] : form.destinataires.filter((x) => x !== eg.id))} /><div><b>{eg.nom}</b><small>{eg.code} · {eg.region_nom}</small></div></label>)}</div>
+      <div className="selection-grid">{eglises.map((eg) => <label className={selection-card ${form.destinataires.includes(eg.id) ? "selected" : ""}} key={eg.id}><input type="checkbox" checked={form.destinataires.includes(eg.id)} onChange={(e) => modifier("destinataires", e.target.checked ? [...form.destinataires, eg.id] : form.destinataires.filter((x) => x !== eg.id))} /><div><b>{eg.nom}</b><small>{eg.code} · {eg.region_nom}</small></div></label>)}</div>
       <div className="form-champ"><label>Fichier *</label><input required type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg" onChange={(e) => modifier("fichier", e.target.files?.[0] || null)} /></div>
       {erreur && <p className="erreur">{erreur}</p>}
       <div className="modal-actions"><button className="btn" type="submit">Envoyer</button><button className="btn btn-secondaire" type="button" onClick={onFerme}>Annuler</button></div>

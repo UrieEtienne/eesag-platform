@@ -8,8 +8,8 @@
 
 ## Comptabilité
 Le module finance gère deux périmètres :
-1. **Bureau national** : `eglise = NULL`.
-2. **Église locale** : `eglise = ID de l'église`.
+1. **Bureau national** : eglise = NULL.
+2. **Église locale** : eglise = ID de l'église.
 
 Le Bureau national peut sélectionner une église dans l'interface et consulter sa comptabilité. Un compte local est automatiquement limité à son église côté API et administration Django.
 
@@ -26,21 +26,21 @@ Le formulaire utilisateur est contextuel : le Coordinateur peut créer les compt
 Le frontend React utilise un layout commun : sidebar, barre supérieure, identité du périmètre, navigation nationale/locale et style cohérent. Le menu expose la comptabilité nationale au Bureau national et la comptabilité locale aux gestionnaires d'église.
 
 ## Vérification après installation
-```bash
+bash
 cd backend
 source ../venv/bin/activate
 python manage.py check
 python manage.py makemigrations
 python manage.py migrate
 python manage.py runserver
-```
+
 
 Puis :
-```bash
+bash
 cd ../frontend
 npm install
 npm run dev
-```
+
 
 
 ## EESAG — évolution v13

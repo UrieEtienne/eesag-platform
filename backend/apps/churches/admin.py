@@ -1,13 +1,15 @@
 from django import forms
 from django.contrib import admin, messages
+from django.utils.html import format_html
+from django.contrib.auth import password_validation
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.utils import timezone
-
+from apps.core.admin_scopes import EESAGScopedAdminMixin, is_coordinator
+from .models import Annexe, Departement, Eglise, RoleEglise
 from apps.accounts.models import Role, Utilisateur
-from apps.core.admin_scopes import EESAGScopedAdminMixin, is_coordinator, is_local, is_national_general
+from apps.accounts.services_sms import normaliser_telephone
 
-from .models import Annexe, Departement, Eglise, Religion, RoleEglise
 
 
 def _synchroniser_acces_admin_eglise(eglise, actif):
@@ -31,15 +33,18 @@ class EgliseAdminForm(forms.ModelForm):
     """
     Formulaire simplifié de création d'une église.
 
-    Le Bureau national peut créer l'église et, dans le même écran,
+    Le Coordinateur du système peut créer l'église et, dans le même écran,
     créer son premier administrateur local.
     """
 
     creer_compte_admin = forms.BooleanField(
-        label="Créer immédiatement le compte administrateur local",
+        label="Créer le compte administrateur local",
         required=False,
         initial=True,
-        help_text="Le compte sera rattaché automatiquement à cette église.",
+        help_text=(
+            "Le compte est créé mais reste bloqué (actif = non, accès Django = non) "
+            "jusqu'à l'activation de l'église par le Bureau national."
+        ),
     )
     admin_nom = forms.CharField(label="Nom de l'administrateur", max_length=100, required=False)
     admin_prenom = forms.CharField(label="Prénom de l'administrateur", max_length=100, required=False)
@@ -66,11 +71,10 @@ class EgliseAdminForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.request = request
         self._can_create_admin = bool(
-            request and (is_coordinator(request.user) or is_national_general(request.user))
-        )
-
+            request and is_coordinator(request.user)
+        ) 
         # Ces champs supplémentaires ne sont affichés qu'à la création et
-        # uniquement au Coordinateur/Bureau national général.
+        # uniquement au Coordinateur.
         if self.instance and self.instance.pk:
             for name in (
                 "creer_compte_admin", "admin_nom", "admin_prenom",
@@ -152,43 +156,68 @@ class EgliseAdminForm(forms.ModelForm):
 
         return cleaned
 
-
-@admin.register(Religion)
-class ReligionAdmin(EESAGScopedAdminMixin, admin.ModelAdmin):
-    admin_scopes = {"COORDINATEUR", "BUREAU_GENERAL"}
-    default_add = True
-    default_change = True
-    default_delete = True
-    list_display = ("nom", "description")
-    search_fields = ("nom", "description")
-
-
 @admin.register(Eglise)
 class EgliseAdmin(EESAGScopedAdminMixin, admin.ModelAdmin):
-    """Gestion des églises et activation de plateforme.
+    """
+    Gestion complète des églises par le Coordinateur du système.
 
-    L'activation n'est JAMAIS faite depuis le frontend. Elle est disponible
-    uniquement dans Django admin pour le Bureau national général.
+    Le Django Admin est réservé au Coordinateur.
+    Le Bureau national et les administrateurs locaux utilisent le frontend EESAG.
+
+    À la création d'une église, le Coordinateur peut créer son premier
+    administrateur local. Le compte reste verrouillé jusqu'à l'activation
+    de la plateforme.
     """
 
-    admin_scopes = {"COORDINATEUR", "BUREAU_GENERAL"}
+    # Django Admin = Coordinateur uniquement
+    admin_scopes = {"COORDINATEUR"}
+
     default_add = True
     default_change = True
     default_delete = False
 
     form = EgliseAdminForm
+
+    def get_form(self, request, obj=None, change=False, **kwargs):
+        """
+        Transmet explicitement request au formulaire.
+        Cela évite le KeyError sur creer_compte_admin.
+        """
+        BaseForm = super().get_form(
+            request,
+            obj=obj,
+            change=change,
+            **kwargs,
+        )
+
+        class RequestAwareEgliseAdminForm(BaseForm):
+            def __init__(self, *args, **form_kwargs):
+                form_kwargs["request"] = request
+                super().__init__(*args, **form_kwargs)
+
+        RequestAwareEgliseAdminForm.__name__ = BaseForm.__name__
+
+        return RequestAwareEgliseAdminForm
+
     list_display = (
         "code",
         "nom",
-        "religion",
         "region",
         "prefecture",
         "district",
         "responsable_affichage",
+        "compte_admin_badge",
         "plateforme_badge",
         "statut",
     )
-    list_filter = ("plateforme_active", "statut", "religion", "region", "prefecture")
+
+    list_filter = (
+        "plateforme_active",
+        "statut",
+        "region",
+        "prefecture",
+    )
+
     search_fields = (
         "nom",
         "code",
@@ -196,91 +225,159 @@ class EgliseAdmin(EESAGScopedAdminMixin, admin.ModelAdmin):
         "responsable__nom",
         "responsable__prenom",
     )
+
     readonly_fields = (
         "code",
         "date_enregistrement_systeme",
         "date_activation_plateforme",
         "activee_par",
     )
-    actions = ("activer_plateformes", "desactiver_plateformes")
+
+    actions = (
+        "activer_plateformes",
+        "desactiver_plateformes",
+    )
+
+    # ------------------------------------------------------------------
+    # PERMISSIONS : COORDINATEUR UNIQUEMENT
+    # ------------------------------------------------------------------
 
     def has_module_permission(self, request):
-        return is_coordinator(request.user) or is_national_general(request.user)
+        return is_coordinator(request.user)
 
     def has_view_permission(self, request, obj=None):
-        return self.has_module_permission(request)
+        return is_coordinator(request.user)
 
     def has_add_permission(self, request):
-        return is_coordinator(request.user) or is_national_general(request.user)
+        return is_coordinator(request.user)
 
     def has_change_permission(self, request, obj=None):
-        return is_coordinator(request.user) or is_national_general(request.user)
+        return is_coordinator(request.user)
 
     def has_delete_permission(self, request, obj=None):
-        # Suppression réservée au Coordinateur. Le Bureau national ne supprime pas.
         return is_coordinator(request.user)
+
+    # ------------------------------------------------------------------
+    # ACTIONS
+    # ------------------------------------------------------------------
 
     def get_actions(self, request):
         actions = super().get_actions(request)
-        if not is_national_general(request.user):
+
+        if not is_coordinator(request.user):
             actions.pop("activer_plateformes", None)
             actions.pop("desactiver_plateformes", None)
+
         return actions
 
+    # ------------------------------------------------------------------
+    # CHAMPS MODIFIABLES
+    # ------------------------------------------------------------------
+
     def get_readonly_fields(self, request, obj=None):
-        fields = list(self.readonly_fields)
-        if is_coordinator(request.user):
-            fields.append("plateforme_active")
-        return tuple(fields)
+        """
+        Le Coordinateur peut gérer l'état de la plateforme.
+        Les informations générées automatiquement restent en lecture seule.
+        """
+        return tuple(
+            field
+            for field in self.readonly_fields
+            if field != "plateforme_active"
+        )
+
+    # ------------------------------------------------------------------
+    # FORMULAIRE ADMIN
+    # ------------------------------------------------------------------
 
     def get_fieldsets(self, request, obj=None):
-        activation_help = (
-            "Lecture seule : seule l'activation faite par le Bureau national est autorisée."
-            if is_coordinator(request.user)
-            else "Le Bureau national général peut activer ou désactiver l'accès à la plateforme."
-        )
         fieldsets = [
-            ("Identité de l'église", {
-                "fields": (
-                    "code", "nom", "religion", "region", "prefecture", "district", "commune",
-                    "adresse_precise", "logo",
-                )
-            }),
-            ("Responsable", {
-                "fields": (
-                    "responsable", "responsable_nom", "responsable_telephone", "responsable_email",
-                )
-            }),
-            ("Contact & fondation", {
-                "fields": ("telephone", "email", "date_creation", "date_enregistrement_systeme")
-            }),
-        ]
-
-        if obj is None and (is_coordinator(request.user) or is_national_general(request.user)):
-            fieldsets.append((
-                "Compte administrateur local",
+            (
+                "Identité de l'église",
                 {
                     "fields": (
-                        "creer_compte_admin",
-                        "admin_nom", "admin_prenom",
-                        "admin_telephone", "admin_email",
-                        "admin_mot_de_passe", "admin_confirmation",
-                    ),
-                    "description": (
-                        "Ce compte sera automatiquement rattaché à cette église. "
-                        "Conservez l'identifiant et le code secret affichés après l'enregistrement. "
-                        "L'église reste inactive jusqu'à son activation par le Bureau national."
-                    ),
+                        "code",
+                        "nom",
+                        "region",
+                        "prefecture",
+                        "district",
+                        "commune",
+                        "adresse_precise",
+                        "logo",
+                    )
                 },
-            ))
+            ),
+            (
+                "Responsable",
+                {
+                    "fields": (
+                        "responsable",
+                        "responsable_nom",
+                        "responsable_telephone",
+                        "responsable_email",
+                    )
+                },
+            ),
+            (
+                "Contact & fondation",
+                {
+                    "fields": (
+                        "telephone",
+                        "email",
+                        "date_creation",
+                        "date_enregistrement_systeme",
+                    )
+                },
+            ),
+        ]
 
-        fieldsets.extend([
-            ("Activation de la plateforme", {
-                "fields": ("plateforme_active", "date_activation_plateforme", "activee_par"),
-                "description": activation_help,
-            }),
-            ("Statut administratif", {"fields": ("statut",)}),
-        ])
+        # À la création uniquement :
+        # le Coordinateur peut créer le premier administrateur local.
+        if obj is None and is_coordinator(request.user):
+            fieldsets.append(
+                (
+                    "Compte administrateur local",
+                    {
+                        "fields": (
+                            "creer_compte_admin",
+                            "admin_nom",
+                            "admin_prenom",
+                            "admin_telephone",
+                            "admin_email",
+                            "admin_mot_de_passe",
+                            "admin_confirmation",
+                        ),
+                        "description": (
+                            "Le compte administrateur est créé automatiquement "
+                            "et rattaché à cette église. Il reste verrouillé "
+                            "tant que la plateforme n'est pas activée."
+                        ),
+                    },
+                )
+            )
+
+        fieldsets.extend(
+            [
+                (
+                    "Activation de la plateforme",
+                    {
+                        "fields": (
+                            "plateforme_active",
+                            "date_activation_plateforme",
+                            "activee_par",
+                        ),
+                        "description": (
+                            "Le Coordinateur contrôle l'activation de la plateforme."
+                        ),
+                    },
+                ),
+                (
+                    "Statut administratif",
+                    {
+                        "fields": ("statut",),
+                    },
+                ),
+            ]
+        )
 
         return tuple(fieldsets)
 
@@ -290,6 +387,15 @@ class EgliseAdmin(EESAGScopedAdminMixin, admin.ModelAdmin):
         return obj.responsable_nom or "— non affecté —"
     responsable_affichage.short_description = "Responsable"
 
+    def compte_admin_badge(self, obj):
+        compte = obj.utilisateurs.filter(role=Role.ADMIN_LOCAL).order_by("date_enregistrement").first()
+        if not compte:
+            return "— Aucun compte —"
+        if compte.actif and compte.is_staff:
+            return "● Compte actif"
+        return "○ Compte verrouillé"
+    compte_admin_badge.short_description = "Administrateur local"
+
     def plateforme_badge(self, obj):
         if obj.plateforme_active:
             return "● Active"
@@ -298,10 +404,10 @@ class EgliseAdmin(EESAGScopedAdminMixin, admin.ModelAdmin):
 
     @admin.action(description="Activer la plateforme pour les églises sélectionnées")
     def activer_plateformes(self, request, queryset):
-        if not is_national_general(request.user):
+        if not is_coordinator(request.user):
             self.message_user(
                 request,
-                "Seul le Bureau national peut activer une église.",
+                "Seul le Coordinateur du système peut activer une église.",
                 level=messages.ERROR,
             )
             return
@@ -319,7 +425,7 @@ class EgliseAdmin(EESAGScopedAdminMixin, admin.ModelAdmin):
 
     @admin.action(description="Désactiver la plateforme pour les églises sélectionnées")
     def desactiver_plateformes(self, request, queryset):
-        if not is_national_general(request.user):
+        if not is_coordinator(request.user):
             self.message_user(
                 request,
                 "Seul le Bureau national peut gérer l'activation de la plateforme.",
@@ -345,14 +451,14 @@ class EgliseAdmin(EESAGScopedAdminMixin, admin.ModelAdmin):
             obj.activee_par = None
 
         # Le Coordinateur peut consulter mais ne peut pas activer l'église.
-        if not is_national_general(request.user):
+        if not is_coordinator(request.user):
             if change:
                 previous = Eglise.objects.get(pk=obj.pk)
                 obj.plateforme_active = previous.plateforme_active
                 obj.date_activation_plateforme = previous.date_activation_plateforme
                 obj.activee_par = previous.activee_par
 
-        if is_national_general(request.user) and change and "plateforme_active" in form.changed_data:
+        if is_coordinator(request.user) and change and "plateforme_active" in form.changed_data:
             if obj.plateforme_active:
                 obj.date_activation_plateforme = timezone.now()
                 obj.activee_par = request.user
@@ -365,7 +471,7 @@ class EgliseAdmin(EESAGScopedAdminMixin, admin.ModelAdmin):
 
             # À la création, le premier administrateur local est créé dans
             # le même écran et immédiatement rattaché à l'église.
-            if not change and (is_coordinator(request.user) or is_national_general(request.user)):
+            if not change and is_coordinator(request.user):
                 creer = form.cleaned_data.get("creer_compte_admin", False)
                 if creer:
                     password = form.cleaned_data.get("admin_mot_de_passe")
@@ -399,7 +505,7 @@ class EgliseAdmin(EESAGScopedAdminMixin, admin.ModelAdmin):
 
             # Si une activation a été faite par le Bureau national,
             # synchroniser les comptes locaux concernés.
-            if is_national_general(request.user) and change and "plateforme_active" in form.changed_data:
+            if is_coordinator(request.user) and change and "plateforme_active" in form.changed_data:
                 _synchroniser_acces_admin_eglise(obj, obj.plateforme_active)
 
     def response_add(self, request, obj, post_url_continue=None):

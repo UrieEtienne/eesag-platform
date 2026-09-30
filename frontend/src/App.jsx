@@ -3,10 +3,9 @@ import RouteProtegee from "./components/RouteProtegee";
 import Connexion from "./pages/Connexion";
 import Inscription from "./pages/Inscription";
 import Profil from "./pages/Profil";
-import GestionAdministrateurs from "./pages/GestionAdministrateurs";
 import Rapports from "./pages/Rapports";
 import Membres from "./pages/Membres";
-import Accueil from "./pages/Accueil";
+import EspaceAccueil from "./pages/EspaceAccueil";
 import TableauDeBordNational from "./pages/TableauDeBordNational";
 import ListeEglises from "./pages/ListeEglises";
 import DetailEglise from "./pages/DetailEglise";
@@ -24,45 +23,61 @@ import Parametres from "./pages/Parametres";
 import Bureaux from "./pages/Bureaux";
 import Informations from "./pages/Informations";
 import Systeme from "./pages/Systeme";
-import EspaceAccueil from "./pages/EspaceAccueil";
 import Departements from "./pages/Departements";
 import TableauDeBordEglise from "./pages/TableauDeBordEglise";
+import GestionAdminsEglise from "./pages/GestionAdminsEglise";
+import AdministrationEglises from "./pages/AdministrationEglises";
 import Layout from "./components/Layout";
 
-export default function App(){
-  const protect=(element, props={})=>(
+const NATIONAL = ["COORDINATEUR", "SUPERADMIN_INTL", "SUPERADMIN_NATIONAL"];
+const BUREAU = ["SUPERADMIN_INTL", "SUPERADMIN_NATIONAL"];
+const LOCAL = ["ADMIN_LOCAL", "PASTEUR"];
+
+export default function App() {
+  const protect = (element, props = {}) => (
     <RouteProtegee {...props}>
       <Layout>{element}</Layout>
     </RouteProtegee>
   );
 
-  return <Routes>
-    <Route path="/connexion" element={<Connexion/>}/>
-    <Route path="/inscription" element={<Inscription/>}/>
+  return (
+    <Routes>
+      <Route path="/connexion" element={<Connexion />} />
+      <Route path="/inscription" element={<Inscription />} />
 
-    <Route path="/" element={protect(<EspaceAccueil/>)}/>
-    <Route path="/eglise-dashboard" element={protect(<TableauDeBordEglise/>, {roles:["ADMIN_LOCAL","PASTEUR"]})}/>
-    <Route path="/national" element={protect(<TableauDeBordNational/>, {roles:["COORDINATEUR"]})}/>
-    <Route path="/eglises" element={protect(<ListeEglises/>, {roles:["COORDINATEUR","SUPERADMIN_INTL","SUPERADMIN_NATIONAL"], feature:"eglises"})}/>
-    <Route path="/eglises/:id" element={protect(<DetailEglise/>)}/>
-    <Route path="/bureaux" element={protect(<Bureaux/>, {feature:"bureaux"})}/>
-    <Route path="/bureau-national" element={protect(<BureauNational/>)}/>
-    <Route path="/membres" element={protect(<Membres/>, {roles:["COORDINATEUR","ADMIN_LOCAL","PASTEUR"], feature:"membres"})}/>
-    <Route path="/departements" element={protect(<Departements/>, {roles:["COORDINATEUR","ADMIN_LOCAL","PASTEUR"], feature:"departements"})}/>
-    <Route path="/administrateurs" element={protect(<GestionAdministrateurs/>, {roles:["COORDINATEUR","SUPERADMIN_NATIONAL","ADMIN_LOCAL","PASTEUR"], feature:"administrateurs_eglises"})}/>
-    <Route path="/documents" element={protect(<Documents/>, {feature:"documents"})}/>
-    <Route path="/notifications" element={protect(<Notifications/>, {feature:"notifications"})}/>
-    <Route path="/finances" element={protect(<Finances/>, {feature:"finances"})}/>
-    <Route path="/annexes" element={protect(<Annexes/>, {feature:"annexes"})}/>
-    <Route path="/rapports" element={protect(<Rapports/>, {feature:"rapports"})}/>
-    <Route path="/reunions" element={protect(<Reunions/>, {feature:"reunions"})}/>
-    <Route path="/ia" element={protect(<AssistantIA/>, {feature:"assistant_ia"})}/>
-    <Route path="/courriers" element={protect(<Courriers/>, {feature:"courriers"})}/>
-    <Route path="/recherche" element={protect(<RechercheMembre/>)}/>
-    <Route path="/geographie" element={protect(<Geographie/>)}/>
-    <Route path="/profil" element={protect(<Profil/>)}/>
-    <Route path="/parametres" element={protect(<Parametres/>, {roles:["COORDINATEUR"]})}/>
-    <Route path="/informations" element={protect(<Informations/>)}/>
-    <Route path="/systeme" element={protect(<Systeme/>, {roles:["COORDINATEUR"]})}/>
-  </Routes>
+      <Route path="/" element={protect(<EspaceAccueil />)} />
+
+      {/* ESPACE ÉGLISE LOCALE */}
+      <Route path="/eglise-dashboard" element={protect(<TableauDeBordEglise />, { roles: LOCAL })} />
+      <Route path="/membres" element={protect(<Membres />, { roles: ["COORDINATEUR", ...LOCAL] })} />
+      <Route path="/departements" element={protect(<Departements />, { roles: ["COORDINATEUR", ...LOCAL] })} />
+      <Route path="/annexes" element={protect(<Annexes />, { roles: ["COORDINATEUR", ...LOCAL] })} />
+      <Route path="/eglise-administration" element={protect(<GestionAdminsEglise />, { roles: ["ADMIN_LOCAL"] })} />
+
+      {/* ESPACE NATIONAL */}
+      <Route path="/admin-eglises"element={protect(<AdministrationEglises />, { roles: NATIONAL })}/>
+      <Route path="/national" element={protect(<TableauDeBordNational />, { roles: NATIONAL })} />
+      <Route path="/eglises" element={protect(<ListeEglises />, { roles: NATIONAL })} />
+      <Route path="/eglises/:id" element={protect(<DetailEglise />, { roles: NATIONAL })} />
+      <Route path="/bureau-national" element={protect(<BureauNational />, { roles: NATIONAL })} />
+      <Route path="/bureaux" element={protect(<Bureaux />, { roles: BUREAU })} />
+
+      {/* MODULES */}
+      <Route path="/documents" element={protect(<Documents />)} />
+      <Route path="/notifications" element={protect(<Notifications />)} />
+      <Route path="/finances" element={protect(<Finances />)} />
+      <Route path="/rapports" element={protect(<Rapports />)} />
+      <Route path="/reunions" element={protect(<Reunions />)} />
+      <Route path="/ia" element={protect(<AssistantIA />)} />
+      <Route path="/courriers" element={protect(<Courriers />)} />
+      <Route path="/recherche" element={protect(<RechercheMembre />)} />
+      <Route path="/geographie" element={protect(<Geographie />)} />
+      <Route path="/profil" element={protect(<Profil />)} />
+      <Route path="/informations" element={protect(<Informations />)} />
+
+      {/* COORDINATEUR UNIQUEMENT */}
+      <Route path="/parametres" element={protect(<Parametres />, { roles: ["COORDINATEUR"] })} />
+      <Route path="/systeme" element={protect(<Systeme />, { roles: ["COORDINATEUR"] })} />
+    </Routes>
+  );
 }

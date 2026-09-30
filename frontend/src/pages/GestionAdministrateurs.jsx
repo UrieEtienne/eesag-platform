@@ -25,6 +25,15 @@ export default function GestionAdministrateurs(){
   const egliseChoisie=useMemo(()=>national?form.eglise:utilisateur?.eglise,[national,form.eglise,utilisateur?.eglise]);
   const titre=national?"Administrateurs des églises":"Administrateurs de mon église";
 
+  const changerEtat=async (id, actif)=>{
+    setErreur("");setMsg("");
+    try{
+      await client.post(/utilisateurs/${id}/${actif?"desactiver":"activer"}/);
+      setMsg(actif?"Administrateur désactivé.":"Administrateur activé.");
+      await charger();
+    }catch(err){setErreur(err.response?.data?.detail||JSON.stringify(err.response?.data||{}));}
+  };
+
   const create=async e=>{
     e.preventDefault();setErreur("");setMsg("");
     if(!egliseChoisie){setErreur("Sélectionnez une église.");return;}
@@ -32,7 +41,7 @@ export default function GestionAdministrateurs(){
       const r=await client.post("/utilisateurs/",{...form,eglise:Number(egliseChoisie),departement:null});
       const uid=r.data.id;
       await client.post("/delegations-eglise/",{utilisateur:uid,permissions:sel});
-      setMsg(`Compte créé : ${r.data.identifiant}. Le mot de passe doit être transmis par un canal sécurisé et le compte suit le parcours de confirmation prévu.`);
+      setMsg(Compte créé : ${r.data.identifiant}. Le mot de passe doit être transmis par un canal sécurisé et le compte suit le parcours de confirmation prévu.);
       setForm({nom:"",prenom:"",telephone:"",email:"",role:"ADMIN_LOCAL",eglise:""});setSel([]);charger();
     }catch(err){setErreur(err.response?.data?.detail||JSON.stringify(err.response?.data||{}))}
   };
@@ -46,9 +55,9 @@ export default function GestionAdministrateurs(){
       <section className="carte"><h3>Créer un administrateur local</h3><form onSubmit={create}>
         {national&&<div className="form-champ"><label>Église *</label><select value={form.eglise} onChange={e=>setForm({...form,eglise:e.target.value})} required><option value="">Choisir une église</option>{eglises.map(e=><option key={e.id} value={e.id}>{e.nom} · {e.code}</option>)}</select></div>}
         <div className="form-grid"><div className="form-champ"><label>Nom *</label><input value={form.nom} onChange={e=>setForm({...form,nom:e.target.value})} required/></div><div className="form-champ"><label>Prénom *</label><input value={form.prenom} onChange={e=>setForm({...form,prenom:e.target.value})} required/></div><div className="form-champ"><label>Téléphone *</label><input inputMode="tel" value={form.telephone} onChange={e=>setForm({...form,telephone:e.target.value})} required/></div><div className="form-champ"><label>Email</label><input type="email" value={form.email} onChange={e=>setForm({...form,email:e.target.value})}/></div></div>
-        <h4>Permissions déléguées</h4><div className="selection-grid">{permissions.map(p=><label className={`selection-card ${sel.includes(p.id)?"selected":""}`} key={p.id}><input type="checkbox" checked={sel.includes(p.id)} onChange={()=>setSel(sel.includes(p.id)?sel.filter(x=>x!==p.id):[...sel,p.id])}/><span><b>{p.libelle}</b><small>{p.description}</small></span></label>)}</div>
+        <h4>Permissions déléguées</h4><div className="selection-grid">{permissions.map(p=><label className={selection-card ${sel.includes(p.id)?"selected":""}} key={p.id}><input type="checkbox" checked={sel.includes(p.id)} onChange={()=>setSel(sel.includes(p.id)?sel.filter(x=>x!==p.id):[...sel,p.id])}/><span><b>{p.libelle}</b><small>{p.description}</small></span></label>)}</div>
         <button className="btn">Créer l’administrateur</button>
       </form></section>
-      <section className="carte"><h3>Administrateurs existants</h3><div className="table-wrap"><table><thead><tr>{national&&<th>Église</th>}<th>Identifiant</th><th>Nom</th><th>Téléphone</th><th>État</th></tr></thead><tbody>{users.map(u=><tr key={u.id}>{national&&<td>{u.eglise_nom||"—"}</td>}<td><b>{u.identifiant}</b></td><td>{u.prenom} {u.nom}</td><td>{u.telephone}</td><td>{u.actif?<span className="status-active">Actif</span>:<span className="status-off">En attente</span>}</td></tr>)}</tbody></table></div></section>
+      <section className="carte"><h3>Administrateurs existants</h3><div className="table-wrap"><table><thead><tr>{national&&<th>Église</th>}<th>Identifiant</th><th>Nom</th><th>Téléphone</th><th>État</th>{national&&<th>Action</th>}</tr></thead><tbody>{users.map(u=><tr key={u.id}>{national&&<td>{u.eglise_nom||"—"}</td>}<td><b>{u.identifiant}</b></td><td>{u.prenom} {u.nom}</td><td>{u.telephone}</td><td>{u.actif?<span className="status-active">Actif</span>:<span className="status-off">En attente</span>}</td><td>{national&&<button type="button" className="btn btn-secondaire" onClick={()=>changerEtat(u.id,u.actif)}>{u.actif?"Désactiver":"Activer"}</button>}</td></tr>)}</tbody></table></div></section>
     </div></div>;
 }

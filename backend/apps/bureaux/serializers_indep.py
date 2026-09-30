@@ -1,7 +1,7 @@
 from django.utils import timezone
 from rest_framework import serializers
 from .models import Bureau, BureauMembre
-from .views import a_droit_bureau
+from .access import a_droit_bureau
 
 
 class BureauMembreIndependantSerializer(serializers.ModelSerializer):
@@ -14,7 +14,25 @@ class BureauMembreIndependantSerializer(serializers.ModelSerializer):
             "id", "bureau", "bureau_nom", "nom_complet", "photo", "photo_url",
             "poste", "annee", "actif", "ordre", "date_ajout", "date_modification",
         ]
-        read_only_fields = ["date_ajout", "date_modification", "photo_url"]
+        read_only_fields = [
+            "id",
+            "date_ajout",
+            "date_modification",
+            "photo_url",
+        ]
+
+    def get_photo_url(self, obj):
+        request = self.context.get("request")
+
+        if not obj.photo:
+            return None
+
+        url = obj.photo.url
+
+        if request:
+            return request.build_absolute_uri(url)
+
+        return url
 
     def validate_annee(self, value):
         if value < 2000 or value > 2100:

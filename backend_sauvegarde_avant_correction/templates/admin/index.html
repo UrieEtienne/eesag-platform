@@ -1,0 +1,39 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+{% load admin_dashboard %}
+
+{% block title %}Tableau de bord · EESAG{% endblock %}
+{% block content %}
+{% platform_metrics as metrics %}
+<div class="ecg-dashboard-heading">
+  <div><span class="ecg-eyebrow">CENTRE DE CONTRÔLE EESAG</span><h1>Tableau de bord</h1><p>Interface adaptée à votre périmètre et à vos habilitations.</p></div>
+  <div class="ecg-dashboard-actions"><a class="ecg-button" href="/">Ouvrir l'application</a>{% if user.role == 'COORDINATEUR' or user.role == 'SUPERADMIN_INTL' or user.role == 'SUPERADMIN_NATIONAL' %}<a class="ecg-button ecg-button-secondary" href="{% url 'admin:accounts_utilisateur_changelist' %}?actif__exact=0">Comptes en attente</a>{% endif %}</div>
+</div>
+
+{% if user.role == 'COORDINATEUR' or user.is_superuser %}
+<div class="ecg-metrics-grid">
+  <div class="ecg-metric metric-cyan"><div class="metric-icon">◎</div><div><strong>{{ metrics.eglises_actives }}</strong><span>Églises actives</span></div><small>{{ metrics.eglises }} recensées</small></div>
+  <div class="ecg-metric metric-indigo"><div class="metric-icon">♙</div><div><strong>{{ metrics.membres }}</strong><span>Membres actifs</span></div><small>{{ metrics.membres_nationaux }} comptes nationaux</small></div>
+  <div class="ecg-metric metric-green"><div class="metric-icon">▣</div><div><strong>{{ metrics.documents }}</strong><span>Documents</span></div><small>{{ metrics.notifications }} notifications</small></div>
+  <div class="ecg-metric metric-red"><div class="metric-icon">★</div><div><strong>{{ metrics.bureau_national }}</strong><span>Comptes nationaux</span></div><small>hors églises</small></div>
+</div>
+<div class="ecg-dashboard-grid">
+<section class="ecg-panel wide"><div class="panel-head"><div><span class="panel-kicker">RÉSEAU EESAG</span><h2>Pilotage global</h2></div><span class="live-badge">● DONNÉES RÉELLES</span></div><div class="dashboard-progress-grid"><div><div class="progress-label"><span>Églises actives</span><b>{{ metrics.eglises_actives }} / {{ metrics.eglises }}</b></div><div class="progress"><progress value="{{ metrics.eglises_actives|default:0 }}" max="{{ metrics.eglises|default:1 }}"></progress></div></div><div><div class="progress-label"><span>Documents</span><b>{{ metrics.documents }}</b></div><div class="progress blue"><i style="width:82%"></i></div></div><div><div class="progress-label"><span>Notifications</span><b>{{ metrics.notifications }}</b></div><div class="progress red"><i style="width:58%"></i></div></div></div></section>
+<aside class="ecg-side-stack"><section class="ecg-color-card cyan"><strong>{{ metrics.eglises }}</strong><small>Églises recensées</small></section><section class="ecg-color-card green"><strong>{{ metrics.departements }}</strong><small>Départements</small></section><section class="ecg-color-card pink"><strong>{{ metrics.annexes }}</strong><small>Annexes</small></section></aside></div>
+<div class="ecg-finance-command"><div class="ecg-finance-command-head"><div><span class="panel-kicker">COMPTABILITÉ</span><h2>Centre financier</h2><p>Vue consolidée du réseau.</p></div><div class="finance-total-card"><span>Solde</span><strong>{{ metrics.finance_solde|floatformat:0 }} GNF</strong></div></div><div class="finance-command-grid"><a href="{% url 'admin:finance_transaction_changelist' %}" class="finance-command-card"><span class="finance-icon">₣</span><div><b>Journal comptable</b><small>{{ metrics.transactions }} opérations</small></div><i>→</i></a><a href="{% url 'admin:finance_projet_changelist' %}" class="finance-command-card"><span class="finance-icon">▣</span><div><b>Projets & budgets</b><small>{{ metrics.projets }} projets</small></div><i>→</i></a><div class="finance-mini-card"><span>Entrées</span><b>{{ metrics.finance_entrees|floatformat:0 }} GNF</b></div><div class="finance-mini-card danger"><span>Sorties</span><b>{{ metrics.finance_sorties|floatformat:0 }} GNF</b></div></div></div>
+{% elif user.role == 'SUPERADMIN_INTL' or user.role == 'SUPERADMIN_NATIONAL' %}
+{% load admin_scope %}
+{% scope_is_national_general as general_national %}
+<div class="ecg-metrics-grid">
+  <div class="ecg-metric metric-cyan"><div class="metric-icon">◇</div><div><strong>{{ metrics.bureau_membres }}</strong><span>Membres de mon bureau</span></div><small>Composition indépendante des comptes utilisateurs</small></div>
+  {% if general_national %}<div class="ecg-metric metric-orange"><div class="metric-icon">!</div><div><strong>{{ metrics.eglises_a_activer }}</strong><span>Églises à activer</span></div><small>Activation réservée à ce Bureau national</small></div>{% endif %}
+</div>
+<div class="ecg-panel"><div class="panel-head"><div><span class="panel-kicker">{% if general_national %}BUREAU NATIONAL GÉNÉRAL{% else %}PÉRIMÈTRE PRIVÉ{% endif %}</span><h2>{{ metrics.scope_label }}</h2></div></div>
+{% if general_national %}<p>Vous pouvez gérer les églises et activer leur accès depuis l'administration Django. Vous ne gérez pas directement leurs membres.</p><div class="quick-links"><a href="{% url 'admin:churches_eglise_changelist' %}"><b>◎</b><span>Églises & activation<small>Activer ou désactiver l'accès à la plateforme</small></span><i>→</i></a><a href="{% url 'admin:accounts_utilisateur_changelist' %}"><b>⚿</b><span>Administrateurs locaux<small>Créer et gérer les comptes des églises</small></span><i>→</i></a><a href="{% url 'admin:bureaux_bureau_changelist' %}"><b>◇</b><span>Bureaux nationaux<small>Gouvernance et structures</small></span><i>→</i></a></div>{% else %}<p>Ce bureau national spécialisé ne dispose pas de la gestion des membres, départements ou administrateurs des églises.</p><div class="quick-links"><a href="{% url 'admin:bureaux_bureaumembre_changelist' %}"><b>◇</b><span>Composition annuelle<small>Photos, postes et mandats</small></span><i>→</i></a></div>{% endif %}</div>
+{% elif user.role == 'PASTEUR' or user.role == 'ADMIN_LOCAL' %}
+<div class="ecg-metrics-grid"><div class="ecg-metric metric-cyan"><div class="metric-icon">♙</div><div><strong>{{ metrics.membres }}</strong><span>Membres de l’église</span></div><small>{{ metrics.scope_label }}</small></div><div class="ecg-metric metric-indigo"><div class="metric-icon">◇</div><div><strong>{{ metrics.departements }}</strong><span>Départements</span></div><small>Référentiel disponible</small></div><div class="ecg-metric metric-green"><div class="metric-icon">⌂</div><div><strong>{{ metrics.annexes }}</strong><span>Annexes actives</span></div><small>Espace local</small></div></div>
+<div class="ecg-panel"><div class="panel-head"><div><span class="panel-kicker">MON ÉGLISE</span><h2>{{ metrics.scope_label }}</h2></div></div><div class="quick-links"><a href="{% url 'admin:accounts_utilisateur_changelist' %}"><b>♙</b><span>Membres & comptes<small>Uniquement votre église</small></span><i>→</i></a><a href="{% url 'admin:churches_departement_changelist' %}"><b>▤</b><span>Départements<small>Organisation locale</small></span><i>→</i></a><a href="{% url 'admin:accounts_delegationeglise_changelist' %}"><b>⚙</b><span>Administrateurs & droits<small>Droits délégués</small></span><i>→</i></a></div></div>
+{% else %}
+<div class="ecg-panel"><div class="panel-head"><div><span class="panel-kicker">ESPACE EESAG</span><h2>{{ metrics.scope_label }}</h2></div></div><p>Accès limité aux fonctions disponibles pour votre rôle.</p></div>
+{% endif %}
+{% endblock %}

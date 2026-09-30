@@ -2,7 +2,7 @@ from apps.core.admin_scopes import EESAGScopedAdminMixin
 from django.contrib import admin
 from django.utils.html import format_html
 from .models import Bureau, BureauAdministrateur, BureauMembreMandat, NiveauBureau
-from .views import a_droit_bureau, _est_coordinateur, _est_national_general, _bureaux_administres
+from .access import a_droit_bureau, _est_coordinateur, _est_national_general, _bureaux_administres
 
 
 @admin.register(Bureau)

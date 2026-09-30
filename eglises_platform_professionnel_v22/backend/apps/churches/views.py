@@ -1,143 +1,303 @@
 from django.db.models import Count, Q
-from rest_framework import viewsets, filters, status
+from rest_framework import filters, viewsets
 from rest_framework.decorators import action
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
 
-from apps.accounts.permissions import EstSuperAdminNationalOuPlus, EstAdminLocalOuPlus
-from apps.accounts.models import ROLES_NATIONAUX, Role, Utilisateur
-from .models import Religion, Eglise, Departement, RoleEglise, Annexe
+from apps.accounts.models import (
+    Role,
+    ROLES_NATIONAUX,
+    Utilisateur,
+)
+from apps.accounts.permissions import (
+    EstAdminLocalOuPlus,
+    EstCoordinateurOuGestionEglise,
+    EstSuperAdminNationalOuPlus,
+)
+from apps.bureaux.models import BureauAdministrateur
+
+from .models import (
+    Annexe,
+    Departement,
+    Eglise,
+    RoleEglise,
+)
+
 from .serializers import (
-    ReligionSerializer, EgliseListSerializer, EgliseDetailSerializer, EgliseCreateSerializer,
-    DepartementSerializer, RoleEgliseSerializer, AnnexeSerializer,
+    EgliseAnnuaireSerializer,
+    EgliseCreateSerializer,
+    EgliseDetailSerializer,
+    EgliseListSerializer,
+    AnnexeSerializer,
+    DepartementSerializer,
+    RoleEgliseSerializer,
 )
 
 
-class ReligionViewSet(viewsets.ModelViewSet):
-    queryset = Religion.objects.all()
-    serializer_class = ReligionSerializer
+def _est_bureau_specifique(user):
+    return (
+        user.role in (
+            Role.SUPERADMIN_INTL,
+            Role.SUPERADMIN_NATIONAL,
+        )
+        and BureauAdministrateur.objects.filter(
+            utilisateur=user,
+            actif=True,
+        ).exists()
+    )
 
-    def get_permissions(self):
-        if self.request.method in ("GET", "HEAD", "OPTIONS"):
-            return [IsAuthenticated()]
-        return [EstSuperAdminNationalOuPlus()]
+
+def _est_national_general(user):
+    return (
+        user.role == Role.COORDINATEUR
+        or user.is_superuser
+        or (
+            user.role in (
+                Role.SUPERADMIN_INTL,
+                Role.SUPERADMIN_NATIONAL,
+            )
+            and not _est_bureau_specifique(user)
+        )
+    )
 
 
 class EgliseViewSet(viewsets.ModelViewSet):
-    queryset = Eglise.objects.select_related(
-        "religion", "region", "prefecture", "district", "commune", "responsable"
-    ).annotate(nb_membres=Count("utilisateurs", filter=Q(utilisateurs__actif=True)))
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ["religion", "region", "prefecture", "district", "commune", "statut"]
-    search_fields = ["nom", "code", "adresse_precise"]
-    ordering_fields = ["nom", "date_creation", "date_enregistrement_systeme"]
+    queryset = (
+        Eglise.objects
+        .select_related(
+            "region",
+            "prefecture",
+            "district",
+            "commune",
+            "responsable",
+        )
+        .annotate(
+            nb_membres=Count(
+                "utilisateurs",
+                filter=Q(utilisateurs__actif=True),
+            )
+        )
+    )
+
+    filter_backends = [
+        DjangoFilterBackend,
+        filters.SearchFilter,
+        filters.OrderingFilter,
+    ]
+
+    filterset_fields = [
+        "region",
+        "prefecture",
+        "district",
+        "commune",
+        "statut",
+        "plateforme_active",
+    ]
+
+    search_fields = [
+        "nom",
+        "code",
+        "adresse_precise",
+    ]
+
+    ordering_fields = [
+        "nom",
+        "date_creation",
+        "date_enregistrement_systeme",
+    ]
 
     def get_serializer_class(self):
+        user = self.request.user
+
         if self.action == "create":
             return EgliseCreateSerializer
+
+        if _est_bureau_specifique(user):
+            return EgliseAnnuaireSerializer
+
         if self.action == "retrieve":
             return EgliseDetailSerializer
-        if self.action == "list" and self.request.user.role not in ROLES_NATIONAUX:
+
+        if user.role not in ROLES_NATIONAUX:
             return EgliseAnnuaireSerializer
+
         return EgliseListSerializer
 
     def get_permissions(self):
         if self.request.method in ("GET", "HEAD", "OPTIONS"):
             return [IsAuthenticated()]
+
         return [EstSuperAdminNationalOuPlus()]
 
     def get_queryset(self):
         qs = super().get_queryset()
         user = self.request.user
-        if user.role in ROLES_NATIONAUX:
+
+        if _est_bureau_specifique(user):
             return qs
-        # L'annuaire peut être recherché par nom/code, mais le détail interne
-        # d'une église étrangère n'est jamais exposé.
-        if self.action in ("list",):
+
+        if user.role in ROLES_NATIONAUX or user.is_superuser:
             return qs
+
+        if self.action == "list":
+            return qs
+
         return qs.filter(id=user.eglise_id)
 
-    @action(detail=True, methods=["post"], permission_classes=[EstSuperAdminNationalOuPlus])
+    @action(
+        detail=True,
+        methods=["post"],
+        permission_classes=[EstSuperAdminNationalOuPlus],
+    )
     def affecter_pasteur(self, request, pk=None):
+        if not _est_national_general(request.user):
+            return Response(
+                {
+                    "detail": (
+                        "Seul le Coordinateur ou le Bureau national "
+                        "général peut affecter un pasteur."
+                    )
+                },
+                status=403,
+            )
+
         eglise = self.get_object()
         utilisateur_id = request.data.get("utilisateur_id")
+
         try:
-            nouveau_pasteur = Utilisateur.objects.get(pk=utilisateur_id)
+            nouveau = Utilisateur.objects.get(pk=utilisateur_id)
         except Utilisateur.DoesNotExist:
-            return Response({"detail": "Utilisateur introuvable."}, status=status.HTTP_404_NOT_FOUND)
+            return Response(
+                {"detail": "Utilisateur introuvable."},
+                status=404,
+            )
 
         ancien = eglise.responsable
-        if ancien and ancien != nouveau_pasteur:
-            ancien.role = Role.MEMBRE if ancien.role == Role.PASTEUR else ancien.role
+
+        if ancien and ancien != nouveau:
+            ancien.role = (
+                Role.MEMBRE
+                if ancien.role == Role.PASTEUR
+                else ancien.role
+            )
             ancien.save(update_fields=["role"])
 
-        nouveau_pasteur.role = Role.PASTEUR
-        nouveau_pasteur.eglise = eglise
-        nouveau_pasteur.save(update_fields=["role", "eglise"])
-        eglise.responsable = nouveau_pasteur
+        nouveau.role = Role.PASTEUR
+        nouveau.eglise = eglise
+        nouveau.save(update_fields=["role", "eglise"])
+
+        eglise.responsable = nouveau
         eglise.save(update_fields=["responsable"])
 
-        from apps.members.models import Affectation
-        Affectation.objects.filter(eglise=eglise, type_affectation="PASTEUR", actif=True).update(actif=False)
-        Affectation.objects.create(utilisateur=nouveau_pasteur, eglise=eglise, type_affectation="PASTEUR", affecte_par=request.user)
-
-        from apps.notifications.models import Notification
-        Notification.objects.create(
-            destinataire=nouveau_pasteur, eglise=eglise, titre="Nouvelle affectation pastorale",
-            message=f"Vous êtes officiellement affecté comme pasteur de {eglise.nom}.", type_notification="AFFECTATION"
+        return Response(
+            EgliseDetailSerializer(
+                eglise,
+                context={"request": request},
+            ).data
         )
-        return Response(EgliseDetailSerializer(eglise).data)
 
 
 class DepartementViewSet(viewsets.ModelViewSet):
-    """Référentiel global des départements, sans rattachement à une église."""
     serializer_class = DepartementSerializer
-    permission_classes = [EstAdminLocalOuPlus]
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    permission_classes = [EstCoordinateurOuGestionEglise]
+
+    filter_backends = [
+        DjangoFilterBackend,
+        filters.SearchFilter,
+        filters.OrderingFilter,
+    ]
+
     search_fields = ["nom"]
     ordering_fields = ["nom"]
 
     def get_queryset(self):
-        return Departement.objects.annotate(
-            nb_membres=Count("membres_departement", filter=Q(membres_departement__actif=True))
-        ).order_by("nom")
+        if _est_bureau_specifique(self.request.user):
+            return Departement.objects.none()
 
-    def perform_create(self, serializer):
-        serializer.save()
+        return (
+            Departement.objects
+            .all()
+            .annotate(
+                nb_membres=Count(
+                    "membres_departement",
+                    filter=Q(membres_departement__actif=True),
+                )
+            )
+            .order_by("nom")
+        )
 
 
 class RoleEgliseViewSet(viewsets.ModelViewSet):
-    """Référentiel global et dynamique des rôles/fonctions d'église."""
     serializer_class = RoleEgliseSerializer
-    permission_classes = [EstAdminLocalOuPlus]
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ["actif"]
+    permission_classes = [EstCoordinateurOuGestionEglise]
+
+    filter_backends = [
+        DjangoFilterBackend,
+        filters.SearchFilter,
+    ]
+
     search_fields = ["nom"]
-    ordering_fields = ["nom"]
-    queryset = RoleEglise.objects.order_by("nom")
+
+    def get_queryset(self):
+        if _est_bureau_specifique(self.request.user):
+            return RoleEglise.objects.none()
+
+        return RoleEglise.objects.order_by("nom")
 
 
 class AnnexeViewSet(viewsets.ModelViewSet):
     serializer_class = AnnexeSerializer
 
+    filter_backends = [
+        DjangoFilterBackend,
+        filters.SearchFilter,
+    ]
+
+    filterset_fields = [
+        "eglise",
+        "active",
+    ]
+
+    search_fields = [
+        "nom",
+        "code",
+        "adresse",
+    ]
+
     def get_permissions(self):
         if self.request.method in ("GET", "HEAD", "OPTIONS"):
             return [IsAuthenticated()]
+
         return [EstAdminLocalOuPlus()]
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    filterset_fields = ["eglise", "active"]
-    search_fields = ["nom", "code", "adresse"]
 
     def get_queryset(self):
-        qs = Annexe.objects.select_related("eglise", "responsable")
+        qs = Annexe.objects.select_related(
+            "eglise",
+            "responsable",
+        )
+
         user = self.request.user
-        if user.role in ROLES_NATIONAUX:
+
+        if _est_bureau_specifique(user):
+            return qs.none()
+
+        if user.role in ROLES_NATIONAUX or user.is_superuser:
             return qs
+
         return qs.filter(eglise_id=user.eglise_id)
 
     def perform_create(self, serializer):
-        if self.request.user.role in ROLES_NATIONAUX:
+        user = self.request.user
+
+        if _est_bureau_specifique(user):
+            raise PermissionDenied(
+                "Un bureau national spécifique ne peut pas gérer "
+                "les annexes d'une église."
+            )
+
+        if user.role in ROLES_NATIONAUX or user.is_superuser:
             serializer.save()
         else:
-            serializer.save(eglise=self.request.user.eglise)
+            serializer.save(eglise=user.eglise)

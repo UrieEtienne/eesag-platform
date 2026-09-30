@@ -21,8 +21,8 @@ export default function DetailEglise() {
   const peutGererCetteEglise = estNational || utilisateur?.eglise === Number(id);
 
   const charger = () => {
-    client.get(`/eglises/${id}/`).then((res) => setEglise(res.data));
-    client.get(`/stats/eglise/${id}/`).then((res) => setStats(res.data));
+    client.get(/eglises/${id}/).then((res) => setEglise(res.data));
+    client.get(/stats/eglise/${id}/).then((res) => setStats(res.data));
     client.get("/utilisateurs/", { params: { eglise: id } }).then((res) => setMembres(res.data.results || res.data));
   };
 
@@ -51,7 +51,7 @@ export default function DetailEglise() {
 
       <div className="carte">
         <p><b>Religion :</b> {eglise.religion_nom} &nbsp;|&nbsp; <b>Statut :</b> {eglise.statut}</p>
-        <p><b>Localisation :</b> {eglise.region_nom} &gt; {eglise.prefecture_nom} &gt; {eglise.district_nom} {eglise.commune_nom ? `> ${eglise.commune_nom}` : ""}</p>
+        <p><b>Localisation :</b> {eglise.region_nom} &gt; {eglise.prefecture_nom} &gt; {eglise.district_nom} {eglise.commune_nom ? > ${eglise.commune_nom} : ""}</p>
         <p><b>Adresse :</b> {eglise.adresse_precise || "—"} &nbsp;|&nbsp; <b>Téléphone :</b> {eglise.telephone || "—"}</p>
         <p><b>Responsable actuel :</b> {eglise.responsable_nom || "Aucun pasteur affecté"}</p>
       </div>

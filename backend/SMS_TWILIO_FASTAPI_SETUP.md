@@ -2,18 +2,18 @@
 
 EESAG utilise désormais un microservice **FastAPI Python** pour les SMS. Django reste le cœur métier et appelle l'API interne ; les secrets Twilio ne sont jamais envoyés à React/Flutter.
 
-## 1. Django (`backend/.env`)
+## 1. Django (backend/.env)
 
-```env
+env
 SMS_PROVIDER=twilio
 SMS_API_URL=http://127.0.0.1:8010
 SMS_API_KEY=change-cette-cle-interne
 SMS_REQUEST_TIMEOUT=20
-```
 
-## 2. FastAPI (`sms_api/.env`)
 
-```env
+## 2. FastAPI (sms_api/.env)
+
+env
 SMS_API_KEY=change-cette-cle-interne
 TWILIO_ACCOUNT_SID=AC...
 TWILIO_AUTH_TOKEN=...
@@ -22,30 +22,30 @@ TWILIO_FROM=EESAG
 TWILIO_STATUS_CALLBACK=
 HOST=127.0.0.1
 PORT=8010
-```
 
-`SMS_API_KEY` doit être la même valeur dans les deux fichiers.
+
+SMS_API_KEY doit être la même valeur dans les deux fichiers.
 
 ## 3. Démarrer l'API SMS
 
-```bash
+bash
 cd sms_api
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env
 uvicorn main:app --host 127.0.0.1 --port 8010 --reload
-```
+
 
 ## 4. Tester
 
-Dans un autre terminal, dans `backend` :
+Dans un autre terminal, dans backend :
 
-```bash
+bash
 source ../venv/bin/activate
 python manage.py diagnostiquersms
 python manage.py tester_sms 626483701
-```
+
 
 ## 5. Flux EESAG
 

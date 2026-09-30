@@ -1,0 +1,1142 @@
+import React, { useEffect, useMemo, useState } from "react";
+
+const API_BASE = "/api";
+
+function getToken() {
+  return (
+    localStorage.getItem("access") ||
+    localStorage.getItem("access_token") ||
+    localStorage.getItem("token") ||
+    ""
+  );
+}
+
+async function apiRequest(url, options = {}) {
+  const token = getToken();
+
+  const response = await fetch(${API_BASE}${url}, {
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: Bearer ${token} } : {}),
+      ...(options.headers || {}),
+    },
+  });
+
+  const contentType = response.headers.get("content-type") || "";
+  const data = contentType.includes("application/json")
+    ? await response.json()
+    : await response.text();
+
+  if (!response.ok) {
+    const message =
+      typeof data === "object"
+        ? data.detail ||
+          data.message ||
+          Object.entries(data)
+            .map(([key, value]) => ${key}: ${Array.isArray(value) ? value.join(", ") : value})
+            .join(" | ")
+        : data;
+
+    throw new Error(message || Erreur HTTP ${response.status});
+  }
+
+  return data;
+}
+
+function Input({ label, required = false, ...props }) {
+  return (
+    <label style={styles.field}>
+      <span style={styles.label}>
+        {label} {required && <b style={{ color: "#dc2626" }}>*</b>}
+      </span>
+      <input {...props} style={styles.input} required={required} />
+    </label>
+  );
+}
+
+function Select({ label, required = false, children, ...props }) {
+  return (
+    <label style={styles.field}>
+      <span style={styles.label}>
+        {label} {required && <b style={{ color: "#dc2626" }}>*</b>}
+      </span>
+      <select {...props} style={styles.input} required={required}>
+        {children}
+      </select>
+    </label>
+  );
+}
+
+export default function AdministrationEglises() {
+  const [onglet, setOnglet] = useState("eglises");
+
+  const [eglises, setEglises] = useState([]);
+  const [administrateurs, setAdministrateurs] = useState([]);
+
+  const [loadingEglises, setLoadingEglises] = useState(true);
+  const [loadingAdmins, setLoadingAdmins] = useState(false);
+
+  const [savingEglise, setSavingEglise] = useState(false);
+  const [savingAdmin, setSavingAdmin] = useState(false);
+
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+
+  const [recherche, setRecherche] = useState("");
+
+  const [egliseForm, setEgliseForm] = useState({
+    nom: "",
+    adresse_precise: "",
+    telephone: "",
+    email: "",
+    statut: "ACTIVE",
+  });
+
+  const [adminForm, setAdminForm] = useState({
+    eglise: "",
+    nom: "",
+    prenom: "",
+    telephone: "",
+    email: "",
+    password: "",
+    password_confirmation: "",
+  });
+
+  const resetMessages = () => {
+    setError("");
+    setSuccess("");
+  };
+
+  const chargerEglises = async () => {
+    setLoadingEglises(true);
+
+    try {
+      const data = await apiRequest("/eglises/");
+      const liste = Array.isArray(data) ? data : data.results || [];
+      setEglises(liste);
+    } catch (err) {
+      setError(Impossible de charger les églises : ${err.message});
+    } finally {
+      setLoadingEglises(false);
+    }
+  };
+
+  const chargerAdministrateurs = async () => {
+    setLoadingAdmins(true);
+
+    try {
+      /*
+       * L'endpoint de délégation est celui déjà présent
+       * dans ton backend :
+       *
+       * /api/delegations-eglise/
+       */
+      const data = await apiRequest("/delegations-eglise/");
+      const liste = Array.isArray(data) ? data : data.results || [];
+      setAdministrateurs(liste);
+    } catch (err) {
+      setError(
+        Impossible de charger les administrateurs : ${err.message}
+      );
+    } finally {
+      setLoadingAdmins(false);
+    }
+  };
+
+  useEffect(() => {
+    chargerEglises();
+  }, []);
+
+  useEffect(() => {
+    if (onglet === "administrateurs") {
+      chargerAdministrateurs();
+    }
+  }, [onglet]);
+
+  const eglisesFiltrees = useMemo(() => {
+    const terme = recherche.trim().toLowerCase();
+
+    if (!terme) return eglises;
+
+    return eglises.filter((eglise) =>
+      [
+        eglise.nom,
+        eglise.code,
+        eglise.telephone,
+        eglise.email,
+        eglise.adresse_precise,
+      ]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(terme))
+    );
+  }, [eglises, recherche]);
+
+  const ouvrirCreationEglise = () => {
+    resetMessages();
+    setEgliseForm({
+      nom: "",
+      adresse_precise: "",
+      telephone: "",
+      email: "",
+      statut: "ACTIVE",
+    });
+    setOnglet("creer-eglise");
+  };
+
+  const ouvrirCreationAdmin = (egliseId = "") => {
+    resetMessages();
+
+    setAdminForm({
+      eglise: egliseId ? String(egliseId) : "",
+      nom: "",
+      prenom: "",
+      telephone: "",
+      email: "",
+      password: "",
+      password_confirmation: "",
+    });
+
+    setOnglet("creer-admin");
+  };
+
+  const handleEgliseChange = (event) => {
+    const { name, value } = event.target;
+
+    setEgliseForm((ancien) => ({
+      ...ancien,
+      [name]: value,
+    }));
+  };
+
+  const handleAdminChange = (event) => {
+    const { name, value } = event.target;
+
+    setAdminForm((ancien) => ({
+      ...ancien,
+      [name]: value,
+    }));
+  };
+
+  const creerEglise = async (event) => {
+    event.preventDefault();
+
+    resetMessages();
+    setSavingEglise(true);
+
+    try {
+      if (!egliseForm.nom.trim()) {
+        throw new Error("Le nom de l'église est obligatoire.");
+      }
+
+      const payload = {
+        nom: egliseForm.nom.trim(),
+        adresse_precise: egliseForm.adresse_precise.trim(),
+        telephone: egliseForm.telephone.trim(),
+        email: egliseForm.email.trim(),
+        statut: egliseForm.statut,
+      };
+
+      const nouvelleEglise = await apiRequest("/eglises/", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+
+      setSuccess(
+        L'église "${nouvelleEglise.nom || egliseForm.nom}" a été créée avec succès.
+      );
+
+      await chargerEglises();
+
+      /*
+       * On propose immédiatement de créer son administrateur.
+       */
+      if (nouvelleEglise?.id) {
+        setAdminForm((ancien) => ({
+          ...ancien,
+          eglise: String(nouvelleEglise.id),
+        }));
+      }
+
+      setEgliseForm({
+        nom: "",
+        adresse_precise: "",
+        telephone: "",
+        email: "",
+        statut: "ACTIVE",
+      });
+
+      setOnglet("eglises");
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSavingEglise(false);
+    }
+  };
+
+  const creerAdministrateur = async (event) => {
+    event.preventDefault();
+
+    resetMessages();
+    setSavingAdmin(true);
+
+    try {
+      if (!adminForm.eglise) {
+        throw new Error("Sélectionne une église.");
+      }
+
+      if (!adminForm.nom.trim()) {
+        throw new Error("Le nom est obligatoire.");
+      }
+
+      if (!adminForm.prenom.trim()) {
+        throw new Error("Le prénom est obligatoire.");
+      }
+
+      if (!adminForm.telephone.trim() && !adminForm.email.trim()) {
+        throw new Error(
+          "Renseigne au moins un numéro de téléphone ou une adresse email."
+        );
+      }
+
+      if (adminForm.password !== adminForm.password_confirmation) {
+        throw new Error("Les deux mots de passe ne correspondent pas.");
+      }
+
+      if (adminForm.password.length < 6) {
+        throw new Error(
+          "Le mot de passe doit contenir au moins 6 caractères."
+        );
+      }
+
+      /*
+       * Endpoint de délégation existant dans ton backend.
+       *
+       * Le backend pourra adapter les noms exacts des champs si nécessaire.
+       */
+      const payload = {
+        eglise: Number(adminForm.eglise),
+        nom: adminForm.nom.trim(),
+        prenom: adminForm.prenom.trim(),
+        telephone: adminForm.telephone.trim(),
+        email: adminForm.email.trim(),
+        password: adminForm.password,
+        password_confirmation: adminForm.password_confirmation,
+        role: "ADMIN_LOCAL",
+      };
+
+      await apiRequest("/delegations-eglise/", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+
+      setSuccess(
+        L'administrateur ${adminForm.prenom} ${adminForm.nom} a été créé et affecté à l'église.
+      );
+
+      setAdminForm({
+        eglise: "",
+        nom: "",
+        prenom: "",
+        telephone: "",
+        email: "",
+        password: "",
+        password_confirmation: "",
+      });
+
+      await chargerAdministrateurs();
+
+      setOnglet("administrateurs");
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSavingAdmin(false);
+    }
+  };
+
+  const egliseNom = (egliseId) => {
+    const eglise = eglises.find(
+      (item) => String(item.id) === String(egliseId)
+    );
+
+    return eglise?.nom || Église #${egliseId};
+  };
+
+  return (
+    <div style={styles.page}>
+      <div style={styles.header}>
+        <div>
+          <div style={styles.eyebrow}>PILOTAGE NATIONAL</div>
+          <h1 style={styles.title}>Administration des églises</h1>
+          <p style={styles.subtitle}>
+            Créer les églises et gérer leurs administrateurs depuis un seul
+            espace.
+          </p>
+        </div>
+
+        <button
+          type="button"
+          onClick={ouvrirCreationEglise}
+          style={styles.primaryButton}
+        >
+          + Créer une église
+        </button>
+      </div>
+
+      {error && (
+        <div style={styles.error}>
+          <strong>Erreur :</strong> {error}
+        </div>
+      )}
+
+      {success && (
+        <div style={styles.success}>
+          <strong>Succès :</strong> {success}
+        </div>
+      )}
+
+      <div style={styles.tabs}>
+        <button
+          type="button"
+          onClick={() => {
+            resetMessages();
+            setOnglet("eglises");
+          }}
+          style={{
+            ...styles.tab,
+            ...(onglet === "eglises" ? styles.tabActive : {}),
+          }}
+        >
+          🏛 Églises
+          <span style={styles.badge}>{eglises.length}</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => {
+            resetMessages();
+            setOnglet("administrateurs");
+          }}
+          style={{
+            ...styles.tab,
+            ...(onglet === "administrateurs" ? styles.tabActive : {}),
+          }}
+        >
+          👤 Administrateurs
+        </button>
+
+        <button
+          type="button"
+          onClick={ouvrirCreationEglise}
+          style={{
+            ...styles.tab,
+            ...(onglet === "creer-eglise" ? styles.tabActive : {}),
+          }}
+        >
+          + Nouvelle église
+        </button>
+
+        <button
+          type="button"
+          onClick={() => ouvrirCreationAdmin()}
+          style={{
+            ...styles.tab,
+            ...(onglet === "creer-admin" ? styles.tabActive : {}),
+          }}
+        >
+          + Nouvel administrateur
+        </button>
+      </div>
+
+      {onglet === "eglises" && (
+        <section style={styles.card}>
+          <div style={styles.cardHeader}>
+            <div>
+              <h2 style={styles.cardTitle}>Églises enregistrées</h2>
+              <p style={styles.cardSubtitle}>
+                Liste des églises présentes sur EESAG.
+              </p>
+            </div>
+
+            <input
+              type="search"
+              placeholder="Rechercher une église..."
+              value={recherche}
+              onChange={(event) => setRecherche(event.target.value)}
+              style={styles.search}
+            />
+          </div>
+
+          {loadingEglises ? (
+            <div style={styles.empty}>Chargement des églises...</div>
+          ) : eglisesFiltrees.length === 0 ? (
+            <div style={styles.empty}>
+              <div style={{ fontSize: 40 }}>🏛</div>
+              <h3>Aucune église trouvée</h3>
+              <p>Commence par créer une nouvelle église.</p>
+
+              <button
+                type="button"
+                onClick={ouvrirCreationEglise}
+                style={styles.primaryButton}
+              >
+                + Créer une église
+              </button>
+            </div>
+          ) : (
+            <div style={styles.tableWrapper}>
+              <table style={styles.table}>
+                <thead>
+                  <tr>
+                    <th style={styles.th}>Code</th>
+                    <th style={styles.th}>Église</th>
+                    <th style={styles.th}>Téléphone</th>
+                    <th style={styles.th}>Statut</th>
+                    <th style={styles.th}>Actions</th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {eglisesFiltrees.map((eglise) => (
+                    <tr key={eglise.id}>
+                      <td style={styles.td}>
+                        <strong>{eglise.code || "—"}</strong>
+                      </td>
+
+                      <td style={styles.td}>
+                        <strong>{eglise.nom}</strong>
+
+                        {eglise.adresse_precise && (
+                          <div style={styles.secondaryText}>
+                            {eglise.adresse_precise}
+                          </div>
+                        )}
+                      </td>
+
+                      <td style={styles.td}>
+                        {eglise.telephone || "—"}
+                      </td>
+
+                      <td style={styles.td}>
+                        <span
+                          style={{
+                            ...styles.status,
+                            ...(eglise.statut === "ACTIVE"
+                              ? styles.statusActive
+                              : styles.statusInactive),
+                          }}
+                        >
+                          {eglise.statut || "—"}
+                        </span>
+                      </td>
+
+                      <td style={styles.td}>
+                        <button
+                          type="button"
+                          onClick={() => ouvrirCreationAdmin(eglise.id)}
+                          style={styles.smallPrimary}
+                        >
+                          + Administrateur
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+      )}
+
+      {onglet === "creer-eglise" && (
+        <section style={styles.card}>
+          <div style={styles.cardHeader}>
+            <div>
+              <h2 style={styles.cardTitle}>Créer une église</h2>
+              <p style={styles.cardSubtitle}>
+                Enregistre une nouvelle église dans EESAG.
+              </p>
+            </div>
+          </div>
+
+          <form onSubmit={creerEglise}>
+            <div style={styles.formGrid}>
+              <Input
+                label="Nom de l'église"
+                name="nom"
+                value={egliseForm.nom}
+                onChange={handleEgliseChange}
+                placeholder="Ex. Église de Conakry Centre"
+                required
+              />
+
+              <Input
+                label="Téléphone"
+                name="telephone"
+                value={egliseForm.telephone}
+                onChange={handleEgliseChange}
+                placeholder="+224..."
+              />
+
+              <Input
+                label="Email"
+                name="email"
+                type="email"
+                value={egliseForm.email}
+                onChange={handleEgliseChange}
+                placeholder="eglise@example.com"
+              />
+
+              <Select
+                label="Statut"
+                name="statut"
+                value={egliseForm.statut}
+                onChange={handleEgliseChange}
+              >
+                <option value="ACTIVE">Active</option>
+                <option value="SUSPENDUE">Suspendue</option>
+                <option value="FERMEE">Fermée</option>
+              </Select>
+
+              <div style={{ ...styles.field, gridColumn: "1 / -1" }}>
+                <span style={styles.label}>Adresse précise</span>
+                <textarea
+                  name="adresse_precise"
+                  value={egliseForm.adresse_precise}
+                  onChange={handleEgliseChange}
+                  placeholder="Adresse complète de l'église"
+                  rows={4}
+                  style={styles.textarea}
+                />
+              </div>
+            </div>
+
+            <div style={styles.formActions}>
+              <button
+                type="button"
+                onClick={() => setOnglet("eglises")}
+                style={styles.secondaryButton}
+              >
+                Annuler
+              </button>
+
+              <button
+                type="submit"
+                disabled={savingEglise}
+                style={styles.primaryButton}
+              >
+                {savingEglise ? "Création..." : "Créer l'église"}
+              </button>
+            </div>
+          </form>
+        </section>
+      )}
+
+      {onglet === "creer-admin" && (
+        <section style={styles.card}>
+          <div style={styles.cardHeader}>
+            <div>
+              <h2 style={styles.cardTitle}>
+                Créer un administrateur d'église
+              </h2>
+
+              <p style={styles.cardSubtitle}>
+                Le compte sera rattaché à une église précise.
+              </p>
+            </div>
+          </div>
+
+          <form onSubmit={creerAdministrateur}>
+            <div style={styles.formGrid}>
+              <div style={{ ...styles.field, gridColumn: "1 / -1" }}>
+                <Select
+                  label="Église"
+                  name="eglise"
+                  value={adminForm.eglise}
+                  onChange={handleAdminChange}
+                  required
+                >
+                  <option value="">Sélectionner une église</option>
+
+                  {eglises.map((eglise) => (
+                    <option key={eglise.id} value={eglise.id}>
+                      {eglise.code ? ${eglise.code} —  : ""}
+                      {eglise.nom}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+
+              <Input
+                label="Nom"
+                name="nom"
+                value={adminForm.nom}
+                onChange={handleAdminChange}
+                required
+              />
+
+              <Input
+                label="Prénom"
+                name="prenom"
+                value={adminForm.prenom}
+                onChange={handleAdminChange}
+                required
+              />
+
+              <Input
+                label="Téléphone"
+                name="telephone"
+                value={adminForm.telephone}
+                onChange={handleAdminChange}
+                placeholder="+224..."
+              />
+
+              <Input
+                label="Email"
+                name="email"
+                type="email"
+                value={adminForm.email}
+                onChange={handleAdminChange}
+              />
+
+              <Input
+                label="Mot de passe"
+                name="password"
+                type="password"
+                value={adminForm.password}
+                onChange={handleAdminChange}
+                minLength={6}
+                required
+              />
+
+              <Input
+                label="Confirmation du mot de passe"
+                name="password_confirmation"
+                type="password"
+                value={adminForm.password_confirmation}
+                onChange={handleAdminChange}
+                minLength={6}
+                required
+              />
+            </div>
+
+            <div style={styles.infoBox}>
+              <strong>Rôle attribué :</strong> Administrateur local de
+              l'église.
+              <br />
+              Le compte est lié uniquement à l'église sélectionnée.
+            </div>
+
+            <div style={styles.formActions}>
+              <button
+                type="button"
+                onClick={() => setOnglet("administrateurs")}
+                style={styles.secondaryButton}
+              >
+                Annuler
+              </button>
+
+              <button
+                type="submit"
+                disabled={savingAdmin}
+                style={styles.primaryButton}
+              >
+                {savingAdmin
+                  ? "Création..."
+                  : "Créer l'administrateur"}
+              </button>
+            </div>
+          </form>
+        </section>
+      )}
+
+      {onglet === "administrateurs" && (
+        <section style={styles.card}>
+          <div style={styles.cardHeader}>
+            <div>
+              <h2 style={styles.cardTitle}>
+                Administrateurs des églises
+              </h2>
+
+              <p style={styles.cardSubtitle}>
+                Comptes administrateurs rattachés aux églises.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => ouvrirCreationAdmin()}
+              style={styles.primaryButton}
+            >
+              + Créer un administrateur
+            </button>
+          </div>
+
+          {loadingAdmins ? (
+            <div style={styles.empty}>
+              Chargement des administrateurs...
+            </div>
+          ) : administrateurs.length === 0 ? (
+            <div style={styles.empty}>
+              <div style={{ fontSize: 40 }}>👤</div>
+              <h3>Aucun administrateur</h3>
+              <p>
+                Crée le premier administrateur d'une église.
+              </p>
+
+              <button
+                type="button"
+                onClick={() => ouvrirCreationAdmin()}
+                style={styles.primaryButton}
+              >
+                + Créer un administrateur
+              </button>
+            </div>
+          ) : (
+            <div style={styles.tableWrapper}>
+              <table style={styles.table}>
+                <thead>
+                  <tr>
+                    <th style={styles.th}>Administrateur</th>
+                    <th style={styles.th}>Église</th>
+                    <th style={styles.th}>Téléphone</th>
+                    <th style={styles.th}>Statut</th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {administrateurs.map((admin, index) => {
+                    const utilisateur =
+                      admin.utilisateur ||
+                      admin.admin ||
+                      admin.administrateur ||
+                      admin;
+
+                    const egliseId =
+                      admin.eglise_id ||
+                      admin.eglise ||
+                      utilisateur?.eglise;
+
+                    return (
+                      <tr key={admin.id || index}>
+                        <td style={styles.td}>
+                          <strong>
+                            {utilisateur?.prenom || admin.prenom || ""}
+                            {" "}
+                            {utilisateur?.nom || admin.nom || ""}
+                          </strong>
+
+                          <div style={styles.secondaryText}>
+                            {utilisateur?.identifiant ||
+                              admin.identifiant ||
+                              "Identifiant non disponible"}
+                          </div>
+                        </td>
+
+                        <td style={styles.td}>
+                          {typeof egliseId === "object"
+                            ? egliseId.nom
+                            : egliseNom(egliseId)}
+                        </td>
+
+                        <td style={styles.td}>
+                          {utilisateur?.telephone ||
+                            admin.telephone ||
+                            "—"}
+                        </td>
+
+                        <td style={styles.td}>
+                          <span
+                            style={{
+                              ...styles.status,
+                              ...(utilisateur?.actif !== false
+                                ? styles.statusActive
+                                : styles.statusInactive),
+                            }}
+                          >
+                            {utilisateur?.actif === false
+                              ? "Inactif"
+                              : "Actif"}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+      )}
+    </div>
+  );
+}
+
+const styles = {
+  page: {
+    padding: "28px",
+    maxWidth: "1400px",
+    margin: "0 auto",
+    color: "#172033",
+  },
+
+  header: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    gap: "20px",
+    marginBottom: "24px",
+  },
+
+  eyebrow: {
+    fontSize: "12px",
+    fontWeight: 800,
+    letterSpacing: "1.5px",
+    color: "#64748b",
+    marginBottom: "7px",
+  },
+
+  title: {
+    margin: 0,
+    fontSize: "30px",
+    fontWeight: 800,
+  },
+
+  subtitle: {
+    margin: "8px 0 0",
+    color: "#64748b",
+  },
+
+  tabs: {
+    display: "flex",
+    flexWrap: "wrap",
+    gap: "8px",
+    marginBottom: "18px",
+    padding: "7px",
+    background: "#f1f5f9",
+    borderRadius: "12px",
+  },
+
+  tab: {
+    border: "0",
+    background: "transparent",
+    padding: "11px 15px",
+    borderRadius: "9px",
+    cursor: "pointer",
+    fontWeight: 700,
+    color: "#475569",
+  },
+
+  tabActive: {
+    background: "#ffffff",
+    color: "#0f172a",
+    boxShadow: "0 1px 4px rgba(15, 23, 42, 0.12)",
+  },
+
+  badge: {
+    marginLeft: "7px",
+    padding: "2px 7px",
+    borderRadius: "20px",
+    background: "#e2e8f0",
+    fontSize: "11px",
+  },
+
+  card: {
+    background: "#ffffff",
+    border: "1px solid #e2e8f0",
+    borderRadius: "14px",
+    boxShadow: "0 4px 18px rgba(15, 23, 42, 0.05)",
+    overflow: "hidden",
+  },
+
+  cardHeader: {
+    padding: "22px",
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: "20px",
+    borderBottom: "1px solid #e2e8f0",
+  },
+
+  cardTitle: {
+    margin: 0,
+    fontSize: "20px",
+  },
+
+  cardSubtitle: {
+    margin: "5px 0 0",
+    color: "#64748b",
+  },
+
+  search: {
+    width: "300px",
+    maxWidth: "100%",
+    padding: "11px 13px",
+    border: "1px solid #cbd5e1",
+    borderRadius: "9px",
+    outline: "none",
+  },
+
+  tableWrapper: {
+    overflowX: "auto",
+  },
+
+  table: {
+    width: "100%",
+    borderCollapse: "collapse",
+  },
+
+  th: {
+    textAlign: "left",
+    padding: "13px 16px",
+    background: "#f8fafc",
+    color: "#64748b",
+    fontSize: "12px",
+    textTransform: "uppercase",
+    letterSpacing: "0.5px",
+  },
+
+  td: {
+    padding: "15px 16px",
+    borderTop: "1px solid #eef2f7",
+    verticalAlign: "middle",
+  },
+
+  secondaryText: {
+    color: "#64748b",
+    fontSize: "13px",
+    marginTop: "3px",
+  },
+
+  status: {
+    display: "inline-block",
+    padding: "5px 9px",
+    borderRadius: "20px",
+    fontSize: "12px",
+    fontWeight: 800,
+  },
+
+  statusActive: {
+    background: "#dcfce7",
+    color: "#166534",
+  },
+
+  statusInactive: {
+    background: "#fee2e2",
+    color: "#991b1b",
+  },
+
+  primaryButton: {
+    border: 0,
+    borderRadius: "9px",
+    padding: "11px 16px",
+    background: "#0f172a",
+    color: "#ffffff",
+    fontWeight: 800,
+    cursor: "pointer",
+    whiteSpace: "nowrap",
+  },
+
+  secondaryButton: {
+    border: "1px solid #cbd5e1",
+    borderRadius: "9px",
+    padding: "11px 16px",
+    background: "#ffffff",
+    color: "#334155",
+    fontWeight: 700,
+    cursor: "pointer",
+  },
+
+  smallPrimary: {
+    border: 0,
+    borderRadius: "7px",
+    padding: "8px 11px",
+    background: "#0f172a",
+    color: "#ffffff",
+    fontWeight: 700,
+    cursor: "pointer",
+  },
+
+  formGrid: {
+    padding: "24px",
+    display: "grid",
+    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+    gap: "18px",
+  },
+
+  field: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "7px",
+  },
+
+  label: {
+    fontSize: "13px",
+    fontWeight: 800,
+    color: "#334155",
+  },
+
+  input: {
+    width: "100%",
+    boxSizing: "border-box",
+    padding: "11px 12px",
+    border: "1px solid #cbd5e1",
+    borderRadius: "8px",
+    background: "#ffffff",
+    color: "#0f172a",
+    outline: "none",
+  },
+
+  textarea: {
+    width: "100%",
+    boxSizing: "border-box",
+    padding: "11px 12px",
+    border: "1px solid #cbd5e1",
+    borderRadius: "8px",
+    resize: "vertical",
+    fontFamily: "inherit",
+  },
+
+  formActions: {
+    display: "flex",
+    justifyContent: "flex-end",
+    gap: "10px",
+    padding: "18px 24px",
+    borderTop: "1px solid #e2e8f0",
+  },
+
+  infoBox: {
+    margin: "0 24px 20px",
+    padding: "14px",
+    borderRadius: "9px",
+    background: "#eff6ff",
+    border: "1px solid #bfdbfe",
+    color: "#1e40af",
+    fontSize: "13px",
+    lineHeight: 1.6,
+  },
+
+  empty: {
+    padding: "55px 25px",
+    textAlign: "center",
+    color: "#64748b",
+  },
+
+  error: {
+    marginBottom: "16px",
+    padding: "13px 15px",
+    borderRadius: "9px",
+    background: "#fef2f2",
+    border: "1px solid #fecaca",
+    color: "#991b1b",
+  },
+
+  success: {
+    marginBottom: "16px",
+    padding: "13px 15px",
+    borderRadius: "9px",
+    background: "#f0fdf4",
+    border: "1px solid #bbf7d0",
+    color: "#166534",
+  },
+};

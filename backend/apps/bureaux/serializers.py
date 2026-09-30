@@ -18,22 +18,50 @@ class BureauSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["id", "code", "date_creation", "membres_actifs", "mes_droits"]
 
+    # Les droits doivent venir du bureau auquel le compte est réellement administrateur.
     def get_mes_droits(self, obj):
         request = self.context.get("request")
+
         if not request or not request.user.is_authenticated:
             return {}
+
         user = request.user
+
+        DROITS = [
+            "peut_gerer_membres",
+            "peut_gerer_finances",
+            "peut_gerer_projets",
+            "peut_envoyer_notifications",
+            "peut_gerer_rapports",
+        ]
+
+        # ============================================================
+        # COORDINATEUR
+        # ============================================================
+        # Le Coordinateur possède les droits système complets.
+        # Il n'est cependant pas enregistré comme administrateur
+        # du bureau.
         if user.role == "COORDINATEUR" or user.is_superuser:
-            return {k: True for k in ["peut_gerer_membres", "peut_gerer_finances", "peut_gerer_projets", "peut_envoyer_notifications", "peut_gerer_rapports"]}
-        if user.role in ["SUPERADMIN_INTL", "SUPERADMIN_NATIONAL"] and obj.niveau == "NATIONAL":
-            from .models import BureauAdministrateur
-            if not BureauAdministrateur.objects.filter(utilisateur=user, actif=True).exists():
-                return {k: True for k in ["peut_gerer_membres", "peut_gerer_finances", "peut_gerer_projets", "peut_envoyer_notifications", "peut_gerer_rapports"]}
-        if user.role in ["PASTEUR", "ADMIN_LOCAL"] and obj.niveau == "LOCAL" and obj.eglise_id == user.eglise_id:
-            return {k: True for k in ["peut_gerer_membres", "peut_gerer_finances", "peut_gerer_projets", "peut_envoyer_notifications", "peut_gerer_rapports"]}
-        admin = BureauAdministrateur.objects.filter(bureau=obj, utilisateur=user, actif=True).first()
+            return {droit: True for droit in DROITS}
+
+        # ============================================================
+        # ADMINISTRATEUR DU BUREAU
+        # ============================================================
+        # Tous les autres utilisateurs obtiennent leurs droits
+        # exclusivement depuis BureauAdministrateur.
+        admin = BureauAdministrateur.objects.filter(
+            bureau=obj,
+            utilisateur=user,
+            actif=True,
+        ).first()
+
+        # Aucun administrateur actif pour ce bureau
         if not admin:
-            return {k: False for k in ["peut_gerer_membres", "peut_gerer_finances", "peut_gerer_projets", "peut_envoyer_notifications", "peut_gerer_rapports"]}
+            return {droit: False for droit in DROITS}
+
+        # ============================================================
+        # DROITS ATTRIBUÉS À CET ADMINISTRATEUR
+        # ============================================================
         return {
             "peut_gerer_membres": admin.peut_gerer_membres,
             "peut_gerer_finances": admin.peut_gerer_finances,

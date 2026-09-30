@@ -41,8 +41,8 @@ class ReligionAdmin(admin.ModelAdmin):
 @admin.register(Eglise)
 class EgliseAdmin(admin.ModelAdmin):
     form = EgliseAdminForm
-    list_display = ("code", "nom", "religion", "region", "prefecture", "district", "responsable_affichage", "statut")
-    list_filter = ("religion", "region", "prefecture", "statut")
+    list_display = ("code", "nom", "region", "prefecture", "district", "responsable_affichage", "statut")
+    list_filter = ("region", "prefecture", "statut")
     search_fields = ("nom", "code", "responsable_nom", "responsable__nom", "responsable__prenom")
     readonly_fields = ("code", "date_enregistrement_systeme")
 

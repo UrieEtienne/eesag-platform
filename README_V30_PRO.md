@@ -26,7 +26,7 @@ L'activation de l'église depuis Django Admin ouvre automatiquement les accès d
 Les fonctionnalités système, la monétisation, les annonces système et le profil développeur sont réservés au Coordinateur.
 
 ### SMS
-Le mode SMS de test reste contrôlé par `SMS_ENABLED=False` tant que Twilio Trial n'est pas disponible pour tous les destinataires.
+Le mode SMS de test reste contrôlé par SMS_ENABLED=False tant que Twilio Trial n'est pas disponible pour tous les destinataires.
 
 ### Vérification
-Les modules Python principaux ont été compilés avec `py_compile`/`compileall` pendant la préparation de cette archive.
+Les modules Python principaux ont été compilés avec py_compile/compileall pendant la préparation de cette archive.

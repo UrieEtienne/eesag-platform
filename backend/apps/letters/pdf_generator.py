@@ -1,7 +1,7 @@
 """
 Génération d'un exemplaire de lettre (mission / recommandation / note) au format A4.
 Le texte inséré est un EXEMPLE par défaut — modifiable ensuite directement dans le
-champ `contenu` du Courrier (depuis l'API/l'admin) avant régénération du PDF.
+champ contenu du Courrier (depuis l'API/l'admin) avant régénération du PDF.
 """
 import io
 from django.core.files.base import ContentFile

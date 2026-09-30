@@ -5,10 +5,10 @@ from rest_framework.response import Response
 
 from apps.accounts.models import ROLES_NATIONAUX, ROLES_GESTION_EGLISE, ROLES_BUREAU_NATIONAL, Role
 from apps.accounts.permissions import EstAdminLocalOuPlus
-from apps.bureaux.views import a_droit_bureau
 from apps.bureaux.models import BureauAdministrateur
 from .models import Notification, Publication, DiffusionNotification
 from .serializers import NotificationSerializer, PublicationSerializer
+from apps.bureaux.access import a_droit_bureau
 
 
 def _est_national_general(user):
@@ -131,17 +131,24 @@ class EnvoyerDiffusionNotificationView(generics.GenericAPIView):
         bureau = None
 
         if portee == "DEPARTEMENT":
-            departement = Departement.objects.filter(pk=request.data.get("departement")).select_related("eglise").first()
+            departement = Departement.objects.filter(pk=request.data.get("departement")).first()
             if not departement:
                 return Response({"detail": "Département introuvable."}, status=404)
             if user.role in ROLES_NATIONAUX:
-                # Un administrateur d'un bureau thématique ne diffuse pas vers un département d'une église arbitraire.
+                # Un administrateur d'un bureau thématique ne diffuse pas vers un département d'église.
                 if BureauAdministrateur.objects.filter(utilisateur=user, actif=True).exists():
                     return Response({"detail": "Un administrateur de bureau national ne peut pas diffuser vers un département d'église."}, status=403)
-            elif departement.eglise_id != user.eglise_id:
-                return Response({"detail": "Département hors de votre église."}, status=403)
-            qs = qs.filter(eglise_id=departement.eglise_id, departement_id=departement.id)
-            eglise = departement.eglise
+                eglise = Eglise.objects.filter(pk=request.data.get("eglise")).first()
+                if not eglise:
+                    return Response({"detail": "Pour une diffusion nationale vers un département, l'église est obligatoire."}, status=400)
+            else:
+                eglise = user.eglise
+                if not eglise:
+                    return Response({"detail": "Votre compte n'est rattaché à aucune église."}, status=403)
+            # Le département est partagé ; son périmètre réel est constitué par les membres
+            # de l'église qui portent ce département.
+            qs = qs.filter(eglise_id=eglise.id, departement_id=departement.id)
+
         elif portee == "BUREAU":
             bureau = Bureau.objects.filter(pk=request.data.get("bureau"), actif=True).select_related("eglise").first()
             if not bureau:

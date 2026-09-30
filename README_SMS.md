@@ -7,4 +7,4 @@ Le projet utilise **FastAPI + Twilio** pour les SMS transactionnels et OTP.
 - Twilio : livraison SMS
 - React / Flutter : appellent seulement l'API Django
 
-Les secrets Twilio sont dans `sms_api/.env` et doivent rester privés.
+Les secrets Twilio sont dans sms_api/.env et doivent rester privés.

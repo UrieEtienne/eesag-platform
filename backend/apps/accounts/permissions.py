@@ -2,25 +2,6 @@ from rest_framework.permissions import BasePermission, SAFE_METHODS
 from .models import Role, ROLES_NATIONAUX, ROLES_GESTION_EGLISE, ROLES_BUREAU_NATIONAL
 
 
-def est_bureau_national_specifique(user):
-    if not user or user.role not in ROLES_BUREAU_NATIONAL:
-        return False
-    try:
-        from apps.bureaux.models import BureauAdministrateur
-        return BureauAdministrateur.objects.filter(
-            utilisateur=user, actif=True
-        ).exists()
-    except Exception:
-        return False
-
-
-def est_bureau_national_general(user):
-    return bool(
-        user
-        and user.is_authenticated
-        and user.role in ROLES_BUREAU_NATIONAL
-        and not est_bureau_national_specifique(user)
-    )
 
 
 class EstCoordinateur(BasePermission):
@@ -58,6 +39,75 @@ class EstCoordinateurOuBureauNationalGeneral(BasePermission):
                 or est_bureau_national_general(user)
             )
         )
+
+
+def est_bureau_national_specifique(user):
+    if not user or user.role not in ROLES_BUREAU_NATIONAL:
+        return False
+    try:
+        from apps.bureaux.models import BureauAdministrateur
+        return BureauAdministrateur.objects.filter(
+            utilisateur=user, actif=True
+        ).exists()
+    except Exception:
+        return False
+
+
+def est_bureau_national_general(user):
+    return bool(
+        user
+        and user.is_authenticated
+        and user.role in ROLES_BUREAU_NATIONAL
+        and not est_bureau_national_specifique(user)
+    )
+
+def peut_creer_bureau_national(user):
+    """
+    Seul le Coordinateur peut créer le Bureau national général.
+
+    Le Bureau national est créé une seule fois.
+    """
+
+    if not user or not user.is_authenticated:
+        return False
+
+    if user.is_superuser:
+        return True
+
+    return user.role == Role.COORDINATEUR
+
+def peut_gerer_bureau_national_general(user):
+    """
+    Le Coordinateur peut administrer la structure du Bureau national.
+
+    Cette fonction ne donne pas au Coordinateur le rôle de membre
+    du Bureau national.
+    """
+
+    if not user or not user.is_authenticated:
+        return False
+
+    if user.is_superuser:
+        return True
+
+    return user.role == Role.COORDINATEUR
+
+def bureau_national_general_existe():
+    from apps.bureaux.models import Bureau, NiveauBureau, TypeBureau
+
+    return Bureau.objects.filter(
+        niveau=NiveauBureau.NATIONAL,
+        type_bureau=TypeBureau.GENERAL,
+    ).exists()
+
+# Créer une permission DRF dédiée
+class EstCoordinateurPourCreationBureau(BasePermission):
+    """
+    Autorise uniquement le Coordinateur à créer le Bureau national général.
+    """
+
+    def has_permission(self, request, view):
+        return peut_creer_bureau_national(request.user)
 
 
 class EstSuperAdminInternational(BasePermission):

@@ -83,6 +83,19 @@ class UtilisateurAdminForm(forms.ModelForm):
         if user and is_local(user):
             self.fields["actif"].disabled = True
 
+        # Les champs de statut restent cochables dans Django Admin.
+        # La sécurité est appliquée dans clean()/save_model() selon le rôle :
+        # un compte local peut être activé plus tard depuis sa fiche ou via
+        # les actions d'administration, sans laisser un rôle non autorisé
+        # devenir super-utilisateur.
+        if not self.instance.pk:
+            self.fields["actif"].initial = False
+            self.fields["is_staff"].initial = False
+            self.fields["is_superuser"].initial = False
+
+        if user and not is_coordinator(user):
+            self.fields["is_superuser"].disabled = True
+
 
     def clean(self):
         cleaned = super().clean()
@@ -141,10 +154,15 @@ class UtilisateurAdminForm(forms.ModelForm):
             obj.is_superuser = False
             obj.fonction_eglise = "MEMBRE"
         elif role in (Role.ADMIN_LOCAL, Role.PASTEUR):
-            obj.is_staff = True
             obj.is_superuser = False
             if requester and requester.user.role in (Role.ADMIN_LOCAL, Role.PASTEUR):
                 obj.eglise = requester.user.eglise
+            # L'activation est pilotée par le champ "actif". Pour qu'un
+            # compte local puisse réellement utiliser Django Admin, l'église
+            # doit aussi avoir sa plateforme active.
+            if obj.actif and not (obj.eglise_id and obj.eglise.plateforme_active):
+                obj.actif = False
+            obj.is_staff = bool(obj.actif and obj.eglise_id and obj.eglise.plateforme_active)
         else:
             obj.is_staff = False
             obj.is_superuser = False
@@ -198,13 +216,24 @@ class UtilisateurAdmin(EESAGScopedAdminMixin, admin.ModelAdmin):
                 level=messages.ERROR,
             )
             return
-        qs = queryset.filter(actif=False).exclude(role=Role.COORDINATEUR)
-        count = qs.update(actif=True)
-        self.message_user(
-            request,
-            f"{count} compte(s) activé(s).",
-            level=messages.SUCCESS,
-        )
+        count = 0
+        bloques = 0
+        for compte in queryset.filter(actif=False).exclude(role=Role.COORDINATEUR).select_related("eglise"):
+            if compte.role in (Role.ADMIN_LOCAL, Role.PASTEUR):
+                if not compte.eglise_id or not compte.eglise.plateforme_active:
+                    bloques += 1
+                    continue
+                compte.actif = True
+                compte.is_staff = True
+            else:
+                compte.actif = True
+                compte.is_staff = False
+            compte.save(update_fields=["actif", "is_staff"])
+            count += 1
+        message = f"{count} compte(s) activé(s)."
+        if bloques:
+            message += f" {bloques} compte(s) local(aux) restent bloqué(s) car l'église n'est pas encore activée."
+        self.message_user(request, message, level=messages.SUCCESS if count else messages.WARNING)
 
     @admin.action(description="Désactiver les comptes sélectionnés")
     def desactiver_comptes(self, request, queryset):
@@ -216,10 +245,10 @@ class UtilisateurAdmin(EESAGScopedAdminMixin, admin.ModelAdmin):
             )
             return
         qs = queryset.exclude(role=Role.COORDINATEUR)
-        count = qs.update(actif=False)
+        count = qs.update(actif=False, is_staff=False)
         self.message_user(
             request,
-            f"{count} compte(s) désactivé(s).",
+            f"{count} compte(s) désactivé(s) et verrouillé(s).",
             level=messages.SUCCESS,
         )
 
@@ -324,10 +353,9 @@ class UtilisateurAdmin(EESAGScopedAdminMixin, admin.ModelAdmin):
                 else:
                     obj.actif = False
             elif is_national_general(request.user):
-                # Le Bureau national peut activer/désactiver, mais pas créer
-                # un compte déjà actif par défaut pour une nouvelle création.
-                if not change:
-                    obj.actif = False
+                # Le Bureau national général peut activer/désactiver depuis
+                # la fiche Django Admin ou les actions de liste.
+                pass
             super().save_model(request, obj, form, change)
 
 

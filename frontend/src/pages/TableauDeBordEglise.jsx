@@ -11,15 +11,21 @@ export default function TableauDeBordEglise() {
 
   useEffect(() => {
     if (!utilisateur?.eglise) return;
-    Promise.all([
-      client.get(`/stats/eglise/${utilisateur.eglise}/`),
-      client.get("/documents/"),
-      client.get("/notifications/"),
-    ]).then(([s, d, n]) => {
-      setStats(s.data);
-      setDocs(d.data.results || d.data);
-      setNotifications(n.data.results || n.data);
-    }).catch(() => setErreur("Impossible de charger votre espace église."));
+    setErreur("");
+    // Les statistiques constituent le socle de l'espace. Les documents et
+    // notifications sont chargés indépendamment afin qu'une erreur sur un
+    // module optionnel ne bloque pas toute l'église.
+    client.get(`/stats/eglise/${utilisateur.eglise}/`)
+      .then((r) => setStats(r.data))
+      .catch((err) => setErreur(err.response?.data?.detail || "Impossible de charger les données de votre église."));
+
+    client.get("/documents/")
+      .then((r) => setDocs(r.data.results || r.data || []))
+      .catch(() => setDocs([]));
+
+    client.get("/notifications/")
+      .then((r) => setNotifications(r.data.results || r.data || []))
+      .catch(() => setNotifications([]));
   }, [utilisateur?.eglise]);
 
   if (erreur) return <p className="erreur">{erreur}</p>;

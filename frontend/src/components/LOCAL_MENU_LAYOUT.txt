@@ -1,0 +1,30 @@
+# MENU EXACT DE L'ESPACE EGLISE LOCALE
+
+Dans Layout., utilise le composant MenuEgliseLocale :
+
+import MenuEgliseLocale from "./MenuEgliseLocale";
+
+Puis dans la zone de navigation/sidebar de l'application, pour un utilisateur rattaché à une église locale :
+
+<MenuEgliseLocale />
+
+Le composant affiche exactement :
+
+1. Tableau de bord
+2. Membres
+3. Départements
+4. Annexes
+5. Documents
+6. Notifications
+7. Finances
+8. Rapports
+9. Réunions
+
+Puis, et UNIQUEMENT pour role === ADMIN_LOCAL :
+
+10. Administration de l'église
+
+Il ne faut pas ajouter « Bureaux » ou « Bureau interne » au menu local.
+Le Bureau national reste hors du périmètre de l'église locale.
+
+Pour les liens généraux Profil / Informations / Déconnexion, conserve tes contrôles existants dans Layout..
