@@ -40,7 +40,6 @@ class AnnexeSerializer(serializers.ModelSerializer):
 
 
 class EgliseListSerializer(serializers.ModelSerializer):
-    religion_nom = serializers.CharField(source="religion.nom", read_only=True)
     region_nom = serializers.CharField(source="region.nom", read_only=True)
     prefecture_nom = serializers.CharField(source="prefecture.nom", read_only=True)
     district_nom = serializers.CharField(source="district.nom", read_only=True)

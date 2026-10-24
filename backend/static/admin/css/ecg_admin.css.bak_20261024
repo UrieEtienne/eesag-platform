@@ -1,0 +1,788 @@
+/* =========================================================
+   EESAG — Django Admin
+   Interface inspirée de la maquette EESAG
+   ========================================================= */
+
+:root {
+    --eesag-blue: #0878b8;
+    --eesag-blue-dark: #075985;
+    --eesag-blue-deep: #0b2638;
+    --eesag-sidebar: #102938;
+    --eesag-bg: #eef4f8;
+    --eesag-border: #d8e4ec;
+    --eesag-text: #17324a;
+    --eesag-muted: #6b8092;
+    --eesag-white: #ffffff;
+}
+
+/* =========================================================
+   BASE
+   ========================================================= */
+
+html,
+body {
+    margin: 0;
+    padding: 0;
+    background: var(--eesag-bg);
+    color: var(--eesag-text);
+}
+
+body {
+    font-family:
+        "Segoe UI",
+        Roboto,
+        Arial,
+        sans-serif;
+    font-size: 14px;
+}
+
+/* =========================================================
+   BARRE SUPERIEURE
+   ========================================================= */
+
+#header {
+    position: relative;
+    z-index: 1000;
+
+    min-height: 74px;
+    height: auto;
+
+    display: grid;
+    grid-template-columns: 250px minmax(0, 1fr) auto;
+
+    align-items: stretch;
+
+    padding: 0;
+
+    background: linear-gradient(
+        135deg,
+        #0878b8 0%,
+        #168ac0 55%,
+        #319bc9 100%
+    );
+
+    border: 0;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.14);
+}
+
+/* =========================================================
+   LOGO / BRANDING
+   ========================================================= */
+
+#branding {
+    min-width: 0;
+
+    display: flex;
+    align-items: center;
+
+    padding: 8px 18px;
+
+    box-sizing: border-box;
+}
+
+#branding h1,
+#branding h1 a {
+    margin: 0;
+    padding: 0;
+
+    color: #fff !important;
+
+    text-decoration: none;
+
+    font-size: 21px;
+    font-weight: 800;
+    line-height: 1.1;
+}
+
+#branding h1 a {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+#branding h1 a::before {
+    content: "";
+
+    width: 42px;
+    height: 42px;
+
+    flex: 0 0 42px;
+
+    display: block;
+
+    background-image: url("/static/admin/img/logo_eesag.jpg");
+    background-position: center;
+    background-repeat: no-repeat;
+    background-size: contain;
+
+    border-radius: 10px;
+    background-color: #fff;
+}
+
+#branding .subtitle,
+#branding small {
+    display: block;
+
+    margin-top: 2px;
+
+    color: rgba(255, 255, 255, 0.78);
+
+    font-size: 10px;
+    font-weight: 400;
+}
+
+/* =========================================================
+   USER TOOLS / PROFIL
+   ========================================================= */
+
+#user-tools {
+    min-width: 230px;
+    max-width: 320px;
+
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+
+    padding: 8px 16px;
+
+    box-sizing: border-box;
+
+    color: #fff;
+
+    font-size: 11px;
+    line-height: 1.25;
+
+    white-space: normal;
+}
+
+#user-tools a {
+    color: #fff !important;
+    text-decoration: none;
+}
+
+#user-tools a:hover {
+    text-decoration: underline;
+}
+
+/* Profil */
+
+.ecg-admin-user-preview {
+    width: 46px;
+    height: 46px;
+
+    flex: 0 0 46px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    overflow: hidden;
+
+    background: #fff;
+
+    border: 3px solid rgba(255, 255, 255, 0.9);
+    border-radius: 50%;
+
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
+}
+
+.ecg-admin-user-preview img {
+    width: 100%;
+    height: 100%;
+
+    display: block;
+
+    object-fit: cover;
+}
+
+/* =========================================================
+   MENU GLOBAL
+   ========================================================= */
+
+.ecg-admin-global {
+    min-width: 0;
+
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+
+    gap: 5px;
+
+    padding: 8px 10px;
+
+    box-sizing: border-box;
+
+    overflow-x: auto;
+    overflow-y: hidden;
+
+    scrollbar-width: thin;
+}
+
+.ecg-admin-global::-webkit-scrollbar {
+    height: 4px;
+}
+
+.ecg-admin-global::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.35);
+    border-radius: 20px;
+}
+
+/* Liens */
+
+.ecg-admin-global > a {
+    flex: 0 0 auto;
+
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    min-height: 38px;
+
+    padding: 7px 13px;
+
+    box-sizing: border-box;
+
+    color: #fff !important;
+
+    background: rgba(255, 255, 255, 0.10);
+
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    border-radius: 7px;
+
+    text-decoration: none !important;
+
+    font-size: 12px;
+    font-weight: 700;
+
+    white-space: nowrap;
+
+    transition:
+        background 0.18s ease,
+        transform 0.18s ease;
+}
+
+.ecg-admin-global > a:hover {
+    background: rgba(255, 255, 255, 0.22);
+
+    transform: translateY(-1px);
+}
+
+.ecg-admin-global > a.is-active {
+    background: rgba(255, 255, 255, 0.25);
+}
+
+/* =========================================================
+   PERIMETRE
+   ========================================================= */
+
+.ecg-admin-scope-pill {
+    flex: 0 1 auto;
+
+    min-width: 145px;
+    max-width: 230px;
+
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+
+    padding: 5px 10px;
+
+    margin-right: 4px;
+
+    box-sizing: border-box;
+
+    color: #fff;
+
+    border-left: 1px solid rgba(255, 255, 255, 0.25);
+
+    line-height: 1.15;
+}
+
+.ecg-admin-scope-pill span {
+    display: block;
+
+    margin-bottom: 3px;
+
+    color: rgba(255, 255, 255, 0.70);
+
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.7px;
+}
+
+.ecg-admin-scope-pill b {
+    display: block;
+
+    color: #fff;
+
+    font-size: 12px;
+    font-weight: 800;
+
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+
+/* =========================================================
+   CONTENU
+   ========================================================= */
+
+#content {
+    position: relative;
+
+    min-height: calc(100vh - 74px);
+
+    padding: 26px 30px 40px;
+
+    box-sizing: border-box;
+
+    background:
+        radial-gradient(
+            circle at top right,
+            rgba(35, 145, 198, 0.08),
+            transparent 30%
+        ),
+        var(--eesag-bg);
+}
+
+/* =========================================================
+   TITRES
+   ========================================================= */
+
+#content h1 {
+    margin: 0 0 18px;
+
+    color: #123c5b;
+
+    font-size: 28px;
+    font-weight: 800;
+}
+
+#content h2 {
+    color: #164c70;
+}
+
+/* =========================================================
+   BOUTONS
+   ========================================================= */
+
+.button,
+input[type="submit"],
+input[type="button"],
+.submit-row input,
+a.button {
+    border-radius: 7px !important;
+}
+
+/* =========================================================
+   MODULES / BLOCS
+   ========================================================= */
+
+.module {
+    margin-bottom: 20px;
+
+    background: #fff;
+
+    border: 1px solid var(--eesag-border);
+    border-radius: 10px;
+
+    box-shadow: 0 2px 8px rgba(20, 70, 100, 0.06);
+
+    overflow: hidden;
+}
+
+.module h2 {
+    margin: 0;
+
+    padding: 13px 17px;
+
+    color: #fff !important;
+
+    background: linear-gradient(
+        90deg,
+        #117cab,
+        #218fc0
+    );
+
+    font-size: 17px;
+    font-weight: 700;
+}
+
+/* =========================================================
+   TABLEAUX
+   ========================================================= */
+
+#changelist {
+    background: transparent;
+}
+
+#changelist-form {
+    background: #fff;
+
+    border-radius: 10px;
+
+    overflow: hidden;
+
+    box-shadow: 0 2px 8px rgba(20, 70, 100, 0.06);
+}
+
+#result_list {
+    border-collapse: collapse;
+}
+
+#result_list thead th {
+    padding: 12px;
+
+    background: #f0f6fa;
+
+    color: #164c70;
+
+    font-weight: 800;
+}
+
+#result_list tbody td {
+    padding: 11px 12px;
+
+    border-bottom: 1px solid #e6eef3;
+}
+
+#result_list tbody tr:hover {
+    background: #f7fbfd;
+}
+
+/* =========================================================
+   FORMULAIRES
+   ========================================================= */
+
+fieldset.module {
+    margin-bottom: 22px;
+}
+
+.form-row {
+    padding: 12px 15px;
+
+    border-bottom: 1px solid #edf2f5;
+}
+
+.form-row:last-child {
+    border-bottom: 0;
+}
+
+label {
+    color: #294b63;
+    font-weight: 700;
+}
+
+input,
+textarea,
+select {
+    max-width: 100%;
+
+    border-radius: 6px !important;
+}
+
+/* =========================================================
+   FIL D'ARIANE
+   ========================================================= */
+
+.breadcrumbs {
+    margin-bottom: 18px;
+
+    padding: 11px 15px;
+
+    background: #fff;
+
+    border: 1px solid var(--eesag-border);
+    border-radius: 8px;
+
+    color: #557086;
+
+    box-shadow: 0 1px 5px rgba(20, 70, 100, 0.04);
+}
+
+/* =========================================================
+   FOOTER
+   ========================================================= */
+
+#footer {
+    padding: 18px 25px;
+
+    color: #70889a;
+
+    background: #fff;
+
+    border-top: 1px solid var(--eesag-border);
+
+    text-align: center;
+}
+
+.ecg-admin-footer-team a {
+    color: #0878b8;
+    font-weight: 700;
+}
+
+/* =========================================================
+   RESPONSIVE
+   ========================================================= */
+
+@media (max-width: 1250px) {
+    #header {
+        grid-template-columns: 220px minmax(0, 1fr) 190px;
+    }
+
+    #branding {
+        padding-left: 12px;
+        padding-right: 12px;
+    }
+
+    .ecg-admin-global {
+        justify-content: flex-start;
+    }
+
+    .ecg-admin-global > a {
+        padding-left: 10px;
+        padding-right: 10px;
+
+        font-size: 11px;
+    }
+
+    #user-tools {
+        min-width: 190px;
+
+        padding-left: 8px;
+        padding-right: 8px;
+    }
+}
+
+@media (max-width: 1000px) {
+    #header {
+        grid-template-columns: 210px minmax(0, 1fr);
+    }
+
+    #user-tools {
+        grid-column: 2;
+        grid-row: 2;
+
+        max-width: none;
+
+        justify-content: flex-end;
+
+        min-height: 50px;
+
+        background: rgba(0, 0, 0, 0.08);
+    }
+
+    .ecg-admin-global {
+        grid-column: 2;
+        grid-row: 1;
+    }
+
+    #branding {
+        grid-column: 1;
+        grid-row: 1 / span 2;
+    }
+
+    #content {
+        padding: 20px;
+    }
+}
+
+@media (max-width: 700px) {
+    #header {
+        display: block;
+
+        min-height: 0;
+    }
+
+    #branding {
+        min-height: 64px;
+    }
+
+    .ecg-admin-global {
+        padding: 7px 10px;
+
+        justify-content: flex-start;
+    }
+
+    #user-tools {
+        min-width: 0;
+        max-width: none;
+
+        min-height: 52px;
+
+        justify-content: flex-start;
+
+        overflow-x: auto;
+    }
+
+    #content {
+        padding: 15px;
+    }
+
+    #content h1 {
+        font-size: 23px;
+    }
+}
+
+/* =========================================================
+   CORRECTION FOR TEXTS THAT OVERLAP
+   ========================================================= */
+
+/*
+   Django applique parfois des règles à #user-tools,
+   #branding et nav-global. On force ici les dimensions
+   pour empêcher tout chevauchement.
+*/
+
+#header *,
+#header *::before,
+#header *::after {
+    box-sizing: border-box;
+}
+
+#header a {
+    line-height: 1.2;
+}
+
+#header #user-tools {
+    position: relative !important;
+
+    top: auto !important;
+    right: auto !important;
+
+    float: none !important;
+}
+
+#header #branding {
+    float: none !important;
+}
+
+#header .ecg-admin-global {
+    position: relative !important;
+
+    top: auto !important;
+    right: auto !important;
+
+    float: none !important;
+}
+
+/* Empêche les textes longs de sortir de leur bloc */
+
+.ecg-admin-global a,
+.ecg-admin-scope-pill,
+#user-tools {
+    overflow-wrap: anywhere;
+}
+
+/* Profil toujours visible et séparé */
+
+.ecg-admin-user-preview {
+    position: relative !important;
+
+    z-index: 10;
+}
+
+/* =========================================================
+   SUPPRESSION DES ELEMENTS QUI CREENT DES DOUBLES BARRES
+   ========================================================= */
+
+#header br {
+    display: none;
+}
+
+/* === CORRECTION EESAG : PHOTO ET TEXTES DU COMPTE === */
+
+#header {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    align-items: center !important;
+    gap: 12px 24px !important;
+    height: auto !important;
+    min-height: 76px;
+    padding: 12px 24px !important;
+    box-sizing: border-box;
+}
+
+#branding {
+    float: none !important;
+    flex: 1 1 260px;
+    min-width: 0;
+    margin: 0 !important;
+}
+
+#user-tools {
+    float: none !important;
+    display: flex !important;
+    flex: 0 1 auto;
+    align-items: center !important;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 10px;
+    min-width: 0;
+    margin: 0 !important;
+    padding: 0 !important;
+    text-align: left !important;
+}
+
+.ecg-admin-user-preview {
+    display: inline-flex !important;
+    flex: 0 0 48px;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
+    margin: 0 8px 0 0 !important;
+    vertical-align: middle;
+}
+
+.ecg-admin-user-preview img {
+    display: block !important;
+    width: 48px !important;
+    height: 48px !important;
+    max-width: 48px !important;
+    object-fit: cover;
+    border-radius: 50%;
+}
+
+#user-tools a,
+#user-tools button {
+    display: inline-flex;
+    align-items: center;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+}
+
+.ecg-admin-global {
+    display: flex;
+    flex: 1 0 100%;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px 12px;
+    min-width: 0;
+    margin-top: 8px;
+}
+
+.ecg-admin-global a,
+.ecg-admin-scope-pill {
+    max-width: 100%;
+    overflow-wrap: anywhere;
+}
+
+@media (max-width: 700px) {
+    #header {
+        padding: 12px !important;
+    }
+
+    #branding {
+        flex-basis: 100%;
+    }
+
+    #user-tools {
+        justify-content: flex-start;
+        width: 100%;
+    }
+
+    .ecg-admin-global {
+        flex-basis: 100%;
+    }
+}

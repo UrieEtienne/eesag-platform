@@ -28,7 +28,8 @@ import TableauDeBordEglise from "./pages/TableauDeBordEglise";
 import GestionAdminsEglise from "./pages/GestionAdminsEglise";
 import AdministrationEglises from "./pages/AdministrationEglises";
 import Layout from "./components/Layout";
-
+import AdministrationSysteme from "./pages/AdministrationSysteme";
+import AdministrationUtilisateurs from "./pages/AdministrationUtilisateurs";
 const NATIONAL = ["COORDINATEUR", "SUPERADMIN_INTL", "SUPERADMIN_NATIONAL"];
 const BUREAU = ["SUPERADMIN_INTL", "SUPERADMIN_NATIONAL"];
 const LOCAL = ["ADMIN_LOCAL", "PASTEUR"];
@@ -44,8 +45,33 @@ export default function App() {
     <Routes>
       <Route path="/connexion" element={<Connexion />} />
       <Route path="/inscription" element={<Inscription />} />
-
       <Route path="/" element={protect(<EspaceAccueil />)} />
+
+      {/* ESPACE ADMIN DU COORDINATEUR */}
+      <Route
+        path="/admin"
+        element={
+          <RouteProtegee roles={["COORDINATEUR"]}>
+            <AdministrationSysteme />
+          </RouteProtegee>
+        }
+      />
+      <Route
+        path="/admin-utilisateurs"
+        element={
+          <RouteProtegee
+            roles={[
+              "COORDINATEUR",
+              "SUPERADMIN_INTL",
+              "SUPERADMIN_NATIONAL",
+            ]}
+          >
+            <Layout>
+              <AdministrationUtilisateurs />
+            </Layout>
+          </RouteProtegee>
+        }
+      />
 
       {/* ESPACE ÉGLISE LOCALE */}
       <Route path="/eglise-dashboard" element={protect(<TableauDeBordEglise />, { roles: LOCAL })} />

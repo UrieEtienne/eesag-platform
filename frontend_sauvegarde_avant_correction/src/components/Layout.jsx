@@ -177,13 +177,38 @@ export default function Layout({ children }) {
             </>
           )}
 
+          
           {estCoordinateur && (
             <>
-              <div className="nav-section-label">Configuration propriétaire</div>
+              <div className="nav-section-label">
+                Configuration propriétaire
+              </div>
+
               {link("/parametres", "Paramètres système", "⚙")}
               {link("/systeme", "Mes fonctionnalités", "◈")}
+
+              <div className="nav-section-label">
+                Administration du système
+              </div>
+
+              <a
+                href={
+                  import.meta.env.VITE_DJANGO_ADMIN_URL ||
+                  (import.meta.env.DEV
+                    ? "http://127.0.0.1:8000/admin/"
+                    : "/admin/")
+                }
+                target="_blank"
+                rel="noopener noreferrer"
+                className="nav-link django-admin-link"
+                title="Ouvrir l'administration Django"
+              >
+                <span className="nav-icon">⚙</span>
+                <span>Administration Django</span>
+              </a>
             </>
           )}
+
         </nav>
 
         {annonces.length > 0 && (

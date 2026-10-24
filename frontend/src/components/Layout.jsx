@@ -7,18 +7,11 @@ export default function Layout({ children }) {
   const {
     utilisateur,
     deconnecter,
-
     estCoordinateur,
     estBureauNational,
     estGestionnaireEglise,
     estAdminLocal,
     estPasteur,
-
-    peutGererEglises,
-    peutAdministrerEglise,
-    peutGererMembres,
-    peutEnvoyerCourriers,
-    peutRecevoirCourriers,
   } = useAuth();
 
   const [nonLues, setNonLues] = useState(0);
@@ -29,7 +22,7 @@ export default function Layout({ children }) {
 
   /*
   |--------------------------------------------------------------------------
-  | NOTIFICATIONS
+  | NOTIFICATIONS ET ANNONCES
   |--------------------------------------------------------------------------
   */
 
@@ -47,7 +40,9 @@ export default function Layout({ children }) {
             : 0
         );
       })
-      .catch(() => {});
+      .catch(() => {
+        setNonLues(0);
+      });
 
     client
       .get("/systeme/annonces/")
@@ -65,7 +60,7 @@ export default function Layout({ children }) {
 
   /*
   |--------------------------------------------------------------------------
-  | LIEN SIDEBAR
+  | LIEN DE NAVIGATION
   |--------------------------------------------------------------------------
   */
 
@@ -75,7 +70,7 @@ export default function Layout({ children }) {
       to={to}
       end={to === "/"}
       className={({ isActive }) =>
-          `nav-link ${isActive ? "active" : ""}`
+        `nav-link ${isActive ? "active" : ""}`
       }
     >
       <span className="nav-icon">{icon}</span>
@@ -92,7 +87,7 @@ export default function Layout({ children }) {
 
   /*
   |--------------------------------------------------------------------------
-  | IDENTITE ESPACE
+  | IDENTITÉ DE L'ESPACE
   |--------------------------------------------------------------------------
   */
 
@@ -108,6 +103,18 @@ export default function Layout({ children }) {
       ? "BUREAU NATIONAL"
       : "ÉGLISE LOCALE";
 
+  /*
+  |--------------------------------------------------------------------------
+  | URL DE L'ADMINISTRATION DJANGO
+  |--------------------------------------------------------------------------
+  */
+
+  const djangoAdminUrl =
+    import.meta.env.VITE_DJANGO_ADMIN_URL ||
+    (import.meta.env.DEV
+      ? "http://127.0.0.1:8000/admin/"
+      : "/admin/");
+
   return (
     <div
       className={`app-layout ${
@@ -116,21 +123,14 @@ export default function Layout({ children }) {
           : "sidebar-hidden"
       }`}
     >
-
-      {/* ========================================================= */}
-      {/* SIDEBAR                                                   */}
-      {/* ========================================================= */}
+      {/* SIDEBAR */}
 
       <aside className="sidebar">
-
         {/* LOGO */}
 
         <div className="brand">
           <div className="brand-mark logo-brand">
-            <img
-              src="/assets/logo_eesag.jpg"
-              alt="EESAG"
-            />
+            <img src="/assets/logo_eesag.jpg" alt="EESAG" />
           </div>
 
           {sidebarOuverte && (
@@ -141,12 +141,11 @@ export default function Layout({ children }) {
           )}
         </div>
 
-        {/* ESPACE */}
+        {/* IDENTITÉ DE L'ESPACE */}
 
         {sidebarOuverte && (
           <div className="scope-card">
             <span>{scopeKind}</span>
-
             <b>{scopeName}</b>
 
             <small>
@@ -160,50 +159,27 @@ export default function Layout({ children }) {
         )}
 
         <nav className="sidebar-nav">
-
-          {/* ===================================================== */}
-          {/* ACCUEIL                                               */}
-          {/* ===================================================== */}
+          {/* ACCUEIL */}
 
           {sidebarOuverte && (
-            <div className="nav-section-label">
-              Navigation
-            </div>
+            <div className="nav-section-label">Navigation</div>
           )}
 
           {estCoordinateur &&
-            link(
-              "/national",
-              "Tableau national",
-              "⌂"
-            )}
+            link("/national", "Tableau national", "⌂")}
 
           {estBureauNational &&
-            link(
-              "/national",
-              "Tableau de bord national",
-              "⌂"
-            )}
+            link("/national", "Tableau de bord national", "⌂")}
 
           {estGestionnaireEglise &&
-            link(
-              "/eglise-dashboard",
-              "Tableau de bord",
-              "⌂"
-            )}
+            link("/eglise-dashboard", "Tableau de bord", "⌂")}
 
           {!estCoordinateur &&
             !estBureauNational &&
             !estGestionnaireEglise &&
-            link(
-              "/",
-              "Accueil",
-              "⌂"
-            )}
+            link("/", "Accueil", "⌂")}
 
-          {/* ===================================================== */}
-          {/* COORDINATEUR                                         */}
-          {/* ===================================================== */}
+          {/* COORDINATEUR : ADMINISTRATION */}
 
           {estCoordinateur && (
             <>
@@ -213,41 +189,27 @@ export default function Layout({ children }) {
                 </div>
               )}
 
-              {link(
-                "/admin-utilisateurs",
-                "Admin · Utilisateurs",
-                "♙"
-              )}
+              {link("/admin", "Administration EESAG", "⚙")}
 
-              {link(
-                "/admin-bureau-national",
-                "Admin · Bureau national",
-                "◆"
-              )}
+              <a
+                href={djangoAdminUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="nav-link django-admin-link"
+                title="Ouvrir l'administration Django"
+              >
+                <span className="nav-icon">⚙</span>
 
-              {link(
-                "/systeme",
-                "Fonctionnalités système",
-                "◈"
-              )}
-
-              {link(
-                "/parametres",
-                "Paramètres système",
-                "⚙"
-              )}
-
-              {link(
-                "/annonces-systeme",
-                "Publications & mises à jour",
-                "📢"
-              )}
+                {sidebarOuverte && (
+                  <span className="nav-label">
+                    Administration Django
+                  </span>
+                )}
+              </a>
             </>
           )}
 
-          {/* ===================================================== */}
-          {/* BUREAU NATIONAL                                      */}
-          {/* ===================================================== */}
+          {/* BUREAU NATIONAL */}
 
           {estBureauNational && (
             <>
@@ -257,41 +219,14 @@ export default function Layout({ children }) {
                 </div>
               )}
 
-              {link(
-                "/admin-eglises",
-                "Créer une église",
-                "+"
-              )}
-
-              {link(
-                "/eglises",
-                "Liste des églises",
-                "▤"
-              )}
-
-              {link(
-                "/bureaux",
-                "Bureau national",
-                "◆"
-              )}
-
-              {link(
-                "/documents",
-                "Documents",
-                "▣"
-              )}
-
-              {link(
-                "/rapports",
-                "Rapports",
-                "▤"
-              )}
+              {link("/eglises", "Liste des églises", "▤")}
+              {link("/bureaux", "Bureau national", "◆")}
+              {link("/documents", "Documents", "▣")}
+              {link("/rapports", "Rapports", "▤")}
             </>
           )}
 
-          {/* ===================================================== */}
-          {/* ADMINISTRATEUR LOCAL                                 */}
-          {/* ===================================================== */}
+          {/* ADMINISTRATEUR LOCAL */}
 
           {estAdminLocal && (
             <>
@@ -307,53 +242,17 @@ export default function Layout({ children }) {
                 "♙"
               )}
 
-              {link(
-                "/membres",
-                "Membres",
-                "♙"
-              )}
-
-              {link(
-                "/departements",
-                "Départements",
-                "▤"
-              )}
-
-              {link(
-                "/annexes",
-                "Annexes",
-                "⌘"
-              )}
-
-              {link(
-                "/courriers",
-                "Courriers",
-                "✉"
-              )}
-
-              {link(
-                "/documents",
-                "Documents",
-                "▣"
-              )}
-
-              {link(
-                "/finances",
-                "Comptabilité & projets",
-                "₣"
-              )}
-
-              {link(
-                "/rapports",
-                "Rapports",
-                "▤"
-              )}
+              {link("/membres", "Membres", "♙")}
+              {link("/departements", "Départements", "▤")}
+              {link("/annexes", "Annexes", "⌘")}
+              {link("/courriers", "Courriers", "✉")}
+              {link("/documents", "Documents", "▣")}
+              {link("/finances", "Comptabilité & projets", "₣")}
+              {link("/rapports", "Rapports", "▤")}
             </>
           )}
 
-          {/* ===================================================== */}
-          {/* PASTEUR                                              */}
-          {/* ===================================================== */}
+          {/* PASTEUR */}
 
           {estPasteur && (
             <>
@@ -363,46 +262,18 @@ export default function Layout({ children }) {
                 </div>
               )}
 
-              {link(
-                "/membres",
-                "Membres",
-                "♙"
-              )}
-
-              {link(
-                "/departements",
-                "Départements",
-                "▤"
-              )}
-
-              {link(
-                "/courriers",
-                "Courriers",
-                "✉"
-              )}
-
-              {link(
-                "/documents",
-                "Documents",
-                "▣"
-              )}
-
-              {link(
-                "/rapports",
-                "Rapports",
-                "▤"
-              )}
+              {link("/membres", "Membres", "♙")}
+              {link("/departements", "Départements", "▤")}
+              {link("/courriers", "Courriers", "✉")}
+              {link("/documents", "Documents", "▣")}
+              {link("/rapports", "Rapports", "▤")}
             </>
           )}
 
-          {/* ===================================================== */}
-          {/* SERVICES COMMUNS                                     */}
-          {/* ===================================================== */}
+          {/* SERVICES COMMUNS */}
 
           {sidebarOuverte && (
-            <div className="nav-section-label">
-              Services
-            </div>
+            <div className="nav-section-label">Services</div>
           )}
 
           {link(
@@ -412,21 +283,10 @@ export default function Layout({ children }) {
             nonLues || null
           )}
 
-          {link(
-            "/reunions",
-            "Réunions vidéo",
-            "◉"
-          )}
+          {link("/reunions", "Réunions vidéo", "◉")}
+          {link("/profil", "Mon profil", "●")}
 
-          {link(
-            "/profil",
-            "Mon profil",
-            "●"
-          )}
-
-          {/* ===================================================== */}
-          {/* AUTRES OUTILS COORDINATEUR                           */}
-          {/* ===================================================== */}
+          {/* CONTRÔLE GLOBAL DU COORDINATEUR */}
 
           {estCoordinateur && (
             <>
@@ -436,35 +296,14 @@ export default function Layout({ children }) {
                 </div>
               )}
 
-              {link(
-                "/eglises",
-                "Toutes les églises",
-                "◎"
-              )}
-
-              {link(
-                "/documents",
-                "Tous les documents",
-                "▣"
-              )}
-
-              {link(
-                "/finances",
-                "Toutes les finances",
-                "₣"
-              )}
-
-              {link(
-                "/rapports",
-                "Tous les rapports",
-                "▤"
-              )}
+              {link("/eglises", "Toutes les églises", "◎")}
+              {link("/documents", "Tous les documents", "▣")}
+              {link("/finances", "Toutes les finances", "₣")}
+              {link("/rapports", "Tous les rapports", "▤")}
             </>
           )}
 
-          {/* ===================================================== */}
-          {/* MEMBRE                                               */}
-          {/* ===================================================== */}
+          {/* MEMBRE */}
 
           {!estCoordinateur &&
             !estBureauNational &&
@@ -477,60 +316,33 @@ export default function Layout({ children }) {
                   </div>
                 )}
 
-                {link(
-                  "/bureau-national",
-                  "Bureau national",
-                  "◆"
-                )}
-
-                {link(
-                  "/notifications",
-                  "Communications",
-                  "◌"
-                )}
+                {link("/bureau-national", "Bureau national", "◆")}
+                {link("/notifications", "Communications", "◌")}
               </>
             )}
-
         </nav>
 
-        {/* ===================================================== */}
-        {/* ANNONCE                                               */}
-        {/* ===================================================== */}
+        {/* ANNONCES */}
 
         {sidebarOuverte && annonces.length > 0 && (
           <div className="sidebar-announcement">
             <span>NOUVEAUTÉ</span>
-
-            <b>
-              {annonces[0].titre}
-            </b>
-
-            <small>
-              {annonces[0].message}
-            </small>
+            <b>{annonces[0].titre}</b>
+            <small>{annonces[0].message}</small>
           </div>
         )}
 
-        {/* ===================================================== */}
-        {/* FOOTER                                                */}
-        {/* ===================================================== */}
+        {/* PIED DE LA SIDEBAR */}
 
         <div className="sidebar-footer">
-
           {sidebarOuverte && (
-            <NavLink
-              className="team-link"
-              to="/informations"
-            >
+            <NavLink className="team-link" to="/informations">
               <span>Équipe</span>
-              <small>
-                Équipe de développement
-              </small>
+              <small>Équipe de développement</small>
             </NavLink>
           )}
 
           <div className="user-mini">
-
             <div className="avatar avatar-photo">
               {utilisateur?.photo ? (
                 <img
@@ -548,46 +360,37 @@ export default function Layout({ children }) {
             {sidebarOuverte && (
               <div>
                 <b>
-                  {utilisateur?.prenom}{" "}
-                  {utilisateur?.nom}
+                  {utilisateur?.prenom} {utilisateur?.nom}
                 </b>
 
                 <small>
-                  {utilisateur?.role_libelle ||
-                    utilisateur?.role}
+                  {utilisateur?.role_libelle || utilisateur?.role}
                 </small>
               </div>
             )}
-
           </div>
 
           {sidebarOuverte && (
             <button
+              type="button"
               className="logout"
               onClick={deconnecter}
             >
               Déconnexion
             </button>
           )}
-
         </div>
       </aside>
 
-      {/* ========================================================= */}
-      {/* CONTENU                                                   */}
-      {/* ========================================================= */}
+      {/* CONTENU PRINCIPAL */}
 
       <main className="contenu-principal">
-
         <header className="app-topbar">
-
           <button
             type="button"
             className="sidebar-toggle"
             onClick={() =>
-              setSidebarOuverte(
-                (value) => !value
-              )
+              setSidebarOuverte((value) => !value)
             }
             title={
               sidebarOuverte
@@ -595,24 +398,19 @@ export default function Layout({ children }) {
                 : "Afficher le menu"
             }
           >
-            {sidebarOuverte ? "☰" : "☰"}
+            ☰
           </button>
 
           <div className="app-topbar-scope">
-            <span className="topbar-overline">
-              {scopeKind}
-            </span>
-
+            <span className="topbar-overline">{scopeKind}</span>
             <strong className="topbar-scope-name">
               {scopeName}
             </strong>
           </div>
 
           <div className="topbar-actions">
-
             <span className="topbar-user-name">
-              {utilisateur?.prenom}{" "}
-              {utilisateur?.nom}
+              {utilisateur?.prenom} {utilisateur?.nom}
             </span>
 
             <NavLink
@@ -621,9 +419,7 @@ export default function Layout({ children }) {
             >
               {utilisateur?.photo ? (
                 <img
-                  src={mediaUrl(
-                    utilisateur.photo
-                  )}
+                  src={mediaUrl(utilisateur.photo)}
                   alt="Profil"
                 />
               ) : (
@@ -633,17 +429,11 @@ export default function Layout({ children }) {
                 />
               )}
             </NavLink>
-
           </div>
-
         </header>
 
-        <div className="page-container">
-          {children}
-        </div>
-
+        <div className="page-container">{children}</div>
       </main>
-
     </div>
   );
 }

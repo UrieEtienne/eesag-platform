@@ -9,7 +9,6 @@ import Profil from "./pages/Profil";
 import GestionAdministrateurs from "./pages/GestionAdministrateurs";
 import AdministrationEglise from "./pages/AdministrationEglise";
 import AdministrationEglises from "./pages/AdministrationEglises";
-import AdministrationUtilisateurs from "./pages/AdministrationUtilisateurs";
 
 import Rapports from "./pages/Rapports";
 import Membres from "./pages/Membres";
@@ -65,16 +64,16 @@ export default function App() {
       ===================================================== */}
 
       <Route
-        path="/admin-utilisateurs"
+        path="/admin"
         element={
           <RouteProtegee roles={["COORDINATEUR"]}>
-            <AdministrationUtilisateurs />
+            <AdministrationSysteme />
           </RouteProtegee>
         }
       />
 
       <Route
-        path="/admin-bureau-national"
+        path="/admin"
         element={
           <RouteProtegee roles={["COORDINATEUR"]}>
             <GestionAdministrateurs />

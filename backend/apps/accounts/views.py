@@ -75,17 +75,26 @@ class ChangerCodeSecretView(generics.GenericAPIView):
 
 
 class UtilisateurViewSet(viewsets.ModelViewSet):
-    """
-    CRUD des utilisateurs (membres, pasteurs, admins...).
-    - Un ADMIN_LOCAL / PASTEUR ne voit et ne gère que les membres de SA propre église.
-    - Les rôles nationaux voient/gèrent tout le monde.
-    - Un simple MEMBRE ne peut que se consulter lui-même (lecture seule via /moi/).
-    """
     serializer_class = UtilisateurSerializer
     permission_classes = [EstAdminLocalOuPlus]
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ["role", "eglise", "departement", "sexe", "actif"]
-    search_fields = ["nom", "prenom", "identifiant", "telephone"]
+    filter_backends = [
+        DjangoFilterBackend,
+        filters.SearchFilter,
+        filters.OrderingFilter,
+    ]
+    filterset_fields = [
+        "role",
+        "eglise",
+        "departement",
+        "sexe",
+        "actif",
+    ]
+    search_fields = [
+        "nom",
+        "prenom",
+        "identifiant",
+        "telephone",
+    ]
 
     def get_serializer_class(self):
         if self.action == "create":
@@ -95,22 +104,39 @@ class UtilisateurViewSet(viewsets.ModelViewSet):
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(
             data=request.data,
-            context={"request": request}
+            context={"request": request},
         )
         serializer.is_valid(raise_exception=True)
         utilisateur = serializer.save()
 
+        sms_ok = bool(getattr(utilisateur, "_creation_sms_ok", False))
+        sms_message = getattr(utilisateur, "_creation_sms_message", "")
+
+        if sms_ok:
+            detail = (
+                "Compte créé. Le SMS a été envoyé. "
+                "Le compte reste soumis aux étapes d'activation prévues."
+            )
+        else:
+            detail = (
+                "Compte créé, mais le SMS n'a pas pu être confirmé. "
+                "Vérifiez le numéro et le service SMS avant de communiquer "
+                "les informations de connexion."
+            )
+
         return Response(
             {
-                "detail": "Compte créé. Confirmez le numéro de téléphone pour terminer l'activation.",
+                "detail": detail,
                 "identifiant": utilisateur.identifiant,
                 "nom": f"{utilisateur.prenom} {utilisateur.nom}",
                 "role": utilisateur.role,
                 "role_libelle": utilisateur.get_role_display(),
                 "eglise": utilisateur.eglise.nom if utilisateur.eglise else None,
+                "sms_envoye": sms_ok,
+                "sms_message": sms_message,
                 "utilisateur": UtilisateurSerializer(
                     utilisateur,
-                    context={"request": request}
+                    context={"request": request},
                 ).data,
             },
             status=status.HTTP_201_CREATED,
@@ -118,18 +144,51 @@ class UtilisateurViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        qs = Utilisateur.objects.select_related("eglise", "departement", "role_eglise")
+
+        qs = Utilisateur.objects.select_related(
+            "eglise",
+            "departement",
+            "role_eglise",
+        )
+
         if user.role == Role.COORDINATEUR or user.is_superuser:
             return qs.exclude(role=Role.COORDINATEUR)
-        if user.role in [Role.SUPERADMIN_INTL, Role.SUPERADMIN_NATIONAL]:
+
+        if user.role in [
+            Role.SUPERADMIN_INTL,
+            Role.SUPERADMIN_NATIONAL,
+        ]:
             from apps.bureaux.models import BureauAdministrateur
-            assigned = BureauAdministrateur.objects.filter(utilisateur=user, actif=True).values_list("bureau_id", flat=True)
+
+            assigned = (
+                BureauAdministrateur.objects
+                .filter(
+                    utilisateur=user,
+                    actif=True,
+                )
+                .values_list(
+                    "bureau_id",
+                    flat=True,
+                )
+            )
+
             if assigned.exists():
-                # Un bureau national spécialisé n'utilise pas la gestion des comptes d'église.
                 return qs.none()
-            # Le Bureau national général ne gère que les comptes locaux d'églises.
-            return qs.filter(role__in=[Role.ADMIN_LOCAL, Role.PASTEUR]).exclude(role=Role.COORDINATEUR)
-        return qs.filter(eglise_id=user.eglise_id).exclude(role=Role.COORDINATEUR)
+
+            return qs.filter(
+                role__in=[
+                    Role.ADMIN_LOCAL,
+                    Role.PASTEUR,
+                ]
+            ).exclude(
+                role=Role.COORDINATEUR
+            )
+
+        return qs.filter(
+            eglise_id=user.eglise_id
+        ).exclude(
+            role=Role.COORDINATEUR
+        )
 
 
     @action(detail=True, methods=["post"])

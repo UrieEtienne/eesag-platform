@@ -1,0 +1,198 @@
+/* Tableau de bord de l'administration centrale EESAG */
+.admin-systeme {
+  --admin-navy: #142b49;
+  --admin-blue: #245783;
+  --admin-gold: #c9a85b;
+  --admin-border: #e4eaf1;
+  color: #253449;
+}
+
+.admin-systeme .admin-hero {
+  color: #fff;
+  background: linear-gradient(120deg, #10233f, #183d66 68%, #24547a);
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.admin-systeme .admin-eyebrow {
+  color: #e5c878;
+  font-size: .72rem;
+  font-weight: 800;
+  letter-spacing: 1.6px;
+  text-transform: uppercase;
+}
+
+.admin-systeme .admin-hero-description {
+  max-width: 650px;
+  color: #dce7f2;
+  font-size: .92rem;
+}
+
+.admin-systeme .admin-shield {
+  display: grid;
+  place-items: center;
+  width: 86px;
+  height: 86px;
+  margin: 0 auto;
+  border: 1px solid #ffffff30;
+  border-radius: 18px;
+  background: #ffffff12;
+  font-size: 36px;
+}
+
+.admin-systeme .admin-module-card {
+  height: 100%;
+  border: 1px solid var(--admin-border);
+  border-radius: 13px;
+  background: #fff;
+  transition: border-color .18s ease, box-shadow .18s ease,
+    transform .18s ease;
+}
+
+.admin-systeme .admin-module-card:hover {
+  transform: translateY(-2px);
+  border-color: #c8d6e5;
+  box-shadow: 0 8px 22px #142b4910;
+}
+
+.admin-systeme .admin-module-icon {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  margin-bottom: 13px;
+  border-radius: 11px;
+  background: #edf3f9;
+  font-size: 22px;
+}
+
+.admin-systeme .admin-module-title {
+  margin-bottom: 7px;
+  color: var(--admin-navy);
+  font-size: .98rem;
+  font-weight: 750;
+}
+
+.admin-systeme .admin-module-description {
+  color: #6c7888;
+  font-size: .82rem;
+  line-height: 1.55;
+}
+
+.admin-systeme .admin-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 31px;
+  padding: 6px 10px;
+  border-radius: 7px;
+  font-size: .78rem;
+  font-weight: 650;
+  line-height: 1.25;
+  transition: background-color .15s ease, border-color .15s ease;
+}
+
+.admin-systeme .admin-btn-primary {
+  color: #fff;
+  border: 1px solid var(--admin-navy);
+  background: var(--admin-navy);
+}
+
+.admin-systeme .admin-btn-primary:hover {
+  color: #fff;
+  border-color: var(--admin-blue);
+  background: var(--admin-blue);
+}
+
+.admin-systeme .admin-btn-outline {
+  color: var(--admin-navy);
+  border: 1px solid #d5deea;
+  background: #fff;
+}
+
+.admin-systeme .admin-btn-outline:hover,
+.admin-systeme .admin-btn-outline.active {
+  color: var(--admin-navy);
+  border-color: #9bb5cf;
+  background: #edf3f9;
+}
+
+.admin-systeme .admin-section {
+  padding: 20px;
+  border: 1px solid var(--admin-border);
+  border-radius: 14px;
+  background: #fff;
+}
+
+.admin-systeme .admin-section-title {
+  margin-bottom: 5px;
+  color: var(--admin-navy);
+  font-size: 1.05rem;
+  font-weight: 750;
+}
+
+.admin-systeme .admin-section-description {
+  margin-bottom: 17px;
+  color: #748092;
+  font-size: .84rem;
+}
+
+.admin-systeme .admin-level-button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 54px;
+  padding: 10px 12px;
+  text-align: left;
+  color: #263b54;
+  border: 1px solid var(--admin-border);
+  border-radius: 10px;
+  background: #fff;
+}
+
+.admin-systeme .admin-level-button:hover,
+.admin-systeme .admin-level-button.active {
+  border-color: #9bb5cf;
+  background: #f0f5fa;
+}
+
+.admin-systeme .admin-level-icon {
+  font-size: 20px;
+}
+
+.admin-systeme .admin-level-name {
+  display: block;
+  font-size: .83rem;
+  font-weight: 750;
+}
+
+.admin-systeme .admin-level-description {
+  display: block;
+  margin-top: 2px;
+  color: #758195;
+  font-size: .72rem;
+}
+
+.admin-systeme .admin-count {
+  color: #54677e;
+  border: 1px solid var(--admin-border);
+  background: #f7f9fc;
+  font-size: .72rem;
+  font-weight: 700;
+}
+
+@media (max-width: 575px) {
+  .admin-systeme .admin-hero {
+    border-radius: 12px;
+  }
+
+  .admin-systeme .admin-section {
+    padding: 15px;
+  }
+
+  .admin-systeme .admin-module-card {
+    border-radius: 11px;
+  }
+}

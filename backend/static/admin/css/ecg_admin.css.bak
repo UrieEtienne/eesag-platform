@@ -1,0 +1,824 @@
+/* =========================================================
+   EESAG — Administration & centre de contrôle
+   Design extrait de la maquette (topbar bleue, sidebar sombre,
+   cartes à en-tête bleu, actions rapides)
+   ========================================================= */
+
+:root {
+    /* Couleurs */
+    --eesag-primary: #0b6ea8;          /* en-têtes de cartes, liens actifs */
+    --eesag-primary-light: #1a8ac4;
+    --eesag-primary-soft: #e6f2fa;     /* fond des pastilles d'icônes */
+    --eesag-topbar: #0a5f94;
+    --eesag-topbar-2: #0c76b3;
+    --eesag-sidebar: #0e2a3d;
+    --eesag-sidebar-border: rgba(255, 255, 255, .08);
+    --eesag-sidebar-text: #d7e5ef;
+    --eesag-sidebar-muted: #8fa9bc;
+    --eesag-active: #1383c5;           /* item actif du menu */
+    --eesag-dark: #0e3a5a;             /* bouton Modifier */
+    --eesag-danger: #f0343b;
+    --eesag-bg: #eef4f8;
+    --eesag-card: #ffffff;
+    --eesag-border: #d9e5ee;
+    --eesag-text: #17324a;
+    --eesag-title: #0e3a5a;
+    --eesag-muted: #6b8092;
+    --eesag-link: #0b72b5;
+
+    /* Mesures */
+    --eesag-topbar-h: 78px;
+    --eesag-sidebar-w: 292px;
+    --eesag-radius: 8px;
+    --eesag-radius-lg: 10px;
+    --eesag-shadow: 0 2px 8px rgba(20, 70, 100, .08);
+}
+
+/* =========================================================
+   BASE
+   ========================================================= */
+
+* { box-sizing: border-box; }
+
+html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--eesag-bg);
+    color: var(--eesag-text);
+    font-family: "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    font-size: 14px;
+    line-height: 1.4;
+}
+
+a { color: var(--eesag-link); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+/* =========================================================
+   BARRE SUPÉRIEURE
+   ========================================================= */
+
+#header {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 1000;
+    height: var(--eesag-topbar-h);
+    display: flex;
+    align-items: center;
+    gap: 22px;
+    padding: 0 22px 0 26px;
+    background: linear-gradient(90deg, var(--eesag-topbar) 0%, var(--eesag-topbar-2) 100%);
+    color: #fff;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, .18);
+}
+
+/* Logo + nom */
+#branding {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    width: calc(var(--eesag-sidebar-w) - 26px);
+    flex: 0 0 auto;
+    margin: 0;
+    padding: 0;
+    float: none;
+}
+#branding h1,
+#branding h1 a {
+    margin: 0;
+    color: #fff !important;
+    font-size: 22px;
+    font-weight: 800;
+    letter-spacing: .5px;
+    line-height: 1.1;
+    text-decoration: none;
+}
+#branding h1 a { display: flex; align-items: center; gap: 12px; }
+#branding h1 a::before {
+    content: "";
+    width: 56px; height: 56px;
+    flex: 0 0 56px;
+    background: #fff url("/static/admin/img/logo_eesag.jpg") center / contain no-repeat;
+    border-radius: 14px;
+    border: 2px solid rgba(255, 255, 255, .85);
+}
+#branding .subtitle,
+#branding small {
+    display: block;
+    margin-top: 3px;
+    font-size: 11px;
+    font-weight: 400;
+    color: rgba(255, 255, 255, .85);
+}
+
+/* Bouton hamburger */
+.eesag-burger {
+    background: none;
+    border: 0;
+    color: #fff;
+    font-size: 26px;
+    cursor: pointer;
+    padding: 6px;
+    border-radius: 6px;
+}
+.eesag-burger:hover { background: rgba(255, 255, 255, .12); }
+
+/* Zone profil / périmètre / date / notifications / onglets */
+.eesag-topbar-info {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 0;
+}
+.eesag-topbar-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 0 22px;
+    border-left: 1px solid rgba(255, 255, 255, .22);
+    font-size: 11px;
+    line-height: 1.25;
+    color: rgba(255, 255, 255, .85);
+}
+.eesag-topbar-item:first-child { border-left: 0; }
+.eesag-topbar-item small {
+    display: block;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    opacity: .85;
+}
+.eesag-topbar-item strong {
+    display: block;
+    color: #fff;
+    font-size: 14px;
+    font-weight: 700;
+}
+
+/* Photo de profil */
+.ecg-admin-user-preview {
+    width: 56px; height: 56px;
+    flex: 0 0 56px;
+    border-radius: 50%;
+    overflow: hidden;
+    background: #fff;
+    border: 3px solid rgba(255, 255, 255, .95);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, .25);
+}
+.ecg-admin-user-preview img {
+    width: 100%; height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+/* Notification */
+.eesag-bell { position: relative; font-size: 20px; color: #fff; }
+.eesag-bell .badge {
+    position: absolute;
+    top: -8px; right: -10px;
+    min-width: 18px; height: 18px;
+    padding: 0 5px;
+    border-radius: 9px;
+    background: var(--eesag-danger);
+    color: #fff;
+    font-size: 10px; font-weight: 700;
+    line-height: 18px;
+    text-align: center;
+}
+
+/* Onglets de navigation globale (Tableau, Églises, Comptes, Bureaux) */
+.ecg-admin-global {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: 6px;
+}
+.ecg-admin-global > a {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    height: 40px;
+    padding: 0 16px;
+    border-radius: var(--eesag-radius);
+    background: rgba(255, 255, 255, .12);
+    color: #fff !important;
+    font-size: 14px;
+    font-weight: 600;
+    text-decoration: none !important;
+    white-space: nowrap;
+    transition: background .15s;
+}
+.ecg-admin-global > a:hover { background: rgba(255, 255, 255, .24); }
+.ecg-admin-global > a.is-active {
+    background: #6cb8e6;
+    color: #0b3a5a !important;
+}
+
+/* user-tools Django (fallback) */
+#user-tools {
+    position: static;
+    float: none;
+    color: #fff;
+    font-size: 12px;
+    text-align: right;
+}
+#user-tools a { color: #fff !important; }
+#header br { display: none; }
+
+/* =========================================================
+   MENU LATÉRAL
+   ========================================================= */
+
+#nav-sidebar,
+.eesag-sidebar {
+    position: fixed;
+    top: var(--eesag-topbar-h);
+    bottom: 0; left: 0;
+    width: var(--eesag-sidebar-w);
+    overflow-y: auto;
+    padding: 18px 13px 0;
+    background: linear-gradient(180deg, #112c40 0%, #0c2434 100%);
+    color: var(--eesag-sidebar-text);
+    border: 0;
+    z-index: 900;
+}
+
+/* Recherche */
+.eesag-sidebar-search {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    height: 38px;
+    padding: 0 14px;
+    margin-bottom: 14px;
+    border: 1px solid rgba(255, 255, 255, .18);
+    border-radius: var(--eesag-radius);
+    background: rgba(255, 255, 255, .04);
+    color: var(--eesag-sidebar-muted);
+}
+.eesag-sidebar-search input {
+    flex: 1;
+    border: 0; outline: 0;
+    background: transparent;
+    color: #fff;
+    font-size: 14px;
+}
+
+/* Titres de section (ACCUEIL, ÉGLISES…) */
+.eesag-menu-title {
+    margin: 0;
+    padding: 20px 13px 8px;
+    border-top: 1px solid var(--eesag-sidebar-border);
+    color: #fff;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: .3px;
+    text-transform: uppercase;
+}
+.eesag-menu-title:first-of-type { border-top: 0; padding-top: 6px; }
+
+/* Items */
+.eesag-menu a {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    height: 38px;
+    padding: 0 13px;
+    margin-bottom: 2px;
+    border-radius: 6px;
+    color: var(--eesag-sidebar-text);
+    font-size: 14px;
+    text-decoration: none;
+}
+.eesag-menu a:hover { background: rgba(255, 255, 255, .07); }
+.eesag-menu a.is-active {
+    background: var(--eesag-active);
+    color: #fff;
+    font-weight: 700;
+}
+.eesag-menu a .chevron { margin-left: auto; opacity: .6; font-size: 11px; }
+
+/* Pied de menu (EESAG v2.0.0) */
+.eesag-sidebar-footer {
+    position: sticky;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 13px;
+    margin: 20px -13px 0;
+    background: #0c2434;
+    border-top: 1px solid var(--eesag-sidebar-border);
+    font-size: 12px;
+    color: var(--eesag-sidebar-muted);
+}
+.eesag-sidebar-footer strong { display: block; color: #fff; font-size: 13px; }
+
+/* =========================================================
+   CONTENU
+   ========================================================= */
+
+#container { min-height: 100vh; background: var(--eesag-bg); }
+
+#main,
+.main { padding-top: var(--eesag-topbar-h); }
+
+#content,
+.eesag-content {
+    margin-left: var(--eesag-sidebar-w);
+    padding: 20px 28px 40px 29px;
+    background: var(--eesag-bg);
+}
+
+/* Fil d'Ariane (sans carte, comme sur la maquette) */
+.breadcrumbs {
+    margin: 0 0 6px;
+    padding: 0;
+    background: transparent;
+    border: 0;
+    color: var(--eesag-muted);
+    font-size: 13px;
+}
+.breadcrumbs a { color: var(--eesag-muted); }
+
+/* Titre + sous-titre */
+#content h1,
+.eesag-page-title {
+    margin: 0;
+    color: var(--eesag-title);
+    font-size: 28px;
+    font-weight: 800;
+    line-height: 1.2;
+}
+.eesag-page-subtitle {
+    margin: 6px 0 20px;
+    color: var(--eesag-link);
+    font-size: 17px;
+    font-weight: 500;
+}
+
+/* En-tête de page : titre à gauche, boutons à droite */
+.eesag-page-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 20px;
+}
+.eesag-page-actions { display: flex; gap: 12px; }
+
+/* =========================================================
+   BOUTONS
+   ========================================================= */
+
+.eesag-btn,
+.button, input[type="submit"], input[type="button"], a.button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 9px;
+    height: 38px;
+    padding: 0 18px;
+    border: 1px solid var(--eesag-border);
+    border-radius: var(--eesag-radius);
+    background: #fff;
+    color: var(--eesag-title);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: none;
+    transition: filter .15s, box-shadow .15s;
+}
+.eesag-btn:hover { filter: brightness(.96); text-decoration: none; }
+
+.eesag-btn--dark,
+input[type="submit"].default, .submit-row input.default {
+    background: var(--eesag-dark);
+    border-color: var(--eesag-dark);
+    color: #fff;
+}
+.eesag-btn--danger,
+.submit-row a.deletelink {
+    background: var(--eesag-danger);
+    border-color: var(--eesag-danger);
+    color: #fff;
+}
+
+/* =========================================================
+   CARTES / MODULES (en-tête bleu)
+   ========================================================= */
+
+.module,
+.eesag-card {
+    margin: 0 0 24px;
+    background: var(--eesag-card);
+    border: 1px solid var(--eesag-border);
+    border-radius: var(--eesag-radius-lg);
+    box-shadow: var(--eesag-shadow);
+    overflow: hidden;
+}
+.module > h2,
+.module caption,
+.eesag-card__head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 0;
+    padding: 0 24px;
+    height: 54px;
+    background: var(--eesag-primary);
+    color: #fff !important;
+    font-size: 19px;
+    font-weight: 700;
+    text-transform: none;
+}
+.eesag-card__body { padding: 20px 24px; }
+
+/* Grille de page : contenu principal + actions rapides */
+.eesag-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 384px;
+    gap: 20px;
+    align-items: start;
+}
+@media (max-width: 1200px) { .eesag-grid { grid-template-columns: 1fr; } }
+
+/* =========================================================
+   LIGNES D'INFORMATION (icône ronde + libellé + valeur)
+   ========================================================= */
+
+.eesag-info-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    column-gap: 24px;
+}
+.eesag-info-col + .eesag-info-col { border-left: 1px solid var(--eesag-border); padding-left: 24px; }
+
+.eesag-info-row {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    padding: 14px 0;
+    border-bottom: 1px solid #e8eff4;
+}
+.eesag-info-row:last-child { border-bottom: 0; }
+
+.eesag-info-icon {
+    width: 46px; height: 46px;
+    flex: 0 0 46px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 50%;
+    background: var(--eesag-primary-soft);
+    color: var(--eesag-primary);
+    font-size: 18px;
+    box-shadow: 0 1px 3px rgba(20, 70, 100, .12);
+}
+.eesag-info-label { color: var(--eesag-title); font-weight: 600; font-size: 14px; }
+.eesag-info-value { color: var(--eesag-link); font-size: 14px; }
+
+/* =========================================================
+   ACTIONS RAPIDES
+   ========================================================= */
+
+.eesag-quick { padding: 20px; display: grid; gap: 14px; }
+.eesag-quick a {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    height: 46px;
+    padding: 0 20px;
+    border: 1px solid var(--eesag-border);
+    border-radius: var(--eesag-radius);
+    background: #fff;
+    color: var(--eesag-title);
+    font-weight: 600;
+    box-shadow: 0 1px 4px rgba(20, 70, 100, .1);
+    text-decoration: none;
+}
+.eesag-quick a:hover { background: #f4f9fc; }
+.eesag-quick a:first-child {
+    background: var(--eesag-dark);
+    border-color: var(--eesag-dark);
+    color: #fff;
+}
+.eesag-quick a i, .eesag-quick a svg { width: 20px; color: var(--eesag-primary); }
+.eesag-quick a:first-child i, .eesag-quick a:first-child svg { color: #fff; }
+
+/* =========================================================
+   BLOC « RESPONSABLE » (photo + tableau clé / valeur)
+   ========================================================= */
+
+.eesag-person {
+    display: grid;
+    grid-template-columns: 200px minmax(0, 1fr);
+    gap: 30px;
+    padding: 18px 24px;
+}
+.eesag-person__photo {
+    width: 104px; height: 104px;
+    margin: 26px auto;
+    border-radius: 50%;
+    border: 4px solid #fff;
+    box-shadow: 0 0 0 1px var(--eesag-border), 0 3px 10px rgba(20, 70, 100, .2);
+    overflow: hidden;
+}
+.eesag-person__photo img { width: 100%; height: 100%; object-fit: cover; }
+
+.eesag-kv {
+    display: grid;
+    grid-template-columns: 190px minmax(0, 1fr);
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px solid #e8eff4;
+}
+.eesag-kv:last-child { border-bottom: 0; }
+.eesag-kv__key {
+    display: flex; align-items: center; gap: 12px;
+    color: var(--eesag-muted);
+    font-size: 12px;
+}
+.eesag-kv__key .eesag-info-icon { width: 30px; height: 30px; flex-basis: 30px; font-size: 12px; }
+.eesag-kv__val { color: var(--eesag-title); font-size: 14px; font-weight: 600; }
+.eesag-kv__hint { display: block; color: var(--eesag-muted); font-size: 11px; font-weight: 400; margin-top: 2px; }
+
+/* =========================================================
+   TABLEAUX (listes Django)
+   ========================================================= */
+
+#changelist-form { background: #fff; border-radius: var(--eesag-radius-lg); box-shadow: var(--eesag-shadow); overflow: hidden; }
+#result_list { width: 100%; border-collapse: collapse; }
+#result_list thead th {
+    padding: 13px 14px;
+    background: #f0f6fa;
+    color: var(--eesag-title);
+    font-weight: 700;
+    border-bottom: 1px solid var(--eesag-border);
+}
+#result_list tbody td, #result_list tbody th { padding: 12px 14px; border-bottom: 1px solid #e8eff4; }
+#result_list tbody tr:hover { background: #f7fbfd; }
+
+/* =========================================================
+   FORMULAIRES
+   ========================================================= */
+
+.form-row { padding: 14px 24px; border-bottom: 1px solid #edf2f5; }
+.form-row:last-child { border-bottom: 0; }
+label { color: #294b63; font-weight: 600; }
+input[type="text"], input[type="password"], input[type="email"], input[type="number"],
+input[type="url"], input[type="tel"], textarea, select {
+    max-width: 100%;
+    padding: 8px 12px;
+    border: 1px solid var(--eesag-border);
+    border-radius: 6px;
+    background: #fff;
+    color: var(--eesag-text);
+}
+input:focus, textarea:focus, select:focus {
+    outline: 2px solid rgba(11, 110, 168, .35);
+    border-color: var(--eesag-primary);
+}
+
+/* =========================================================
+   FOOTER
+   ========================================================= */
+
+#footer {
+    margin-left: var(--eesag-sidebar-w);
+    padding: 16px 25px;
+    background: #fff;
+    border-top: 1px solid var(--eesag-border);
+    color: #70889a;
+    text-align: center;
+}
+
+/* =========================================================
+   RESPONSIVE
+   ========================================================= */
+
+@media (max-width: 1100px) {
+    .eesag-topbar-item.eesag-date,
+    .eesag-topbar-item.eesag-scope { display: none; }
+}
+
+@media (max-width: 900px) {
+    #nav-sidebar, .eesag-sidebar { transform: translateX(-100%); transition: transform .2s; }
+    body.sidebar-open #nav-sidebar, body.sidebar-open .eesag-sidebar { transform: none; }
+    #content, #footer { margin-left: 0; padding-left: 16px; padding-right: 16px; }
+    #branding { width: auto; }
+    .ecg-admin-global { display: none; }
+    .eesag-info-grid, .eesag-person { grid-template-columns: 1fr; }
+    .eesag-info-col + .eesag-info-col { border-left: 0; padding-left: 0; }
+    .eesag-page-head { flex-direction: column; }
+}
+/* =========================================================
+   EESAG — PROFIL COMPACT DANS LA NAVBAR
+   ========================================================= */
+
+/* Barre supérieure unique */
+#header {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    flex-wrap: nowrap !important;
+    gap: 12px !important;
+    min-height: 64px !important;
+    height: 64px !important;
+    padding: 0 16px !important;
+    overflow: visible !important;
+}
+
+/* Logo compact à gauche */
+#header #branding {
+    display: flex !important;
+    align-items: center !important;
+    flex: 0 0 auto !important;
+    width: auto !important;
+    max-width: 190px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+#header #branding h1,
+#header #branding h1 a {
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    margin: 0 !important;
+    font-size: 18px !important;
+    white-space: nowrap !important;
+}
+
+#header #branding h1 a::before {
+    width: 38px !important;
+    height: 38px !important;
+    flex: 0 0 38px !important;
+    border-radius: 8px !important;
+}
+
+/* Liens de navigation au centre */
+#header .ecg-admin-global {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+    gap: 6px !important;
+    margin: 0 0 0 8px !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    white-space: nowrap !important;
+    scrollbar-width: thin;
+}
+
+/* Boutons de navigation plus petits */
+#header .ecg-admin-global > a {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    flex: 0 0 auto !important;
+    height: 34px !important;
+    padding: 0 10px !important;
+    border-radius: 6px !important;
+    font-size: 12px !important;
+    white-space: nowrap !important;
+}
+
+/* Profil Django à droite, sur la même ligne */
+#header #user-tools {
+    display: flex !important;
+    flex: 0 0 auto !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
+    gap: 8px !important;
+    position: static !important;
+    float: none !important;
+    margin: 0 0 0 auto !important;
+    padding: 0 !important;
+    max-width: 270px !important;
+    color: #fff !important;
+    font-size: 11px !important;
+    line-height: 1.3 !important;
+    text-align: right !important;
+}
+
+/* Photo du profil : petite et circulaire */
+#header #user-tools .ecg-admin-user-preview {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    flex: 0 0 32px !important;
+    width: 32px !important;
+    height: 32px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 2px solid rgba(255, 255, 255, .9) !important;
+    border-radius: 50% !important;
+    overflow: hidden !important;
+    box-shadow: none !important;
+}
+
+#header #user-tools .ecg-admin-user-preview img {
+    display: block !important;
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: cover !important;
+    border-radius: 50% !important;
+}
+
+/* Textes et liens du compte */
+#header #user-tools a {
+    color: #fff !important;
+    font-size: 11px !important;
+    white-space: nowrap !important;
+}
+
+#header #user-tools br {
+    display: none !important;
+}
+
+/* Ne pas laisser les anciens styles déplacer les éléments */
+#header #branding,
+#header .ecg-admin-global,
+#header #user-tools {
+    top: auto !important;
+    bottom: auto !important;
+    transform: none !important;
+}
+
+/* Contenu sous la navbar */
+#main,
+.main {
+    padding-top: 64px !important;
+}
+
+#nav-sidebar,
+.eesag-sidebar {
+    top: 64px !important;
+}
+
+/* Tablettes et petits écrans */
+@media (max-width: 900px) {
+    #header {
+        gap: 8px !important;
+        padding: 0 10px !important;
+    }
+
+    #header #branding {
+        max-width: 130px !important;
+    }
+
+    #header #branding h1,
+    #header #branding h1 a {
+        font-size: 15px !important;
+    }
+
+    #header .ecg-admin-global {
+        display: flex !important;
+    }
+
+    #header .ecg-admin-global > a {
+        padding: 0 8px !important;
+        font-size: 11px !important;
+    }
+
+    #header #user-tools {
+        max-width: 170px !important;
+    }
+}
+
+/* Téléphones : profil compact, navigation défilante */
+@media (max-width: 600px) {
+    #header {
+        gap: 6px !important;
+        padding: 0 8px !important;
+    }
+
+    #header #branding {
+        max-width: 100px !important;
+    }
+
+    #header #branding h1,
+    #header #branding h1 a {
+        font-size: 13px !important;
+    }
+
+    #header #branding h1 a::before {
+        width: 30px !important;
+        height: 30px !important;
+        flex-basis: 30px !important;
+    }
+
+    #header #user-tools {
+        max-width: 120px !important;
+        gap: 5px !important;
+        font-size: 10px !important;
+    }
+
+    #header #user-tools .ecg-admin-user-preview {
+        flex-basis: 28px !important;
+        width: 28px !important;
+        height: 28px !important;
+    }
+
+    #header #user-tools a {
+        font-size: 10px !important;
+    }
+}

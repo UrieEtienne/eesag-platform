@@ -703,63 +703,6 @@ export default function FormulaireEglise({ onCree }) {
         </section>
 
         {/* =====================================================
-            CONTACT
-        ====================================================== */}
-
-        <section
-          className="carte"
-          style={{ marginTop: 20 }}
-        >
-          <div className="page-section-heading">
-            <div>
-              <span className="eyebrow">
-                CONTACT
-              </span>
-              <h3>Coordonnées de l'église</h3>
-            </div>
-          </div>
-
-          <div className="form-grille">
-            <div className="form-champ">
-              <label htmlFor="eglise-telephone">
-                Téléphone
-              </label>
-
-              <input
-                id="eglise-telephone"
-                value={form.telephone}
-                onChange={(e) =>
-                  modifier(
-                    "telephone",
-                    e.target.value
-                  )
-                }
-                placeholder="+224..."
-              />
-            </div>
-
-            <div className="form-champ">
-              <label htmlFor="eglise-email">
-                Email
-              </label>
-
-              <input
-                id="eglise-email"
-                type="email"
-                value={form.email}
-                onChange={(e) =>
-                  modifier(
-                    "email",
-                    e.target.value
-                  )
-                }
-                placeholder="eglise@example.com"
-              />
-            </div>
-          </div>
-        </section>
-
-        {/* =====================================================
             RESPONSABLE
         ====================================================== */}
 

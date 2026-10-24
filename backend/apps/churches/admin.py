@@ -5,7 +5,7 @@ from django.contrib.auth import password_validation
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.utils import timezone
-from apps.core.admin_scopes import EESAGScopedAdminMixin, is_coordinator
+from apps.core.admin_scopes import EESAGScopedAdminMixin, is_coordinator, is_national_general, is_national_special, is_local
 from .models import Annexe, Departement, Eglise, RoleEglise
 from apps.accounts.models import Role, Utilisateur
 from apps.accounts.services_sms import normaliser_telephone
@@ -239,23 +239,35 @@ class EgliseAdmin(EESAGScopedAdminMixin, admin.ModelAdmin):
     )
 
     # ------------------------------------------------------------------
-    # PERMISSIONS : COORDINATEUR UNIQUEMENT
+    # PERMISSIONS : COORDINATEUR ET BUREAU NATIONAL
     # ------------------------------------------------------------------
 
     def has_module_permission(self, request):
-        return is_coordinator(request.user)
+        user = request.user
+        return (
+            is_coordinator(user)
+            or is_national_general(user)
+            or is_national_special(user)
+        )
 
     def has_view_permission(self, request, obj=None):
-        return is_coordinator(request.user)
+        return self.has_module_permission(request)
 
     def has_add_permission(self, request):
+        # Seul le Coordinateur crée les églises.
         return is_coordinator(request.user)
 
     def has_change_permission(self, request, obj=None):
-        return is_coordinator(request.user)
+        # Le Bureau national général doit pouvoir lancer les actions
+        # d'activation depuis la liste, mais ne modifie pas les champs.
+        return (
+            is_coordinator(request.user)
+            or is_national_general(request.user)
+        )
 
     def has_delete_permission(self, request, obj=None):
-        return is_coordinator(request.user)
+        # La suppression d'une église est interdite dans cet écran.
+        return False
 
     # ------------------------------------------------------------------
     # ACTIONS
@@ -264,7 +276,8 @@ class EgliseAdmin(EESAGScopedAdminMixin, admin.ModelAdmin):
     def get_actions(self, request):
         actions = super().get_actions(request)
 
-        if not is_coordinator(request.user):
+        # L'activation est réservée au Bureau national général.
+        if not is_national_general(request.user):
             actions.pop("activer_plateformes", None)
             actions.pop("desactiver_plateformes", None)
 
@@ -275,15 +288,17 @@ class EgliseAdmin(EESAGScopedAdminMixin, admin.ModelAdmin):
     # ------------------------------------------------------------------
 
     def get_readonly_fields(self, request, obj=None):
-        """
-        Le Coordinateur peut gérer l'état de la plateforme.
-        Les informations générées automatiquement restent en lecture seule.
-        """
-        return tuple(
-            field
-            for field in self.readonly_fields
-            if field != "plateforme_active"
-        )
+        if is_national_general(request.user) or is_national_special(request.user):
+            # Le Bureau national consulte les informations sans les modifier.
+            return tuple(
+                field.name for field in self.model._meta.fields
+            ) + tuple(self.readonly_fields)
+
+        # Le Coordinateur peut modifier les informations de l'église,
+        # mais pas son état d'activation.
+        return tuple(dict.fromkeys(
+            tuple(self.readonly_fields) + ("plateforme_active",)
+        ))
 
     # ------------------------------------------------------------------
     # FORMULAIRE ADMIN
@@ -366,7 +381,7 @@ class EgliseAdmin(EESAGScopedAdminMixin, admin.ModelAdmin):
                             "activee_par",
                         ),
                         "description": (
-                            "Le Coordinateur contrôle l'activation de la plateforme."
+                            "Seul le Bureau national général peut activer ou désactiver la plateforme."
                         ),
                     },
                 ),
@@ -404,10 +419,10 @@ class EgliseAdmin(EESAGScopedAdminMixin, admin.ModelAdmin):
 
     @admin.action(description="Activer la plateforme pour les églises sélectionnées")
     def activer_plateformes(self, request, queryset):
-        if not is_coordinator(request.user):
+        if not is_national_general(request.user):
             self.message_user(
                 request,
-                "Seul le Coordinateur du système peut activer une église.",
+                "Seul le Bureau national général peut activer une église.",
                 level=messages.ERROR,
             )
             return
@@ -425,10 +440,10 @@ class EgliseAdmin(EESAGScopedAdminMixin, admin.ModelAdmin):
 
     @admin.action(description="Désactiver la plateforme pour les églises sélectionnées")
     def desactiver_plateformes(self, request, queryset):
-        if not is_coordinator(request.user):
+        if not is_national_general(request.user):
             self.message_user(
                 request,
-                "Seul le Bureau national peut gérer l'activation de la plateforme.",
+                "Seul le Bureau national général peut désactiver une église.",
                 level=messages.ERROR,
             )
             return
@@ -451,20 +466,13 @@ class EgliseAdmin(EESAGScopedAdminMixin, admin.ModelAdmin):
             obj.activee_par = None
 
         # Le Coordinateur peut consulter mais ne peut pas activer l'église.
-        if not is_coordinator(request.user):
-            if change:
-                previous = Eglise.objects.get(pk=obj.pk)
-                obj.plateforme_active = previous.plateforme_active
-                obj.date_activation_plateforme = previous.date_activation_plateforme
-                obj.activee_par = previous.activee_par
-
-        if is_coordinator(request.user) and change and "plateforme_active" in form.changed_data:
-            if obj.plateforme_active:
-                obj.date_activation_plateforme = timezone.now()
-                obj.activee_par = request.user
-            else:
-                obj.date_activation_plateforme = None
-                obj.activee_par = None
+        if change:
+            # L'état d'activation ne peut changer que par les actions
+            # réservées au Bureau national général.
+            previous = Eglise.objects.get(pk=obj.pk)
+            obj.plateforme_active = previous.plateforme_active
+            obj.date_activation_plateforme = previous.date_activation_plateforme
+            obj.activee_par = previous.activee_par
 
         with transaction.atomic():
             super().save_model(request, obj, form, change)

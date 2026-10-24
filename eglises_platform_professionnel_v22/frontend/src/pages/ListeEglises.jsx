@@ -32,9 +32,9 @@ export default function ListeEglises() {
     <div>
       <div className="barre-superieure">
         <div><h2>Annuaire des églises</h2><p className="sous-titre">Recherche nationale des établissements. Le contenu interne reste privé.</p></div>
-        {estNational && (
+        {/* {estNational && (
           <button className="btn" onClick={() => setAfficherFormulaire(true)}>+ Créer une église</button>
-        )}
+        )} */}
       </div>
 
       <div className="filtres">

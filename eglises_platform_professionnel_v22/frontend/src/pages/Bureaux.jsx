@@ -11,7 +11,12 @@ const TYPES = {
 };
 
 export default function Bureaux() {
-  const { estNational, utilisateur, estGestionnaireEglise } = useAuth();
+  const {
+    estNational,
+    estCoordinateur,
+    utilisateur,
+    estGestionnaireEglise,
+  } = useAuth();
   const [bureaux, setBureaux] = useState([]);
   const [selection, setSelection] = useState(null);
   const [membres, setMembres] = useState([]);
@@ -28,9 +33,25 @@ export default function Bureaux() {
   const chargerBureaux = async () => {
     setChargement(true);
     try {
-      const params = estNational || !peutVoirLocaux
-        ? { niveau: "NATIONAL", actif: true }
-        : { niveau: "LOCAL", eglise: utilisateur?.eglise, actif: true };
+      const params = niveauFiltre
+        ? {
+            niveau: niveauFiltre,
+            actif: true,
+          }
+        : estNational || !peutVoirLocaux
+          ? {
+              niveau: "NATIONAL",
+              actif: true,
+            }
+          : {
+              niveau: "LOCAL",
+              eglise: utilisateur?.eglise,
+              actif: true,
+            };
+
+      if (niveauFiltre === "LOCAL" && utilisateur?.eglise) {
+        params.eglise = utilisateur.eglise;
+      }
       const res = await client.get("/bureaux/", { params });
       const data = liste(res.data);
       setBureaux(data);
@@ -54,7 +75,7 @@ export default function Bureaux() {
     }
   };
 
-  useEffect(() => { if (utilisateur) chargerBureaux(); }, [utilisateur, estNational, peutVoirLocaux]);
+  useEffect(() => { if (utilisateur) chargerBureaux(); }, [utilisateur?.eglise, estNational, peutVoirLocaux], niveauFiltre,);
   useEffect(() => { chargerMembres(); }, [selection, annee]);
 
   const ajouterMembre = async (e) => {
@@ -107,7 +128,7 @@ export default function Bureaux() {
             <div><span className="eyebrow">BUREAUX</span><h3>Choisir un bureau</h3></div>
           </div>
           {chargement ? <div className="empty-state">Chargement…</div> : <div className="bureau-select-list">
-            {bureaux.map((b) => <button key={b.id} className={bureau-select-row ${selection?.id === b.id ? "selected" : ""}} onClick={() => setSelection(b)}>
+            {bureaux.map((b) => <button key={b.id} className={`bureau-select-row ${selection?.id === b.id ? "selected" : ""}`} onClick={() => setSelection(b)}>
               <span className="bureau-select-icon">{TYPES[b.type_bureau] || "◆"}</span>
               <span><b>{b.nom}</b><small>{b.code}</small></span>
               <strong>{b.membres_actifs || 0}</strong>

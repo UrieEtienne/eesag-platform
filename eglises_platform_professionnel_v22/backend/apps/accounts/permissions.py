@@ -105,3 +105,39 @@ class PeutGererProjets(BasePermission):
         ).exists() or (
             user.role in ROLES_BUREAU_NATIONAL and getattr(obj, "bureau_id", None) is None and getattr(obj, "eglise_id", None) is None
         )
+
+
+class EstCoordinateurOuGestionEglise(BasePermission):
+    """
+    Autorise le Coordinateur du système, les administrateurs nationaux
+    et les responsables de gestion d'église.
+    """
+
+    def has_permission(self, request, view):
+        user = request.user
+        if not (user and user.is_authenticated):
+            return False
+
+        return (
+            user.is_superuser
+            or user.role in ROLES_NATIONAUX
+            or user.role in ROLES_GESTION_EGLISE
+        )
+
+    def has_object_permission(self, request, view, obj):
+        user = request.user
+
+        if user.is_superuser or user.role in ROLES_NATIONAUX:
+            return True
+
+        eglise_obj = getattr(
+            obj,
+            "eglise",
+            obj if obj.__class__.__name__ == "Eglise" else None,
+        )
+
+        return (
+            user.role in ROLES_GESTION_EGLISE
+            and user.eglise_id is not None
+            and user.eglise_id == getattr(eglise_obj, "id", None)
+        )

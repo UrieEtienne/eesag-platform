@@ -227,47 +227,47 @@ def peut_creer_bureau_national(user):
 # ============================================================
 
 def a_droit_bureau(user, bureau, droit):
-    """
-    Vérifie si un utilisateur possède un droit précis sur un bureau.
-    """
     if not user or not user.is_authenticated:
         return False
 
     if _est_coordinateur(user):
         return True
 
-    if not bureau:
-        return False
-
-    # Le périmètre national général peut consulter les bureaux
-    # nationaux, mais la création/modification spécialisée doit
-    # rester contrôlée par les droits du bureau.
-    if (
-        _est_national_general(user)
-        and bureau.niveau == NiveauBureau.NATIONAL
-    ):
-        return True
-
-    # Gestion locale d'une église.
-    if user.role in (
-        Role.ADMIN_LOCAL,
-        Role.PASTEUR,
-    ):
-        if (
-            bureau.niveau == NiveauBureau.LOCAL
-            and bureau.eglise_id == user.eglise_id
-        ):
-            return True
-
-        return False
-
-    return (
-        BureauAdministrateur.objects
-        .filter(
+    # Un compte délégué ne doit jamais hériter des droits globaux
+    # simplement parce qu'il possède un rôle national.
+    if user.role in ROLES_BUREAU_NATIONAL:
+        attribution = BureauAdministrateur.objects.filter(
             bureau=bureau,
             utilisateur=user,
             actif=True,
-            **{droit: True},
-        )
-        .exists()
-    )
+            bureau__actif=True,
+        ).first()
+
+        if attribution:
+            return bool(getattr(attribution, droit, False))
+
+        # Pas d'attribution : pas de droit d'administration du bureau.
+        # Le Coordinateur est traité plus haut.
+        return False
+
+    if (
+        user.role in ("ADMIN_LOCAL", "PASTEUR")
+        and bureau.niveau == NiveauBureau.LOCAL
+        and bureau.eglise_id == user.eglise_id
+    ):
+        return droit in {
+            "peut_gerer_membres",
+            "peut_gerer_finances",
+            "peut_gerer_projets",
+            "peut_envoyer_notifications",
+            "peut_gerer_rapports",
+        }
+
+    attribution = BureauAdministrateur.objects.filter(
+        bureau=bureau,
+        utilisateur=user,
+        actif=True,
+        bureau__actif=True,
+    ).first()
+
+    return bool(attribution and getattr(attribution, droit, False))

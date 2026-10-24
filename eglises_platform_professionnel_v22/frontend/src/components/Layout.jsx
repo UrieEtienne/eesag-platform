@@ -74,38 +74,36 @@ export default function Layout({ children }) {
    * =========================
    */
 
-  const link = (
-    to,
-    label,
-    icon,
-    badge = null
-  ) => (
-    <NavLink
-      key={${to}-${label}}
-      to={to}
-      end={to === "/"}
-      className={({ isActive }) =>
-        nav-link ${isActive ? "active" : ""}
-      }
-      title={!sidebarOuverte ? label : undefined}
-    >
-      <span className="nav-icon">
-        {icon}
-      </span>
+    const link = (
+        to,
+        label,
+        icon,
+        badge = null
+      ) => (
+      <NavLink
+        key={`${to}-${label}`}
+        to={to}
+        end={to === "/"}
+        className={`nav-link ${isActive ? "active" : ""}`}
+        title={!sidebarOuverte ? label : undefined}
+      >
+        <span className="nav-icon">
+          {icon}
+        </span>
 
-      {sidebarOuverte && (
-        <>
-          <span>{label}</span>
+        {sidebarOuverte && (
+          <>
+            <span>{label}</span>
 
-          {badge ? (
-            <b className="nav-badge">
-              {badge}
-            </b>
-          ) : null}
-        </>
-      )}
-    </NavLink>
-  );
+            {badge ? (
+              <b className="nav-badge">
+                {badge}
+              </b>
+            ) : null}
+          </>
+        )}
+      </NavLink>
+    );
 
   /*
    * =========================
@@ -118,15 +116,15 @@ export default function Layout({ children }) {
    */
 
   const adminDjango = () => {
-    const backendUrl =
-      import.meta.env.VITE_API_URL ||
-      "http://127.0.0.1:8000/api";
+    const apiUrl = new URL(
+      import.meta.env.VITE_API_URL || "/api/",
+      window.location.origin
+    );
 
-    const adminUrl =
-      backendUrl
-        .replace(/\/api\/?$/, "")
-        .replace(/\/$/, "") +
-      "/admin/";
+    const adminUrl = new URL(
+      "/admin/",
+      apiUrl.origin
+    ).toString();
 
     window.open(
       adminUrl,
@@ -165,14 +163,7 @@ export default function Layout({ children }) {
    * =========================
    */
 
-  return (
-    <div
-      className={app-layout ${
-        sidebarOuverte
-          ? "sidebar-open"
-          : "sidebar-closed"
-      }}
-    >
+  return ( <div className={`app-layout ${ sidebarOuverte ? "sidebar-open" : "sidebar-closed" }`} >
       <aside className="sidebar">
 
         {/* ================= BRAND ================= */}
@@ -297,82 +288,29 @@ export default function Layout({ children }) {
              ========================================= */}
 
           {estCoordinateur && (
-            <>
+  <>
               {sidebarOuverte && (
                 <div className="nav-section-label">
-                  CONTRÔLE DU SYSTÈME
+                  ADMINISTRATION DU SYSTÈME
                 </div>
               )}
 
-              {/* ADMIN */}
-
-              <button
-                type="button"
-                className="nav-link nav-button-admin"
-                onClick={adminDjango}
-                title={
-                  !sidebarOuverte
-                    ? "Administration"
-                    : undefined
-                }
-              >
-                <span className="nav-icon">
-                  ⚙
-                </span>
-
-                {sidebarOuverte && (
-                  <span>
-                    ADMIN
-                  </span>
-                )}
-              </button>
-
               {link(
-                "/eglises",
-                "Toutes les églises",
-                "◎"
-              )}
-
-              {link(
-                "/bureaux",
-                "Bureaux nationaux",
-                "◇"
-              )}
-
-              {link(
-                "/documents",
-                "Documents",
-                "▣"
-              )}
-
-              {link(
-                "/finances",
-                "Comptabilité",
-                "₣"
-              )}
-
-              {link(
-                "/rapports",
-                "Rapports",
-                "▤"
-              )}
-
-              {link(
-                "/notifications",
-                "Publications",
-                "◌"
-              )}
-
-              {link(
-                "/systeme",
-                "Fonctionnalités",
-                "◈"
-              )}
-
-              {link(
-                "/parametres",
-                "Paramètres système",
+                "/admin",
+                "Administration",
                 "⚙"
+              )}
+
+              {link(
+                "/admin-utilisateurs",
+                "Admin · Utilisateurs",
+                "♙"
+              )}
+
+              {link(
+                "/admin-eglises",
+                "Admin · Toutes les églises",
+                "◎"
               )}
             </>
           )}
@@ -387,6 +325,11 @@ export default function Layout({ children }) {
                 <div className="nav-section-label">
                   ADMINISTRATION NATIONALE
                 </div>
+              )}
+              {link(
+                "/admin-utilisateurs",
+                "Admin · Utilisateurs",
+                "♙"
               )}
 
               {estBureauNationalGeneral && (

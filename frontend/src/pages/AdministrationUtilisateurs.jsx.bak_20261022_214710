@@ -1,0 +1,237 @@
+import { useEffect, useState } from "react";
+
+const API_URL = import.meta.env.VITE_API_URL || "/api";
+
+function obtenirToken() {
+  return (
+    localStorage.getItem("access") ||
+    localStorage.getItem("access_token") ||
+    localStorage.getItem("accessToken") ||
+    localStorage.getItem("token") ||
+    ""
+  );
+}
+
+export default function AdministrationUtilisateurs() {
+  const [utilisateurs, setUtilisateurs] = useState([]);
+  const [chargement, setChargement] = useState(true);
+  const [erreur, setErreur] = useState("");
+
+  useEffect(() => {
+    let actif = true;
+
+    async function chargerUtilisateurs() {
+      setChargement(true);
+      setErreur("");
+
+      try {
+        const token = obtenirToken();
+
+        const headers = {
+          Accept: "application/json",
+        };
+
+        if (token) {
+          headers.Authorization = `Bearer ${token}`;
+        }
+
+        const response = await fetch(
+          `${API_URL.replace(/\/$/, "")}/utilisateurs/`,
+          {
+            method: "GET",
+            headers,
+          }
+        );
+
+        if (!response.ok) {
+          let detail = `Erreur HTTP ${response.status}`;
+
+          try {
+            const data = await response.json();
+            detail =
+              data?.detail ||
+              data?.message ||
+              data?.error ||
+              detail;
+          } catch {
+            // Réponse non JSON
+          }
+
+          throw new Error(detail);
+        }
+
+        const data = await response.json();
+
+        const liste = Array.isArray(data)
+          ? data
+          : Array.isArray(data?.results)
+            ? data.results
+            : [];
+
+        if (actif) {
+          setUtilisateurs(liste);
+        }
+      } catch (error) {
+        if (actif) {
+          setErreur(
+            error?.message ||
+              "Impossible de charger les utilisateurs."
+          );
+          setUtilisateurs([]);
+        }
+      } finally {
+        if (actif) {
+          setChargement(false);
+        }
+      }
+    }
+
+    chargerUtilisateurs();
+
+    return () => {
+      actif = false;
+    };
+  }, []);
+
+  const afficherNom = (utilisateur) => {
+    const nomComplet = [
+      utilisateur?.prenom,
+      utilisateur?.nom,
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .trim();
+
+    return (
+      nomComplet ||
+      utilisateur?.username ||
+      utilisateur?.identifiant ||
+      "Utilisateur"
+    );
+  };
+
+  const afficherRole = (utilisateur) => {
+    return (
+      utilisateur?.role_libelle ||
+      utilisateur?.role_display ||
+      utilisateur?.role ||
+      "—"
+    );
+  };
+
+  const afficherEglise = (utilisateur) => {
+    if (typeof utilisateur?.eglise === "string") {
+      return utilisateur.eglise;
+    }
+
+    return (
+      utilisateur?.eglise?.nom ||
+      utilisateur?.eglise_nom ||
+      "Administration nationale"
+    );
+  };
+
+  return (
+    <div className="container-fluid py-4">
+      <div className="d-flex justify-content-between align-items-center mb-4">
+        <div>
+          <h2 className="mb-1">Administration des utilisateurs</h2>
+          <p className="text-muted mb-0">
+            Gestion des comptes utilisateurs de la plateforme EESAG.
+          </p>
+        </div>
+
+        <span className="badge bg-primary">
+          {utilisateurs.length} utilisateur
+          {utilisateurs.length !== 1 ? "s" : ""}
+        </span>
+      </div>
+
+      {erreur && (
+        <div className="alert alert-danger" role="alert">
+          <strong>Erreur :</strong> {erreur}
+        </div>
+      )}
+
+      <div className="card shadow-sm">
+        <div className="card-header">
+          <h5 className="mb-0">Utilisateurs</h5>
+        </div>
+
+        <div className="card-body p-0">
+          {chargement ? (
+            <div className="p-4 text-center text-muted">
+              Chargement des utilisateurs...
+            </div>
+          ) : utilisateurs.length === 0 ? (
+            <div className="p-4 text-center text-muted">
+              Aucun utilisateur à afficher.
+            </div>
+          ) : (
+            <div className="table-responsive">
+              <table className="table table-hover align-middle mb-0">
+                <thead>
+                  <tr>
+                    <th>Nom</th>
+                    <th>Identifiant</th>
+                    <th>Rôle</th>
+                    <th>Église</th>
+                    <th>Téléphone</th>
+                    <th>Statut</th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {utilisateurs.map((utilisateur) => (
+                    <tr
+                      key={
+                        utilisateur.id ||
+                        utilisateur.identifiant
+                      }
+                    >
+                      <td>
+                        <strong>
+                          {afficherNom(utilisateur)}
+                        </strong>
+                      </td>
+
+                      <td>
+                        {utilisateur?.identifiant || "—"}
+                      </td>
+
+                      <td>
+                        <span className="badge bg-secondary">
+                          {afficherRole(utilisateur)}
+                        </span>
+                      </td>
+
+                      <td>
+                        {afficherEglise(utilisateur)}
+                      </td>
+
+                      <td>
+                        {utilisateur?.telephone || "—"}
+                      </td>
+
+                      <td>
+                        {utilisateur?.actif ? (
+                          <span className="badge bg-success">
+                            Actif
+                          </span>
+                        ) : (
+                          <span className="badge bg-warning text-dark">
+                            Inactif
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

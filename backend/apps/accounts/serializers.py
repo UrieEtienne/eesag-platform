@@ -80,41 +80,193 @@ class UtilisateurSerializer(serializers.ModelSerializer):
     def get_nom_complet(self, obj):
         return f"{obj.prenom} {obj.nom}"
 
-
 class CreerUtilisateurSerializer(serializers.ModelSerializer):
-    """Création d'un compte inactif jusqu'à la validation OTP."""
+    """
+    Création administrative d'un compte utilisateur.
+
+    Le compte est créé inactif.
+    L'identifiant et le code secret sont générés automatiquement.
+    L'envoi SMS est une notification secondaire : une panne SMS
+    ne doit jamais empêcher la création du compte.
+    """
+
     class Meta:
         model = Utilisateur
         fields = [
-            "nom", "prenom", "sexe", "date_naissance", "telephone", "email", "photo",
-            "nationalite", "date_bapteme_eau", "date_bapteme_saint_esprit", "fonction_eglise",
-            "role", "eglise", "departement", "role_eglise", "fonction_bureau_national",
+            "nom",
+            "prenom",
+            "sexe",
+            "date_naissance",
+            "telephone",
+            "email",
+            "photo",
+            "nationalite",
+            "date_bapteme_eau",
+            "date_bapteme_saint_esprit",
+            "fonction_eglise",
+            "role",
+            "eglise",
+            "departement",
+            "role_eglise",
+            "fonction_bureau_national",
         ]
 
     def validate(self, attrs):
         demandeur = self.context["request"].user
         role = attrs.get("role", Role.MEMBRE)
+
+        if not demandeur.is_authenticated:
+            raise serializers.ValidationError(
+                {"detail": "Vous devez être authentifié."}
+            )
+
+        # ---------------------------------------------------------
+        # MEMBRE
+        # ---------------------------------------------------------
         if demandeur.role == Role.MEMBRE:
-            raise serializers.ValidationError({"role": "Un membre ne peut pas créer de compte."})
-        if demandeur.role == Role.ADMIN_LOCAL and role not in [
-            Role.ADMIN_LOCAL,
-            Role.PASTEUR,
-            Role.RESPONSABLE_DEPARTEMENT,
-            Role.MEMBRE,
-        ]:
-            raise serializers.ValidationError({"role": "Vous n'avez pas le droit de créer ce rôle."})
-        if demandeur.role == Role.PASTEUR and role not in [Role.MEMBRE, Role.RESPONSABLE_DEPARTEMENT, Role.ADMIN_LOCAL]:
-            raise serializers.ValidationError({"role": "Le pasteur peut créer des membres, responsables de département et administrateurs locaux délégués."})
-        if demandeur.role in ROLES_NATIONAUX and role in [Role.MEMBRE, Role.RESPONSABLE_DEPARTEMENT]:
-            raise serializers.ValidationError({"role": "Seule l'église concernée peut créer les comptes de ses membres et responsables de département."})
-        eglise_cible = attrs.get("eglise") or getattr(demandeur, "eglise", None)
+            raise serializers.ValidationError(
+                {"role": "Un membre ne peut pas créer de compte."}
+            )
+
+        # ---------------------------------------------------------
+        # ADMIN LOCAL
+        # ---------------------------------------------------------
+        if demandeur.role == Role.ADMIN_LOCAL:
+            roles_autorises = {
+                Role.ADMIN_LOCAL,
+                Role.PASTEUR,
+                Role.RESPONSABLE_DEPARTEMENT,
+                Role.MEMBRE,
+            }
+
+            if role not in roles_autorises:
+                raise serializers.ValidationError(
+                    {
+                        "role": (
+                            "Un administrateur local ne peut créer que "
+                            "des comptes locaux autorisés."
+                        )
+                    }
+                )
+
+        # ---------------------------------------------------------
+        # PASTEUR
+        # ---------------------------------------------------------
+        elif demandeur.role == Role.PASTEUR:
+            roles_autorises = {
+                Role.ADMIN_LOCAL,
+                Role.RESPONSABLE_DEPARTEMENT,
+                Role.MEMBRE,
+            }
+
+            if role not in roles_autorises:
+                raise serializers.ValidationError(
+                    {
+                        "role": (
+                            "Le pasteur peut créer des membres, "
+                            "responsables de département et administrateurs locaux."
+                        )
+                    }
+                )
+
+        # ---------------------------------------------------------
+        # COORDINATEUR
+        # ---------------------------------------------------------
+        elif demandeur.role == Role.COORDINATEUR or demandeur.is_superuser:
+            roles_autorises = {
+                Role.SUPERADMIN_INTL,
+                Role.SUPERADMIN_NATIONAL,
+                Role.ADMIN_LOCAL,
+                Role.PASTEUR,
+            }
+
+            if role not in roles_autorises:
+                raise serializers.ValidationError(
+                    {
+                        "role": (
+                            "Le Coordinateur peut créer les comptes "
+                            "administratifs nationaux et les comptes "
+                            "administratifs d'église."
+                        )
+                    }
+                )
+
+        # ---------------------------------------------------------
+        # BUREAU NATIONAL
+        # ---------------------------------------------------------
+        elif demandeur.role in ROLES_NATIONAUX:
+            roles_autorises = {
+                Role.SUPERADMIN_NATIONAL,
+                Role.ADMIN_LOCAL,
+                Role.PASTEUR,
+            }
+
+            if role not in roles_autorises:
+                raise serializers.ValidationError(
+                    {
+                        "role": (
+                            "Ce bureau national ne peut pas créer ce type "
+                            "de compte."
+                        )
+                    }
+                )
+
+        else:
+            raise serializers.ValidationError(
+                {"role": "Vous n'avez pas le droit de créer un compte."}
+            )
+
+        # ---------------------------------------------------------
+        # ÉGLISE
+        # ---------------------------------------------------------
+        eglise_cible = attrs.get("eglise")
+
         if demandeur.role in [Role.ADMIN_LOCAL, Role.PASTEUR]:
-            if not eglise_cible or eglise_cible.id != demandeur.eglise_id:
-                raise serializers.ValidationError({"eglise": "Le membre doit obligatoirement appartenir à votre église."})
+            if not eglise_cible:
+                eglise_cible = demandeur.eglise
+
+            if not eglise_cible:
+                raise serializers.ValidationError(
+                    {
+                        "eglise": (
+                            "Une église est obligatoire pour ce type "
+                            "de compte."
+                        )
+                    }
+                )
+
+            if eglise_cible.id != demandeur.eglise_id:
+                raise serializers.ValidationError(
+                    {
+                        "eglise": (
+                            "Vous ne pouvez créer un compte que "
+                            "dans votre propre église."
+                        )
+                    }
+                )
+
             attrs["eglise"] = eglise_cible
+
+        # Les rôles nationaux n'appartiennent pas à une église.
+        if role in {
+            Role.SUPERADMIN_INTL,
+            Role.SUPERADMIN_NATIONAL,
+        }:
+            attrs["eglise"] = None
+            attrs["departement"] = None
+            attrs["role_eglise"] = None
+
         role_eglise = attrs.get("role_eglise")
+
         if role_eglise and not role_eglise.actif:
-            raise serializers.ValidationError({"role_eglise": "Ce rôle dans l'église est désactivé."})
+            raise serializers.ValidationError(
+                {
+                    "role_eglise": (
+                        "Ce rôle dans l'église est désactivé."
+                    )
+                }
+            )
+
         return attrs
 
     def validate_telephone(self, telephone):
@@ -122,44 +274,99 @@ class CreerUtilisateurSerializer(serializers.ModelSerializer):
             numero = normaliser_telephone(telephone)
         except ValueError as exc:
             raise serializers.ValidationError(str(exc)) from exc
+
         if Utilisateur.objects.filter(telephone=numero).exists():
-            raise serializers.ValidationError("Ce numéro est déjà enregistré.")
+            raise serializers.ValidationError(
+                "Ce numéro est déjà enregistré."
+            )
+
         return numero
 
     @transaction.atomic
     def create(self, validated_data):
         demandeur = self.context["request"].user
+
         if demandeur.role in [Role.ADMIN_LOCAL, Role.PASTEUR]:
             validated_data["eglise"] = demandeur.eglise
-        if demandeur.role not in ROLES_NATIONAUX and validated_data.get("eglise") and validated_data["eglise"] != demandeur.eglise:
-            raise serializers.ValidationError("Vous ne pouvez agir que dans votre propre église.")
-        code_secret = generer_code_secret()
+
         role = validated_data.get("role", Role.MEMBRE)
+
+        code_secret = generer_code_secret()
+
         staff_role = role in ROLES_NATIONAUX
-        utilisateur = Utilisateur(**validated_data, actif=False, is_staff=staff_role)
+
+        utilisateur = Utilisateur(
+            **validated_data,
+            actif=False,
+            is_staff=staff_role,
+        )
+
         utilisateur.code_secret_clair = ""
         utilisateur.set_password(code_secret)
         utilisateur.save()
-        origine = utilisateur.eglise.nom if utilisateur.eglise else "Bureau national EESAG"
-        resultats = notifier_nouvel_identifiant(utilisateur, code_secret, origine=origine)
-        otp_result = resultats[0] if resultats else {"ok": False, "error": "Aucun résultat OTP."}
-        if not otp_result.get("ok"):
-            raise serializers.ValidationError({"telephone": otp_result.get("error", "Impossible de générer le code de confirmation.")})
+
+        origine = (
+            utilisateur.eglise.nom
+            if utilisateur.eglise
+            else "Bureau national EESAG"
+        )
+
+        # ---------------------------------------------------------
+        # SMS : NON BLOQUANT
+        # ---------------------------------------------------------
+        sms_ok = False
+        sms_message = ""
+
+        try:
+            resultats = notifier_nouvel_identifiant(
+                utilisateur,
+                code_secret,
+                origine=origine,
+            )
+
+            otp_result = (
+                resultats[0]
+                if resultats
+                else {"ok": False, "error": "Aucun résultat SMS."}
+            )
+
+            sms_ok = bool(otp_result.get("ok"))
+
+            if not sms_ok:
+                sms_message = otp_result.get(
+                    "error",
+                    "Le SMS n'a pas pu être envoyé.",
+                )
+
+        except Exception as exc:
+            sms_message = str(exc)
+
+        # ---------------------------------------------------------
+        # NOTIFICATION INTERNE
+        # ---------------------------------------------------------
         try:
             from apps.notifications.models import Notification
+
             Notification.objects.create(
                 destinataire=utilisateur,
                 eglise=utilisateur.eglise,
-                titre="Compte créé – confirmation du téléphone",
-                message=(f"Votre compte EESAG a été créé pour {origine}. "
-                         f"Identifiant : {utilisateur.identifiant}. "
-                         "Confirmez votre numéro pour activer le compte."),
+                titre="Compte EESAG créé",
+                message=(
+                    f"Votre compte EESAG a été créé pour {origine}. "
+                    f"Identifiant : {utilisateur.identifiant}. "
+                    "Votre compte doit être activé avant connexion."
+                ),
                 type_notification="BIENVENUE",
             )
         except Exception:
             pass
-        return utilisateur
 
+        # Informations disponibles pour la réponse API.
+        utilisateur._creation_sms_ok = sms_ok
+        utilisateur._creation_sms_message = sms_message
+        utilisateur._creation_code_secret = code_secret
+
+        return utilisateur
 
 class ChangerCodeSecretSerializer(serializers.Serializer):
     ancien_code = serializers.CharField()

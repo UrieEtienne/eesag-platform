@@ -19,28 +19,32 @@ class BureauSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "code", "date_creation", "membres_actifs", "mes_droits"]
 
     def get_mes_droits(self, obj):
-        request = self.context.get("request")
-        if not request or not request.user.is_authenticated:
-            return {}
-        user = request.user
-        if user.role == "COORDINATEUR" or user.is_superuser:
-            return {k: True for k in ["peut_gerer_membres", "peut_gerer_finances", "peut_gerer_projets", "peut_envoyer_notifications", "peut_gerer_rapports"]}
-        if user.role in ["SUPERADMIN_INTL", "SUPERADMIN_NATIONAL"] and obj.niveau == "NATIONAL":
-            from .models import BureauAdministrateur
-            if not BureauAdministrateur.objects.filter(utilisateur=user, actif=True).exists():
-                return {k: True for k in ["peut_gerer_membres", "peut_gerer_finances", "peut_gerer_projets", "peut_envoyer_notifications", "peut_gerer_rapports"]}
-        if user.role in ["PASTEUR", "ADMIN_LOCAL"] and obj.niveau == "LOCAL" and obj.eglise_id == user.eglise_id:
-            return {k: True for k in ["peut_gerer_membres", "peut_gerer_finances", "peut_gerer_projets", "peut_envoyer_notifications", "peut_gerer_rapports"]}
-        admin = BureauAdministrateur.objects.filter(bureau=obj, utilisateur=user, actif=True).first()
-        if not admin:
-            return {k: False for k in ["peut_gerer_membres", "peut_gerer_finances", "peut_gerer_projets", "peut_envoyer_notifications", "peut_gerer_rapports"]}
-        return {
-            "peut_gerer_membres": admin.peut_gerer_membres,
-            "peut_gerer_finances": admin.peut_gerer_finances,
-            "peut_gerer_projets": admin.peut_gerer_projets,
-            "peut_envoyer_notifications": admin.peut_envoyer_notifications,
-            "peut_gerer_rapports": admin.peut_gerer_rapports,
-        }
+            from .access import _est_coordinateur, a_droit_bureau
+    
+            request = self.context.get("request")
+            if not request or not request.user.is_authenticated:
+                return {}
+    
+            user = request.user
+            droits = [
+                "peut_gerer_membres",
+                "peut_gerer_finances",
+                "peut_gerer_projets",
+                "peut_envoyer_notifications",
+                "peut_gerer_rapports",
+                "peut_gerer_utilisateurs",
+                "peut_creer_bureaux",
+                "peut_gerer_eglises",
+                "peut_gerer_bureaux_zonaux",
+            ]
+    
+            if _est_coordinateur(user):
+                return {droit: True for droit in droits}
+    
+            return {
+                droit: a_droit_bureau(user, obj, droit)
+                for droit in droits
+            }
 
 
 class BureauMembreMandatSerializer(serializers.ModelSerializer):

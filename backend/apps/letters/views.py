@@ -31,6 +31,39 @@ class CourrierViewSet(viewsets.ModelViewSet):
             return qs.filter(Q(expediteur_id=user.id) | Q(membre_concerne__eglise_id=user.eglise_id) | Q(eglise_destinataire_id=user.eglise_id)).distinct()
         return qs.none()
 
+    def _peut_administrer_courriers(self):
+        user = self.request.user
+        return (
+            user.is_authenticated
+            and (
+                user.role == Role.COORDINATEUR
+                or user.is_superuser
+            )
+        )
+
+    def update(self, request, *args, **kwargs):
+        if not self._peut_administrer_courriers():
+            raise PermissionDenied(
+                "La modification directe d'un courrier est interdite. "
+                "Seul le coordinateur peut utiliser cette opération."
+            )
+        return super().update(request, *args, **kwargs)
+
+    def partial_update(self, request, *args, **kwargs):
+        if not self._peut_administrer_courriers():
+            raise PermissionDenied(
+                "La modification directe d'un courrier est interdite. "
+                "Seul le coordinateur peut utiliser cette opération."
+            )
+        return super().partial_update(request, *args, **kwargs)
+
+    def destroy(self, request, *args, **kwargs):
+        if not self._peut_administrer_courriers():
+            raise PermissionDenied(
+                "La suppression d'un courrier est interdite pour ce rôle."
+            )
+        return super().destroy(request, *args, **kwargs)
+
     def _valider_recommandation(self, request, data):
         if request.user.role != Role.PASTEUR or not request.user.eglise_id:
             raise PermissionDenied("Seul le pasteur d'une église peut envoyer et réceptionner les lettres de recommandation.")
@@ -54,38 +87,119 @@ class CourrierViewSet(viewsets.ModelViewSet):
             raise PermissionDenied("L'église de destination doit être différente de l'église d'origine.")
         return membre, destination
 
+
     @action(detail=False, methods=["post"], url_path="apercu")
     def apercu(self, request):
-        membre, destination = self._valider_recommandation(request, request.data)
-        contenu = request.data.get("contenu") or texte_exemple("RECOMMANDATION", f"{membre.prenom} {membre.nom}")
+        """
+        Génère uniquement un aperçu.
+        Aucun courrier n'est enregistré avant la validation finale.
+        """
+
+        membre, destination = self._valider_recommandation(
+            request,
+            request.data
+        )
+
+        contenu = (
+            request.data.get("contenu")
+            or texte_exemple(
+                "RECOMMANDATION",
+                f"{membre.prenom} {membre.nom}",
+            )
+        )
+
         return Response({
             "type_courrier": "RECOMMANDATION",
-            "objet": request.data.get("objet") or "Recommandation de déplacement",
+
+            "objet": (
+                request.data.get("objet")
+                or "Lettre de recommandation"
+            ),
+
+            "membre_id": membre.id,
             "membre_nom": f"{membre.prenom} {membre.nom}",
             "membre_identifiant": membre.identifiant,
-            "telephone": membre.telephone,
+
+            "telephone": membre.telephone or "",
             "email": membre.email or "",
-            "sexe": membre.get_sexe_display(),
-            "date_naissance": membre.date_naissance.strftime("%d/%m/%Y") if membre.date_naissance else "",
-            "nationalite": membre.get_nationalite_display() if membre.nationalite else "",
-            "fonction": membre.get_fonction_eglise_display(),
-            "role_eglise": membre.role_eglise.nom if getattr(membre, "role_eglise", None) else "",
-            "departement": membre.departement.nom if getattr(membre, "departement", None) else "",
+
+            "sexe": (
+                membre.get_sexe_display()
+                if membre.sexe
+                else ""
+            ),
+
+            "date_naissance": (
+                membre.date_naissance.strftime("%d/%m/%Y")
+                if membre.date_naissance
+                else ""
+            ),
+
+            "nationalite": (
+                membre.get_nationalite_display()
+                if membre.nationalite
+                else ""
+            ),
+
+            "fonction": (
+                membre.get_fonction_eglise_display()
+                if membre.fonction_eglise
+                else ""
+            ),
+
+            "role_eglise": (
+                membre.role_eglise.nom
+                if getattr(membre, "role_eglise", None)
+                else ""
+            ),
+
+            "departement": (
+                membre.departement.nom
+                if getattr(membre, "departement", None)
+                else ""
+            ),
+
             "eglise_origine": membre.eglise.nom,
             "code_origine": membre.eglise.code,
             "adresse_origine": membre.eglise.adresse_precise or "",
+
             "eglise_destinataire": destination.nom,
             "code_destination": destination.code,
+
             "localite_destination": ", ".join(
-                str(v) for v in [
-                    getattr(destination.commune, "nom", None) if destination.commune_id else None,
-                    getattr(destination.district, "nom", None) if destination.district_id else None,
-                    getattr(destination.prefecture, "nom", None) if destination.prefecture_id else None,
-                ] if v
+                str(v)
+                for v in [
+                    (
+                        getattr(destination.commune, "nom", None)
+                        if destination.commune_id
+                        else None
+                    ),
+                    (
+                        getattr(destination.district, "nom", None)
+                        if destination.district_id
+                        else None
+                    ),
+                    (
+                        getattr(destination.prefecture, "nom", None)
+                        if destination.prefecture_id
+                        else None
+                    ),
+                ]
+                if v
             ),
+
             "contenu": contenu,
-            "word_importe": bool(request.FILES.get("fichier_word")),
-            "message": "Aperçu généré : les données personnelles sont remplies automatiquement. Aucun enregistrement n'est effectué avant validation.",
+
+            "word_importe": bool(
+                request.FILES.get("fichier_word")
+            ),
+
+            "message": (
+                "Aperçu généré. Les informations enregistrées "
+                "du membre sont automatiques. Les appréciations "
+                "et informations variables sont fournies par le pasteur. "
+                "Aucun enregistrement n'est effectué avant validation."
+            ),
         })
 
     def create(self, request, *args, **kwargs):
@@ -135,8 +249,10 @@ class CourrierViewSet(viewsets.ModelViewSet):
         courrier = self.get_object()
         if request.user.role != Role.PASTEUR:
             raise PermissionDenied("Seul le pasteur peut modifier le document.")
-        if courrier.expediteur_id != request.user.id and courrier.eglise_destinataire_id != request.user.eglise_id:
-            raise PermissionDenied("Ce courrier est hors de votre église.")
+        if courrier.expediteur_id != request.user.id:
+            raise PermissionDenied(
+                "Seul le pasteur expéditeur peut régénérer ce courrier."
+            )
         courrier.contenu = request.data.get("contenu", courrier.contenu)
         courrier.fichier_pdf = generer_pdf_courrier(courrier)
         courrier.save(update_fields=["contenu", "fichier_pdf"])

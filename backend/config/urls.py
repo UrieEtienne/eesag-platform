@@ -2,6 +2,14 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import path, include
+from django.http import JsonResponse
+
+def api_accueil(request):
+    return JsonResponse({
+        "application": "EESAG",
+        "message": "API EESAG opérationnelle",
+        "status": "ok",
+    })
 
 urlpatterns = [
     path("admin/", admin.site.urls),
@@ -18,6 +26,7 @@ urlpatterns = [
     path("api/", include("apps.meetings.urls")),
     path("api/", include("apps.bureaux.urls")),
     path("api/systeme/", include("apps.core.urls")),
+    path("", api_accueil, name="api-accueil"),
 ]
 
 if settings.DEBUG:

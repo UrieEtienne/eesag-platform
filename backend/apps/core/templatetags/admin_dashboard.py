@@ -2,7 +2,7 @@ from django import template
 from django.apps import apps
 from django.db.models import Sum
 from django.utils import timezone
-from datetime import timedelta
+from datetime import date, timedelta
 
 register = template.Library()
 
@@ -25,6 +25,7 @@ def platform_metrics(context):
         "finance_nationale_entrees": 0, "finance_nationale_sorties": 0,
         "bureau_national": 0, "nouvelles_eglises_7j": 0, "nouveaux_membres_7j": 0,
         "eglises_actives_percent": 0, "bureau_membres": 0, "scope_label": "EESAG",
+        "membres_total": 0, "membres_hommes": 0, "membres_femmes": 0, "membres_enfants": 0,
     }
     try:
         from apps.accounts.models import Role, Utilisateur
@@ -56,6 +57,33 @@ def platform_metrics(context):
             scope = "Bureau national"
             eglises = eglise_model.objects.all()
             utilisateurs = Utilisateur.objects.filter(actif=True, eglise__isnull=True)
+        # Statistiques des membres actifs, dans le périmètre de l'utilisateur.
+        from django.db.models import Q
+
+        membres_qs = utilisateurs.filter(role=Role.MEMBRE, actif=True)
+        aujourd_hui = timezone.localdate()
+        try:
+            limite_18_ans = aujourd_hui.replace(year=aujourd_hui.year - 18)
+        except ValueError:
+            limite_18_ans = aujourd_hui.replace(
+                month=2, day=28, year=aujourd_hui.year - 18
+            )
+
+        membres_total = membres_qs.count()
+        membres_enfants = membres_qs.filter(
+            date_naissance__gt=limite_18_ans
+        ).count()
+        adultes_ou_age_inconnu = (
+            Q(date_naissance__lte=limite_18_ans)
+            | Q(date_naissance__isnull=True)
+        )
+        membres_hommes = membres_qs.filter(
+            sexe="H"
+        ).filter(adultes_ou_age_inconnu).count()
+        membres_femmes = membres_qs.filter(
+            sexe="F"
+        ).filter(adultes_ou_age_inconnu).count()
+
         transactions = transaction_model.objects.filter(eglise__in=eglises) if hasattr(transaction_model, "eglise") else transaction_model.objects.none()
         entrees = transactions.exclude(type_transaction="SORTIE").aggregate(s=Sum("montant"))["s"] or 0
         sorties = transactions.filter(type_transaction="SORTIE").aggregate(s=Sum("montant"))["s"] or 0
@@ -72,6 +100,10 @@ def platform_metrics(context):
             "transactions": transactions.count(), "finance_entrees": entrees, "finance_sorties": sorties, "finance_solde": entrees-sorties,
             "bureau_national": Utilisateur.objects.filter(role__in=["SUPERADMIN_INTL", "SUPERADMIN_NATIONAL"], eglise__isnull=True, actif=True).count(),
             "scope_label": scope,
+            "membres_total": membres_total,
+            "membres_hommes": membres_hommes,
+            "membres_femmes": membres_femmes,
+            "membres_enfants": membres_enfants,
         }
     except Exception:
         return empty

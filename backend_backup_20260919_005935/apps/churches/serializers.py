@@ -4,14 +4,10 @@ from django.utils import timezone
 from rest_framework import serializers
 
 from apps.accounts.models import Utilisateur, Role
-from .models import Religion, Eglise, Departement, RoleEglise, Annexe
+from .models import Eglise, Departement, RoleEglise, Annexe
 from apps.accounts.services_sms import normaliser_telephone
 
 
-class ReligionSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Religion
-        fields = ["id", "nom", "description"]
 
 
 class DepartementSerializer(serializers.ModelSerializer):
@@ -46,7 +42,6 @@ class AnnexeSerializer(serializers.ModelSerializer):
 
 
 class EgliseListSerializer(serializers.ModelSerializer):
-    religion_nom = serializers.CharField(source="religion.nom", read_only=True)
     region_nom = serializers.CharField(source="region.nom", read_only=True)
     prefecture_nom = serializers.CharField(source="prefecture.nom", read_only=True)
     district_nom = serializers.CharField(source="district.nom", read_only=True)
