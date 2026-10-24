@@ -358,12 +358,6 @@ class UtilisateurAdmin(EESAGScopedAdminMixin, admin.ModelAdmin):
                 pass
             super().save_model(request, obj, form, change)
 
-
-@admin.register(Utilisateur)
-class RegisteredUtilisateurAdmin(UtilisateurAdmin):
-    pass
-
-
 @admin.register(PermissionEglise)
 class PermissionEgliseAdmin(EESAGScopedAdminMixin, admin.ModelAdmin):
     admin_scopes = {"COORDINATEUR", "EGLISE"}

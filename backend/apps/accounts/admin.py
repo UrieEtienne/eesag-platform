@@ -358,11 +358,7 @@ class UtilisateurAdmin(EESAGScopedAdminMixin, admin.ModelAdmin):
                 pass
             super().save_model(request, obj, form, change)
 
-
-@admin.register(Utilisateur)
-class RegisteredUtilisateurAdmin(UtilisateurAdmin):
-    pass
-
+admin.site.register(Utilisateur, UtilisateurAdmin)
 
 @admin.register(PermissionEglise)
 class PermissionEgliseAdmin(EESAGScopedAdminMixin, admin.ModelAdmin):

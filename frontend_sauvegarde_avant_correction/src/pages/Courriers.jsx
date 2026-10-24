@@ -57,7 +57,16 @@ export default function Courriers() {
             prévisualisées puis envoyées à l’église de destination.
           </p>
         </div>
-        {estPasteur && <button className="btn" onClick={() => setAfficherFormulaire(true)}>+ Nouvelle recommandation</button>}
+        {peutCourrier && (
+          <button
+            className="btn"
+            onClick={() => setAfficherFormulaire(true)}
+          >
+            {estCoordinateur
+              ? "+ Nouvelle lettre nationale"
+              : "+ Nouvelle recommandation"}
+          </button>
+        )}
       </div>
 
       {!estPasteur && !estCoordinateur && (
@@ -86,7 +95,12 @@ export default function Courriers() {
                     <td>{c.numero_reference}</td>
                     <td>{c.type_courrier}</td>
                     <td>{c.objet}</td>
-                    <td>{c.eglise_destinataire_nom || "—"}</td>
+                    <td>
+                      {c.eglise_destinataire_nom ||
+                        c.destinataire_nom ||
+                        c.type_destinataire_libelle ||
+                        "—"}
+                    </td>
                     <td>{c.date_emission}</td>
                     <td><span className={`status-chip ${c.lu ? "ok" : "pending"}`}>{c.lu ? "Reçu" : "Nouveau"}</span></td>
                     <td>
