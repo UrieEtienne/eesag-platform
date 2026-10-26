@@ -13,45 +13,42 @@
       <h1>Tableau de bord</h1>
       <p>{{ metrics.scope_label }}</p>
     </div>
-    <a class="eesag-button eesag-button-light" href="/">Ouvrir l'application</a>
   </header>
 
-  {% if user.role == "COORDINATEUR" or user.is_superuser or user.role == "ADMIN_LOCAL" or user.role == "PASTEUR" %}
-  <section class="eesag-actions">
-    <a class="eesag-button" href="{% url 'admin:accounts_utilisateur_add' %}">
-      + Créer un membre
-    </a>
-    <a class="eesag-button eesag-button-light" href="{% url 'admin:churches_departement_add' %}">
-      + Créer un département
-    </a>
-    <a class="eesag-button eesag-button-light" href="{% url 'admin:accounts_utilisateur_changelist' %}">
-      Gérer les membres
-    </a>
-    <a class="eesag-button eesag-button-light" href="{% url 'admin:churches_departement_changelist' %}">
-      Voir les départements
-    </a>
-  </section>
+  
+{% if user.role == "COORDINATEUR" or user.is_superuser or user.role == "ADMIN_LOCAL" or user.role == "PASTEUR" %}
+    {% url 'admin:accounts_utilisateur_add' as membre_add_url %}
+    {% url 'admin:churches_departement_add' as departement_add_url %}
+    {% url 'admin:accounts_utilisateur_changelist' as membre_list_url %}
+    {% url 'admin:churches_departement_changelist' as departement_list_url %}
 
-  <h2 class="eesag-section-title">Statistiques des membres actifs</h2>
-  <section class="eesag-stats">
-    <article class="eesag-stat eesag-stat-total">
-      <span>Total des membres</span>
-      <strong>{{ metrics.membres_total|default:0 }}</strong>
-    </article>
-    <article class="eesag-stat">
-      <span>Hommes (18 ans et plus)</span>
-      <strong>{{ metrics.membres_hommes|default:0 }}</strong>
-    </article>
-    <article class="eesag-stat">
-      <span>Femmes (18 ans et plus)</span>
-      <strong>{{ metrics.membres_femmes|default:0 }}</strong>
-    </article>
-    <article class="eesag-stat">
-      <span>Enfants (moins de 18 ans)</span>
-      <strong>{{ metrics.membres_enfants|default:0 }}</strong>
-    </article>
-  </section>
-  {% endif %}
+    <section class="eesag-actions">
+        {% if membre_add_url %}
+        <a class="eesag-button" href="{{ membre_add_url }}">
+            + Créer un membre
+        </a>
+        {% endif %}
+
+        {% if departement_add_url %}
+        <a class="eesag-button eesag-button-light" href="{{ departement_add_url }}">
+            + Créer un département
+        </a>
+        {% endif %}
+
+        {% if membre_list_url %}
+        <a class="eesag-button eesag-button-light" href="{{ membre_list_url }}">
+            Gérer les membres
+        </a>
+        {% endif %}
+
+        {% if departement_list_url %}
+        <a class="eesag-button eesag-button-light" href="{{ departement_list_url }}">
+            Voir les départements
+        </a>
+        {% endif %}
+    </section>
+{% endif %}
+
 
   {% if user.role == "COORDINATEUR" or user.is_superuser %}
   <h2 class="eesag-section-title">Administration générale</h2>

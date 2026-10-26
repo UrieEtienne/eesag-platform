@@ -1,0 +1,253 @@
+import { useCallback, useEffect, useState } from "react";
+import client, { mediaUrl } from "../api/client";
+import { useAuth } from "../context/AuthContext";
+
+export default function BureauNational() {
+  const { estNational } = useAuth();
+
+  const [bureaux, setBureaux] = useState([]);
+  const [membres, setMembres] = useState([]);
+  const [annee, setAnnee] = useState(new Date().getFullYear());
+  const [chargement, setChargement] = useState(true);
+  const [erreur, setErreur] = useState("");
+  const [message, setMessage] = useState("");
+  const [form, setForm] = useState({
+    bureau: "",
+    utilisateur: "",
+    poste: "",
+  });
+
+  const charger = useCallback(async () => {
+    setChargement(true);
+    setErreur("");
+
+    try {
+      const [bureauxResponse, mandatsResponse] = await Promise.all([
+        client.get("/bureaux/?niveau=NATIONAL&actif=true"),
+        client.get(
+          `/bureau-membres/?annee=${annee}&actif=true`
+        ),
+      ]);
+
+      const bureauxData = bureauxResponse.data;
+      const mandatsData = mandatsResponse.data;
+
+      const listeBureaux = Array.isArray(bureauxData)
+        ? bureauxData
+        : bureauxData.results || [];
+
+      const listeMandats = Array.isArray(mandatsData)
+        ? mandatsData
+        : mandatsData.results || [];
+
+      setBureaux(
+        listeBureaux.filter(
+          (bureau) =>
+            bureau.niveau === "NATIONAL" &&
+            bureau.actif !== false
+        )
+      );
+
+      setMembres(
+        listeMandats.filter(
+          (mandat) =>
+            Number(mandat.annee) === Number(annee) &&
+            mandat.actif !== false &&
+            mandat.bureau_niveau !== "LOCAL"
+        )
+      );
+    } catch (error) {
+      console.error("Erreur de chargement du Bureau national :", error);
+      setErreur(
+        error.response?.data?.detail ||
+          "Impossible de charger les bureaux nationaux. Vérifiez vos droits et l'API."
+      );
+    } finally {
+      setChargement(false);
+    }
+  }, [annee]);
+
+  useEffect(() => {
+    charger();
+  }, [charger]);
+
+  const ajouter = async (event) => {
+    event.preventDefault();
+    setMessage("");
+    setErreur("");
+
+    if (!form.bureau || !form.utilisateur || !form.poste.trim()) {
+      setErreur("Veuillez choisir un bureau, un membre et un poste.");
+      return;
+    }
+
+    try {
+      await client.post("/bureau-membres/", {
+        bureau: Number(form.bureau),
+        utilisateur: Number(form.utilisateur),
+        annee: Number(annee),
+        poste: form.poste.trim(),
+        actif: true,
+      });
+
+      setForm({ bureau: "", utilisateur: "", poste: "" });
+      setMessage("Le mandat a été enregistré avec succès.");
+      await charger();
+    } catch (error) {
+      console.error("Erreur d'enregistrement du mandat :", error);
+      const detail = error.response?.data;
+      setErreur(
+        typeof detail === "string"
+          ? detail
+          : detail
+            ? JSON.stringify(detail)
+            : "Impossible d'enregistrer le mandat. Vérifiez vos droits."
+      );
+    }
+  };
+
+  const nomComplet = (mandat) =>
+    mandat.nom_complet ||
+    mandat.utilisateur_nom ||
+    "Nom non disponible";
+
+  return (
+    <div className="bureau-page">
+      <div className="page-hero bureau-hero">
+        <div>
+          <span className="eyebrow">GOUVERNANCE EESAG</span>
+          <h1>Bureau national</h1>
+          <p>
+            Composition des bureaux nationaux et mandats pour l’année
+            sélectionnée.
+          </p>
+        </div>
+
+        <select
+          aria-label="Année des mandats"
+          value={annee}
+          onChange={(event) => setAnnee(Number(event.target.value))}
+        >
+          {[annee - 1, annee, annee + 1]
+            .sort((a, b) => a - b)
+            .map((value) => (
+              <option key={value} value={value}>
+                {value}
+              </option>
+            ))}
+        </select>
+      </div>
+
+      {erreur && (
+        <div className="empty-state" role="alert">
+          {erreur}
+        </div>
+      )}
+
+      {message && (
+        <div className="empty-state" role="status">
+          {message}
+        </div>
+      )}
+
+      {estNational && (
+        <section className="carte bureau-editor">
+          <div>
+            <h3>Ajouter un mandat</h3>
+            <p className="sous-titre">
+              Enregistrez un membre dans un bureau national pour {annee}.
+            </p>
+          </div>
+
+          <form className="form-grid" onSubmit={ajouter}>
+            <div className="form-champ">
+              <label htmlFor="bureau-national">Bureau national</label>
+              <select
+                id="bureau-national"
+                required
+                value={form.bureau}
+                onChange={(event) =>
+                  setForm({ ...form, bureau: event.target.value })
+                }
+              >
+                <option value="">Choisir un bureau</option>
+                {bureaux.map((bureau) => (
+                  <option key={bureau.id} value={bureau.id}>
+                    {bureau.nom}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="form-champ">
+              <label htmlFor="membre-national">Identifiant du membre</label>
+              <input
+                id="membre-national"
+                required
+                type="number"
+                min="1"
+                value={form.utilisateur}
+                onChange={(event) =>
+                  setForm({ ...form, utilisateur: event.target.value })
+                }
+                placeholder="ID utilisateur"
+              />
+            </div>
+
+            <div className="form-champ">
+              <label htmlFor="poste-national">Poste</label>
+              <input
+                id="poste-national"
+                required
+                value={form.poste}
+                onChange={(event) =>
+                  setForm({ ...form, poste: event.target.value })
+                }
+                placeholder="Président, Secrétaire général…"
+              />
+            </div>
+
+            <button className="btn" type="submit">
+              Enregistrer le mandat
+            </button>
+          </form>
+        </section>
+      )}
+
+      <section className="bureau-grid">
+        {chargement ? (
+          <div className="empty-state">Chargement des mandats…</div>
+        ) : membres.length > 0 ? (
+          membres.map((mandat) => (
+            <article key={mandat.id} className="carte bureau-card">
+              <div className="bureau-photo">
+                {mandat.photo ? (
+                  <img
+                    src={mediaUrl(mandat.photo)}
+                    alt={nomComplet(mandat)}
+                  />
+                ) : (
+                  <img src="/assets/logo_eesag.jpg" alt="EESAG" />
+                )}
+              </div>
+
+              <div>
+                <h3>{nomComplet(mandat)}</h3>
+                <p>{mandat.poste}</p>
+                <span>{mandat.bureau_nom || "Bureau national"}</span>
+                <br />
+                <span>Mandat {mandat.annee}</span>
+              </div>
+            </article>
+          ))
+        ) : (
+          !erreur && (
+            <div className="empty-state">
+              Aucun mandat actif trouvé pour {annee}.
+            </div>
+          )
+        )}
+      </section>
+    </div>
+  );
+}

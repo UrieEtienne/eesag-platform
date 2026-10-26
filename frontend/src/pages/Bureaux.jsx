@@ -125,66 +125,103 @@ try {
 
 }, [estNational, peutVoirLocaux, utilisateur?.eglise]);
 
+
 const chargerMembres = useCallback(async () => {
-if (!selection?.id) {
-setMembres([]);
-return;
-}
+  if (!selection?.id) {
+    setMembres([]);
+    return;
+  }
 
-setChargementMembres(true);
+  setChargementMembres(true);
+  setErreur("");
 
-try {
-  const res = await client.get("/bureau-membres-independants/", {
-    params: {
+  try {
+    const params = {
       bureau: selection.id,
       annee,
       actif: true,
-    },
-  });
+    };
 
-  setMembres(liste(res.data));
-} catch (error) {
-  setMembres([]);
-  setErreur(
-    messageErreurApi(
-      error,
-      "Impossible de charger les membres de ce bureau."
-    )
-  );
-} finally {
-  setChargementMembres(false);
-}
+    // Les deux sources sont chargées indépendamment :
+    // un échec sur l'une ne masque pas les membres de l'autre.
+    const resultats = await Promise.allSettled([
+      client.get("/bureau-membres/", { params }),
+      client.get("/bureau-membres-independants/", { params }),
+    ]);
 
+    const [mandatsResultat, independantsResultat] = resultats;
+
+    const mandats =
+      mandatsResultat.status === "fulfilled"
+        ? liste(mandatsResultat.value.data).map((membre) => ({
+            ...membre,
+            sourceMembre: "compte",
+            cleAffichage: `compte-${membre.id}`,
+          }))
+        : [];
+
+    const independants =
+      independantsResultat.status === "fulfilled"
+        ? liste(independantsResultat.value.data).map((membre) => ({
+            ...membre,
+            sourceMembre: "independant",
+            cleAffichage: `independant-${membre.id}`,
+          }))
+        : [];
+
+    setMembres([...mandats, ...independants]);
+
+    if (
+      mandatsResultat.status === "rejected" &&
+      independantsResultat.status === "rejected"
+    ) {
+      setErreur(
+        messageErreurApi(
+          mandatsResultat.reason,
+          "Impossible de charger les membres de ce bureau."
+        )
+      );
+    } else if (mandatsResultat.status === "rejected") {
+      setErreur(
+        "Les membres possédant un compte EESAG n'ont pas pu être chargés."
+      );
+    } else if (independantsResultat.status === "rejected") {
+      setErreur(
+        "Les membres indépendants n'ont pas pu être chargés."
+      );
+    }
+  } catch (error) {
+    setMembres([]);
+    setErreur(
+      messageErreurApi(
+        error,
+        "Impossible de charger les membres de ce bureau."
+      )
+    );
+  } finally {
+    setChargementMembres(false);
+  }
 }, [selection?.id, annee]);
 
-useEffect(() => {
-if (utilisateur) {
-chargerBureaux();
-}
-}, [utilisateur, chargerBureaux]);
-
-useEffect(() => {
-chargerMembres();
-}, [chargerMembres]);
 
 const creerBureauNational = async (e) => {
-e.preventDefault();
-setErreur("");
-setMessage("");
+  e.preventDefault();
+  setErreur("");
+  setMessage("");
 
-if (!estCoordinateur) {
-  setErreur(
-    "Seul le Coordinateur du système peut créer un bureau national."
-  );
-  return;
-}
+  if (!estCoordinateur) {
+    setErreur(
+      "Seul le Coordinateur du système peut créer un bureau national."
+    );
+    return;
+  }
 
-if (!formBureau.nom.trim()) {
-  setErreur("Le nom du bureau est obligatoire.");
-  return;
-}
+  if (!formBureau.nom.trim()) {
+    setErreur("Le nom du bureau est obligatoire.");
+    return;
+  }
 
-setCreationBureauEnCours(true);
+  setCreationBureauEnCours(true);
 
 try {
   const res = await client.post("/bureaux/", {
@@ -229,19 +266,19 @@ try {
 };
 
 const ajouterMembre = async (e) => {
-e.preventDefault();
-setErreur("");
-setMessage("");
+  e.preventDefault();
+  setErreur("");
+  setMessage("");
 
-if (!selection) {
-  setErreur("Sélectionne d'abord un bureau.");
-  return;
-}
+  if (!selection) {
+    setErreur("Sélectionne d'abord un bureau.");
+    return;
+  }
 
-if (!form.nom_complet.trim() || !form.poste.trim()) {
-  setErreur("Le nom complet et le poste sont obligatoires.");
-  return;
-}
+  if (!form.nom_complet.trim() || !form.poste.trim()) {
+    setErreur("Le nom complet et le poste sont obligatoires.");
+    return;
+  }
 
 try {
   const data = new FormData();
@@ -280,22 +317,22 @@ try {
 };
 
 const compteur = useMemo(
-() =>
-bureaux.reduce(
-(total, bureau) =>
-total + Number(bureau.membres_actifs || 0),
-0
-),
-[bureaux]
+  () =>
+  bureaux.reduce(
+  (total, bureau) =>
+  total + Number(bureau.membres_actifs || 0),
+  0
+  ),
+  [bureaux]
 );
 
 const typesNationauxDisponibles = TYPES_NATIONAUX.filter(
-(type) =>
-!bureaux.some(
-(bureau) =>
-bureau.niveau === "NATIONAL" &&
-bureau.type_bureau === type.value
-)
+  (type) =>
+  !bureaux.some(
+  (bureau) =>
+  bureau.niveau === "NATIONAL" &&
+  bureau.type_bureau === type.value
+  )
 );
 
 return ( <div className="bureaux-page"> <div className="page-hero bureau-hero"> <div> <span className="eyebrow">GOUVERNANCE EESAG</span>
@@ -627,34 +664,34 @@ return ( <div className="bureaux-page"> <div className="page-hero bureau-hero"> 
               </div>
             ) : (
               <>
-                {membres.map((membre) => (
-                  <article
-                    className="bureau-member-card bureau-member-card-large"
-                    key={membre.id}
-                  >
-                    <div className="bureau-member-photo bureau-member-photo-large">
-                      {membre.photo_url || membre.photo ? (
-                        <img
-                          src={mediaUrl(
-                            membre.photo_url || membre.photo
-                          )}
-                          alt={membre.nom_complet}
-                        />
-                      ) : (
-                        <img
-                          src="/assets/logo_eesag.jpg"
-                          alt="EESAG"
-                        />
-                      )}
-                    </div>
+                
+            {membres.map((membre) => (
+              <article
+                className="bureau-member-card bureau-member-card-large"
+                key={membre.cleAffichage || `${membre.sourceMembre}-${membre.id}`}
+              >
+                <div className="bureau-member-photo bureau-member-photo-large">
+                  {membre.photo_url || membre.photo ? (
+                    <img
+                      src={mediaUrl(membre.photo_url || membre.photo)}
+                      alt={membre.nom_complet || "Membre du bureau"}
+                    />
+                  ) : (
+                    <img src="/assets/logo_eesag.jpg" alt="EESAG" />
+                  )}
+                </div>
 
-                    <div className="bureau-member-info-large">
-                      <h4>{membre.nom_complet}</h4>
-                      <p>{membre.poste}</p>
-                      <small>Mandat {membre.annee}</small>
-                    </div>
-                  </article>
-                ))}
+                <div className="bureau-member-info-large">
+                  <h4>{membre.nom_complet}</h4>
+                  <p>{membre.poste}</p>
+                  <small>Mandat {membre.annee}</small>
+                  {membre.sourceMembre === "compte" && membre.identifiant && (
+                    <small>Compte EESAG : {membre.identifiant}</small>
+                  )}
+                </div>
+              </article>
+            ))}
+
 
                 {!membres.length && (
                   <div className="empty-state">

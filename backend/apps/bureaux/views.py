@@ -103,7 +103,11 @@ class BureauViewSet(viewsets.ModelViewSet):
 
         qs = (
             Bureau.objects
-            .select_related("eglise", "bureau_parent", "zone")
+            .select_related(
+                "eglise",
+                "bureau_parent",
+                "zone",
+            )
             .annotate(
                 membres_actifs=Count(
                     "mandats",
@@ -112,31 +116,49 @@ class BureauViewSet(viewsets.ModelViewSet):
             )
         )
 
-        # Le Coordinateur voit tous les bureaux, actifs ou non.
+        # ========================================================
+        # COORDINATEUR
+        # ========================================================
         if _est_coordinateur(user):
             return qs
 
-        # Les administrateurs voient uniquement les bureaux
-        # auxquels ils sont effectivement affectés.
-        affectations = BureauAdministrateur.objects.filter(
-            utilisateur=user,
-            actif=True,
-            bureau__actif=True,
-        ).values_list("bureau_id", flat=True)
-
-        bureaux = qs.filter(id__in=affectations)
-
+        # ========================================================
+        # ADMINISTRATEURS / RESPONSABLES BUREAU NATIONAL
+        # ========================================================
         if user.role in ROLES_BUREAU_NATIONAL:
-            return bureaux.distinct()
+            affectations = BureauAdministrateur.objects.filter(
+                utilisateur=user,
+                actif=True,
+                bureau__actif=True,
+            ).values_list("bureau_id", flat=True)
 
-        if user.role in (Role.ADMIN_LOCAL, Role.PASTEUR) and user.eglise_id:
+            return qs.filter(
+                id__in=affectations
+            ).distinct()
+
+        # ========================================================
+        # ADMIN LOCAL / PASTEUR
+        # ========================================================
+        if (
+            user.role in (
+                Role.ADMIN_LOCAL,
+                Role.PASTEUR,
+            )
+            and user.eglise_id
+        ):
             return (
                 qs.filter(
                     Q(
                         niveau=NiveauBureau.NATIONAL,
                         actif=True,
                     )
-                    | Q(
+                    |
+                    Q(
+                        niveau=NiveauBureau.ZONAL,
+                        actif=True,
+                    )
+                    |
+                    Q(
                         niveau=NiveauBureau.LOCAL,
                         eglise_id=user.eglise_id,
                         actif=True,
@@ -145,21 +167,76 @@ class BureauViewSet(viewsets.ModelViewSet):
                 .distinct()
             )
 
+        # ========================================================
+        # MEMBRE SIMPLE
+        # ========================================================
+        # Lecture seule de tous les bureaux actifs :
+        # NATIONAL + ZONAL + LOCAL
+        #
+        # IMPORTANT :
+        # Le membre pourra consulter les bureaux de différentes
+        # structures, mais les méthodes perform_create(),
+        # perform_update() et perform_destroy() ci-dessous
+        # empêcheront toute modification.
+        if user.role == Role.MEMBRE:
+            return qs.filter(
+                actif=True
+            ).distinct()
+
+        # ========================================================
+        # AUTRES UTILISATEURS
+        # ========================================================
         return qs.filter(
             niveau=NiveauBureau.NATIONAL,
             actif=True,
         )
 
+    def _verifier_ecriture(self, user, bureau=None):
+        """
+        Les MEMBRES ont uniquement un accès en lecture.
+        """
+
+        if user.role == Role.MEMBRE:
+            raise PermissionDenied(
+                "Votre compte dispose uniquement d'un accès "
+                "en lecture aux bureaux."
+            )
+
+        if bureau and not _est_coordinateur(user):
+            if not a_droit_bureau(
+                user,
+                bureau,
+                "peut_gerer_membres",
+            ):
+                raise PermissionDenied(
+                    "Vous n'avez pas le droit de modifier ce bureau."
+                )
+
     def perform_create(self, serializer):
         user = self.request.user
+
+        if user.role == Role.MEMBRE:
+            raise PermissionDenied(
+                "Un membre ne peut pas créer de bureau."
+            )
+
         data = serializer.validated_data
 
-        niveau = data.get("niveau", NiveauBureau.NATIONAL)
-        type_bureau = data.get("type_bureau", TypeBureau.AUTRE)
+        niveau = data.get(
+            "niveau",
+            NiveauBureau.NATIONAL,
+        )
+        type_bureau = data.get(
+            "type_bureau",
+            TypeBureau.AUTRE,
+        )
         eglise = data.get("eglise")
 
-        # Les bureaux nationaux ne sont créés que par le Coordinateur.
+        # --------------------------------------------------------
+        # BUREAU NATIONAL
+        # --------------------------------------------------------
         if niveau == NiveauBureau.NATIONAL:
+
             if not _est_coordinateur(user):
                 raise PermissionDenied(
                     "Seul le Coordinateur peut créer un bureau national."
@@ -167,11 +244,14 @@ class BureauViewSet(viewsets.ModelViewSet):
 
             if eglise is not None:
                 raise PermissionDenied(
-                    "Un bureau national ne peut pas être rattaché à une église."
+                    "Un bureau national ne peut pas être rattaché "
+                    "à une église."
                 )
 
             if type_bureau not in TYPES_BUREAUX_NATIONAUX_TOUS:
-                raise PermissionDenied("Type de bureau national invalide.")
+                raise PermissionDenied(
+                    "Type de bureau national invalide."
+                )
 
             if Bureau.objects.filter(
                 niveau=NiveauBureau.NATIONAL,
@@ -198,11 +278,6 @@ class BureauViewSet(viewsets.ModelViewSet):
                     "Créez d'abord le Bureau national des Hommes."
                 )
 
-            if type_bureau not in TYPES_BUREAUX_NATIONAUX:
-                raise PermissionDenied(
-                    "Ce type de bureau national n'est pas autorisé."
-                )
-
             serializer.save(
                 niveau=NiveauBureau.NATIONAL,
                 type_bureau=type_bureau,
@@ -211,8 +286,11 @@ class BureauViewSet(viewsets.ModelViewSet):
             )
             return
 
-        # Création des bureaux zonaux.
+        # --------------------------------------------------------
+        # BUREAU ZONAL
+        # --------------------------------------------------------
         if niveau == NiveauBureau.ZONAL:
+
             if not _est_coordinateur(user):
                 raise PermissionDenied(
                     "Seul le Coordinateur peut créer un bureau zonal."
@@ -221,18 +299,26 @@ class BureauViewSet(viewsets.ModelViewSet):
             bureau_parent = data.get("bureau_parent")
             zone = data.get("zone")
 
-            if not bureau_parent or bureau_parent.niveau != NiveauBureau.NATIONAL:
+            if not bureau_parent:
                 raise PermissionDenied(
                     "Un bureau zonal doit avoir un bureau national parent."
                 )
 
+            if bureau_parent.niveau != NiveauBureau.NATIONAL:
+                raise PermissionDenied(
+                    "Le bureau parent doit être national."
+                )
+
             if bureau_parent.type_bureau not in TYPES_BUREAUX_ZONAUX:
                 raise PermissionDenied(
-                    "Ce bureau national ne peut pas créer de bureaux zonaux."
+                    "Ce bureau national ne peut pas créer "
+                    "de bureaux zonaux."
                 )
 
             if not zone:
-                raise PermissionDenied("Une zone géographique est obligatoire.")
+                raise PermissionDenied(
+                    "Une zone géographique est obligatoire."
+                )
 
             serializer.save(
                 niveau=NiveauBureau.ZONAL,
@@ -241,9 +327,15 @@ class BureauViewSet(viewsets.ModelViewSet):
             )
             return
 
-        # Les bureaux locaux sont limités à l'église de l'utilisateur.
+        # --------------------------------------------------------
+        # BUREAU LOCAL
+        # --------------------------------------------------------
         if niveau == NiveauBureau.LOCAL:
-            if user.role not in (Role.ADMIN_LOCAL, Role.PASTEUR) and not _est_coordinateur(user):
+
+            if user.role not in (
+                Role.ADMIN_LOCAL,
+                Role.PASTEUR,
+            ) and not _est_coordinateur(user):
                 raise PermissionDenied(
                     "Vous ne pouvez pas créer ce bureau local."
                 )
@@ -253,37 +345,36 @@ class BureauViewSet(viewsets.ModelViewSet):
                     raise PermissionDenied(
                         "Un bureau local doit être rattaché à une église."
                     )
+
                 serializer.save()
                 return
 
             if not user.eglise_id:
-                raise PermissionDenied("Votre compte n'est lié à aucune église.")
+                raise PermissionDenied(
+                    "Votre compte n'est lié à aucune église."
+                )
 
-            serializer.save(eglise=user.eglise)
+            serializer.save(
+                eglise=user.eglise
+            )
             return
 
-        raise PermissionDenied("Niveau de bureau invalide.")
+        raise PermissionDenied(
+            "Niveau de bureau invalide."
+        )
 
     def perform_update(self, serializer):
         user = self.request.user
         bureau = self.get_object()
 
-        # Seul le Coordinateur peut modifier les bureaux nationaux.
-        if bureau.niveau == NiveauBureau.NATIONAL:
-            if not _est_coordinateur(user):
-                raise PermissionDenied(
-                    "Seul le Coordinateur peut modifier un bureau national."
-                )
-
-            serializer.save(
-                niveau=bureau.niveau,
-                type_bureau=bureau.type_bureau,
-                eglise=bureau.eglise,
-                bureau_parent=bureau.bureau_parent,
+        # MEMBRE = lecture uniquement
+        if user.role == Role.MEMBRE:
+            raise PermissionDenied(
+                "Vous pouvez consulter les bureaux, "
+                "mais vous ne pouvez pas les modifier."
             )
-            return
 
-        # Les autres bureaux restent dans leur structure existante.
+        # Coordinateur
         if _est_coordinateur(user):
             serializer.save(
                 niveau=bureau.niveau,
@@ -293,7 +384,12 @@ class BureauViewSet(viewsets.ModelViewSet):
             )
             return
 
-        if not a_droit_bureau(user, bureau, "peut_gerer_membres"):
+        # Gestionnaire habilité
+        if not a_droit_bureau(
+            user,
+            bureau,
+            "peut_gerer_membres",
+        ):
             raise PermissionDenied(
                 "Vous ne pouvez pas modifier ce bureau."
             )
@@ -308,12 +404,20 @@ class BureauViewSet(viewsets.ModelViewSet):
     def perform_destroy(self, instance):
         user = self.request.user
 
-        # Le Coordinateur peut supprimer les bureaux nationaux.
+        # MEMBRE = lecture uniquement
+        if user.role == Role.MEMBRE:
+            raise PermissionDenied(
+                "Vous pouvez consulter les bureaux, "
+                "mais vous ne pouvez pas les supprimer."
+            )
+
         if instance.niveau == NiveauBureau.NATIONAL:
             if not _est_coordinateur(user):
                 raise PermissionDenied(
-                    "Seul le Coordinateur peut supprimer un bureau national."
+                    "Seul le Coordinateur peut supprimer "
+                    "un bureau national."
                 )
+
             instance.delete()
             return
 
@@ -321,172 +425,16 @@ class BureauViewSet(viewsets.ModelViewSet):
             instance.delete()
             return
 
-        if not a_droit_bureau(user, instance, "peut_gerer_membres"):
+        if not a_droit_bureau(
+            user,
+            instance,
+            "peut_gerer_membres",
+        ):
             raise PermissionDenied(
                 "Vous ne pouvez pas supprimer ce bureau."
             )
 
         instance.delete()
-
-    @action(detail=True, methods=["post"], url_path="creer-administrateur")
-    def creer_administrateur(self, request, pk=None):
-        bureau = self.get_object()
-
-        if bureau.niveau != NiveauBureau.NATIONAL or not bureau.actif:
-            raise PermissionDenied(
-                "Sélectionnez un bureau national actif."
-            )
-
-        # Le Coordinateur peut créer l'administrateur initial.
-        # Un administrateur délégué ne peut en créer un autre
-        # que s'il dispose du droit spécifique correspondant.
-        if not _est_coordinateur(request.user) and not a_droit_bureau(
-            request.user,
-            bureau,
-            "peut_gerer_utilisateurs",
-        ):
-            raise PermissionDenied(
-                "Vous ne pouvez pas créer d'administrateur pour ce bureau."
-            )
-
-        payload = request.data.copy()
-        payload["role"] = Role.SUPERADMIN_NATIONAL
-        payload["eglise"] = None
-        payload["departement"] = None
-        payload["role_eglise"] = None
-
-        serializer = CreerUtilisateurSerializer(
-            data=payload,
-            context={
-                "request": request,
-                "bureau_national_creation": True,
-            },
-        )
-        serializer.is_valid(raise_exception=True)
-
-        champs_droits = (
-            "peut_gerer_membres",
-            "peut_gerer_finances",
-            "peut_gerer_projets",
-            "peut_envoyer_notifications",
-            "peut_gerer_rapports",
-            "peut_gerer_utilisateurs",
-        )
-
-        droits = {}
-        for champ in champs_droits:
-            demande = str(payload.get(champ, "false")).lower() in (
-                "true", "1", "yes", "on"
-            )
-
-            # Le Coordinateur peut attribuer les droits.
-            # Un administrateur délégué ne peut transmettre
-            # que les droits qu'il possède lui-même.
-            autorise = _est_coordinateur(request.user) or a_droit_bureau(
-                request.user, bureau, champ
-            )
-            droits[champ] = bool(demande and autorise)
-
-        with transaction.atomic():
-            utilisateur = serializer.save()
-
-            # Les administrateurs de bureau utilisent les API EESAG,
-            # pas automatiquement le Django Admin.
-            utilisateur.is_staff = False
-            utilisateur.is_superuser = False
-            utilisateur.save(update_fields=["is_staff", "is_superuser"])
-
-            attribution = BureauAdministrateur.objects.create(
-                bureau=bureau,
-                utilisateur=utilisateur,
-                actif=True,
-                peut_creer_bureaux=False,
-                peut_gerer_eglises=False,
-                peut_gerer_bureaux_zonaux=False,
-                **droits,
-            )
-
-        return Response(
-            {
-                "detail": (
-                    "Administrateur créé. La confirmation téléphonique "
-                    "reste nécessaire si elle est activée."
-                ),
-                "identifiant": utilisateur.identifiant,
-                "utilisateur_id": utilisateur.pk,
-                "attribution_id": attribution.pk,
-                "droits": droits,
-                "actif": utilisateur.actif,
-            },
-            status=status.HTTP_201_CREATED,
-        )
-
-    @action(detail=False, methods=["get"], url_path="mes-bureaux")
-    def mes_bureaux(self, request):
-        qs = (
-            _bureaux_administres(request.user)
-            .filter(actif=True)
-            .annotate(
-                membres_actifs=Count(
-                    "mandats",
-                    filter=Q(mandats__actif=True),
-                )
-            )
-        )
-
-        return Response(
-            BureauSerializer(
-                qs,
-                many=True,
-                context={"request": request},
-            ).data
-        )
-
-    @action(detail=False, methods=["get"], url_path="membres-candidats")
-    def membres_candidats(self, request):
-        bureau_id = request.query_params.get("bureau")
-
-        if not bureau_id:
-            raise PermissionDenied("Le paramètre bureau est obligatoire.")
-
-        bureau = Bureau.objects.filter(pk=bureau_id, actif=True).first()
-        if not bureau:
-            raise PermissionDenied("Bureau introuvable.")
-
-        if not a_droit_bureau(
-            request.user, bureau, "peut_gerer_membres"
-        ):
-            raise PermissionDenied("Vous n'avez pas accès à ce bureau.")
-
-        from apps.accounts.models import Utilisateur
-        from django.utils import timezone
-
-        base = Utilisateur.objects.filter(actif=True).exclude(
-            role=Role.COORDINATEUR
-        )
-
-        if bureau.niveau == NiveauBureau.NATIONAL:
-            base = base.filter(eglise__isnull=True)
-        else:
-            base = base.filter(eglise_id=bureau.eglise_id)
-
-        used_ids = bureau.mandats.filter(
-            annee=timezone.now().year,
-            actif=True,
-        ).values_list("utilisateur_id", flat=True)
-
-        base = base.exclude(id__in=used_ids).order_by("nom", "prenom")
-
-        return Response([
-            {
-                "id": utilisateur.id,
-                "identifiant": utilisateur.identifiant,
-                "nom_complet": f"{utilisateur.prenom} {utilisateur.nom}",
-                "photo": utilisateur.photo.url if utilisateur.photo else None,
-                "telephone": utilisateur.telephone,
-            }
-            for utilisateur in base[:500]
-        ])
 
 # ============================================================
 # MANDATS DES BUREAUX
@@ -525,14 +473,25 @@ class BureauMembreMandatViewSet(viewsets.ModelViewSet):
             .select_related(
                 "bureau",
                 "bureau__eglise",
+                "bureau__zone",
+                "bureau__bureau_parent",
                 "utilisateur",
             )
             .filter(actif=True)
         )
 
-        if _est_coordinateur(user) or _est_national_general(user):
+        # ========================================================
+        # COORDINATEUR / BUREAU NATIONAL GENERAL
+        # ========================================================
+        if (
+            _est_coordinateur(user)
+            or _est_national_general(user)
+        ):
             return qs
 
+        # ========================================================
+        # ADMINISTRATEURS BUREAU NATIONAL
+        # ========================================================
         if user.role in ROLES_BUREAU_NATIONAL:
             return (
                 qs.filter(
@@ -542,17 +501,24 @@ class BureauMembreMandatViewSet(viewsets.ModelViewSet):
                 .distinct()
             )
 
+        # ========================================================
+        # ADMIN LOCAL / PASTEUR
+        # ========================================================
         if (
-            user.role in [
+            user.role in (
                 Role.ADMIN_LOCAL,
                 Role.PASTEUR,
-            ]
+            )
             and user.eglise_id
         ):
             return (
                 qs.filter(
                     Q(
                         bureau__niveau=NiveauBureau.NATIONAL
+                    )
+                    |
+                    Q(
+                        bureau__niveau=NiveauBureau.ZONAL
                     )
                     |
                     Q(
@@ -563,16 +529,39 @@ class BureauMembreMandatViewSet(viewsets.ModelViewSet):
                 .distinct()
             )
 
-        return qs.filter(
-            bureau__niveau=NiveauBureau.NATIONAL
-        )
+        # ========================================================
+        # MEMBRE SIMPLE
+        # ========================================================
+        # Lecture de tous les mandats actifs de tous les bureaux.
+        if user.role == Role.MEMBRE:
+            return qs.filter(
+                bureau__actif=True,
+                actif=True,
+            ).distinct()
 
-    def perform_create(self, serializer):
+        return qs.none()
 
-        bureau = serializer.validated_data["bureau"]
+    def _verifier_gestion(self, bureau):
+
+        user = self.request.user
+
+        # Un MEMBRE ne peut jamais gérer.
+        if user.role == Role.MEMBRE:
+            raise PermissionDenied(
+                "Vous disposez uniquement d'un accès "
+                "en lecture aux membres des bureaux."
+            )
+
+        if not bureau:
+            raise PermissionDenied(
+                "Bureau introuvable."
+            )
+
+        if _est_coordinateur(user):
+            return
 
         if not a_droit_bureau(
-            self.request.user,
+            user,
             bureau,
             "peut_gerer_membres",
         ):
@@ -581,35 +570,25 @@ class BureauMembreMandatViewSet(viewsets.ModelViewSet):
                 "la composition de ce bureau."
             )
 
+    def perform_create(self, serializer):
+
+        bureau = serializer.validated_data["bureau"]
+
+        self._verifier_gestion(bureau)
+
         serializer.save()
 
     def perform_update(self, serializer):
 
         bureau = self.get_object().bureau
 
-        if not a_droit_bureau(
-            self.request.user,
-            bureau,
-            "peut_gerer_membres",
-        ):
-            raise PermissionDenied(
-                "Vous n'avez pas le droit de modifier "
-                "ce mandat."
-            )
+        self._verifier_gestion(bureau)
 
         serializer.save()
 
     def perform_destroy(self, instance):
 
-        if not a_droit_bureau(
-            self.request.user,
-            instance.bureau,
-            "peut_gerer_membres",
-        ):
-            raise PermissionDenied(
-                "Vous n'avez pas le droit de supprimer "
-                "ce mandat."
-            )
+        self._verifier_gestion(instance.bureau)
 
         instance.delete()
 
@@ -698,6 +677,7 @@ class BureauAdministrateurViewSet(viewsets.ModelViewSet):
 # ============================================================
 
 class BureauMembreIndependantViewSet(viewsets.ModelViewSet):
+
     serializer_class = BureauMembreIndependantSerializer
     permission_classes = [IsAuthenticated]
 
@@ -720,55 +700,95 @@ class BureauMembreIndependantViewSet(viewsets.ModelViewSet):
     ]
 
     def get_queryset(self):
+
         user = self.request.user
 
         qs = (
             BureauMembre.objects
-            .select_related("bureau", "bureau__eglise")
-            .filter(actif=True)
+            .select_related(
+                "bureau",
+                "bureau__eglise",
+                "bureau__zone",
+                "bureau__bureau_parent",
+            )
+            .filter(
+                actif=True,
+                bureau__actif=True,
+            )
         )
 
-        # --------------------------------------------------------
+        # ========================================================
         # COORDINATEUR
-        # --------------------------------------------------------
+        # ========================================================
         if _est_coordinateur(user):
             return qs
 
-        # --------------------------------------------------------
+        # ========================================================
         # BUREAU NATIONAL
-        # --------------------------------------------------------
+        # ========================================================
         if user.role in ROLES_BUREAU_NATIONAL:
-            return qs.filter(
-                bureau__administrateurs__utilisateur=user,
-                bureau__administrateurs__actif=True,
-            ).distinct()
-
-        # --------------------------------------------------------
-        # ADMIN LOCAL / PASTEUR
-        # --------------------------------------------------------
-        if (
-            user.role in [
-                Role.ADMIN_LOCAL,
-                Role.PASTEUR,
-            ]
-            and user.eglise_id
-        ):
-            return qs.filter(
-                bureau__niveau=NiveauBureau.LOCAL,
-                bureau__eglise_id=user.eglise_id,
+            return (
+                qs.filter(
+                    bureau__administrateurs__utilisateur=user,
+                    bureau__administrateurs__actif=True,
+                )
+                .distinct()
             )
 
-        # --------------------------------------------------------
+        # ========================================================
+        # ADMIN LOCAL / PASTEUR
+        # ========================================================
+        if (
+            user.role in (
+                Role.ADMIN_LOCAL,
+                Role.PASTEUR,
+            )
+            and user.eglise_id
+        ):
+            return (
+                qs.filter(
+                    Q(
+                        bureau__niveau=NiveauBureau.NATIONAL
+                    )
+                    |
+                    Q(
+                        bureau__niveau=NiveauBureau.ZONAL
+                    )
+                    |
+                    Q(
+                        bureau__niveau=NiveauBureau.LOCAL,
+                        bureau__eglise_id=user.eglise_id,
+                    )
+                )
+                .distinct()
+            )
+
+        # ========================================================
         # MEMBRE SIMPLE
-        # --------------------------------------------------------
-        # Lecture publique des compositions nationales.
-        return qs.filter(
-            bureau__niveau=NiveauBureau.NATIONAL,
-            actif=True,
-        )
+        # ========================================================
+        # Le membre peut consulter les membres des différents
+        # bureaux sans disposer d'aucun droit de gestion.
+        if user.role == Role.MEMBRE:
+            return (
+                qs.filter(
+                    actif=True,
+                    bureau__actif=True,
+                )
+                .distinct()
+            )
+
+        return qs.none()
 
     def _verifier_gestion(self, bureau):
+
         user = self.request.user
+
+        # MEMBRE = lecture uniquement
+        if user.role == Role.MEMBRE:
+            raise PermissionDenied(
+                "Vous pouvez consulter les membres des bureaux, "
+                "mais vous ne pouvez pas les modifier."
+            )
 
         if not bureau:
             raise PermissionDenied(
@@ -789,6 +809,7 @@ class BureauMembreIndependantViewSet(viewsets.ModelViewSet):
             )
 
     def perform_create(self, serializer):
+
         bureau = serializer.validated_data.get("bureau")
 
         self._verifier_gestion(bureau)
@@ -796,6 +817,7 @@ class BureauMembreIndependantViewSet(viewsets.ModelViewSet):
         serializer.save()
 
     def perform_update(self, serializer):
+
         bureau = self.get_object().bureau
 
         self._verifier_gestion(bureau)
@@ -803,6 +825,7 @@ class BureauMembreIndependantViewSet(viewsets.ModelViewSet):
         serializer.save()
 
     def perform_destroy(self, instance):
+
         self._verifier_gestion(instance.bureau)
 
         instance.delete()

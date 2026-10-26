@@ -355,8 +355,8 @@ function FormulaireCourrier({
   useEffect(() => {
     let actif = true;
 
-    client
-      .get("/eglises/")
+  client
+    .get("/eglises/annuaire_destinations/")
       .then((res) => {
         if (actif) setEglises(liste(res.data));
       })

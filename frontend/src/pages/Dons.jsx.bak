@@ -1,0 +1,92 @@
+import { useState } from "react";
+
+export default function Dons() {
+  const [montant, setMontant] = useState("");
+  const [operateur, setOperateur] = useState("orange");
+  const [message, setMessage] = useState("");
+  const [erreur, setErreur] = useState("");
+
+  const validerDon = (e) => {
+    e.preventDefault();
+    setMessage("");
+    setErreur("");
+
+    if (!montant || Number(montant) < 500) {
+      setErreur("Veuillez saisir un montant d'au moins 500 FCFA.");
+      return;
+    }
+
+    const nomOperateur =
+      operateur === "orange" ? "Orange Money" : "MTN Mobile Money";
+
+    setMessage(
+      `Votre demande de don de ${Number(montant).toLocaleString("fr-FR")} FCFA via ${nomOperateur} a été prise en compte. Le paiement doit être effectué via le service Mobile Money correspondant.`
+    );
+  };
+
+  return (
+    <div className="page-standard">
+      <div className="page-hero">
+        <div>
+          <span className="eyebrow">SOUTENIR L'ŒUVRE</span>
+          <h1>❤ Faire un don</h1>
+          <p>
+            Votre soutien contribue au développement des activités
+            et des projets de l'EESAG.
+          </p>
+        </div>
+      </div>
+
+      <section className="carte donation-form">
+        <form onSubmit={validerDon}>
+          <div className="form-champ">
+            <label htmlFor="montant-don">Montant du don</label>
+            <div className="money-input">
+              <input
+                id="montant-don"
+                type="number"
+                min="500"
+                step="500"
+                required
+                value={montant}
+                onChange={(e) => setMontant(e.target.value)}
+                placeholder="Ex. 50000"
+              />
+              <span>FCFA</span>
+            </div>
+          </div>
+
+          <div className="form-champ">
+            <label htmlFor="operateur-don">Opérateur de paiement</label>
+            <select
+              id="operateur-don"
+              value={operateur}
+              onChange={(e) => setOperateur(e.target.value)}
+            >
+              <option value="orange">Orange Money</option>
+              <option value="mtn">MTN Mobile Money</option>
+            </select>
+          </div>
+
+          {erreur && (
+            <p className="status-error" role="alert">{erreur}</p>
+          )}
+
+          {message && (
+            <p className="status-active" role="status">{message}</p>
+          )}
+
+          <button type="submit" className="btn btn-primary">
+            Valider le don
+          </button>
+
+          <p className="donation-note">
+            La validation de ce formulaire n'effectue pas directement
+            le transfert Mobile Money. Le paiement doit être réalisé
+            via le service de l'opérateur choisi.
+          </p>
+        </form>
+      </section>
+    </div>
+  );
+}

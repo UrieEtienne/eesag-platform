@@ -169,8 +169,9 @@ class EgliseAdmin(EESAGScopedAdminMixin, admin.ModelAdmin):
     de la plateforme.
     """
 
-    # Django Admin = Coordinateur uniquement
-    admin_scopes = {"COORDINATEUR"}
+    # Le Coordinateur et le Bureau national général peuvent créer des églises.
+    # Les bureaux nationaux spécialisés restent en lecture seule.
+    admin_scopes = {"COORDINATEUR", "BUREAU_GENERAL"}
 
     default_add = True
     default_change = True
@@ -238,35 +239,41 @@ class EgliseAdmin(EESAGScopedAdminMixin, admin.ModelAdmin):
         "desactiver_plateformes",
     )
 
-    # ------------------------------------------------------------------
-    # PERMISSIONS : COORDINATEUR ET BUREAU NATIONAL
+        # ------------------------------------------------------------------
+    # PERMISSIONS : COORDINATEUR ET BUREAU NATIONAL GÉNÉRAL
     # ------------------------------------------------------------------
 
     def has_module_permission(self, request):
-        user = request.user
         return (
-            is_coordinator(user)
-            or is_national_general(user)
-            or is_national_special(user)
+            is_coordinator(request.user)
+            or is_national_general(request.user)
+            or is_national_special(request.user)
         )
 
     def has_view_permission(self, request, obj=None):
-        return self.has_module_permission(request)
+        return (
+            is_coordinator(request.user)
+            or is_national_general(request.user)
+            or is_national_special(request.user)
+        )
 
     def has_add_permission(self, request):
-        # Seul le Coordinateur crée les églises.
-        return is_coordinator(request.user)
+        # Création réservée au Coordinateur et au Bureau national général.
+        return (
+            is_coordinator(request.user)
+            or is_national_general(request.user)
+        )
 
     def has_change_permission(self, request, obj=None):
-        # Le Bureau national général doit pouvoir lancer les actions
-        # d'activation depuis la liste, mais ne modifie pas les champs.
+        # Le Bureau national général conserve l'accès nécessaire aux actions
+        # d'activation, sans pouvoir modifier les champs de l'église.
         return (
             is_coordinator(request.user)
             or is_national_general(request.user)
         )
 
     def has_delete_permission(self, request, obj=None):
-        # La suppression d'une église est interdite dans cet écran.
+        # Aucune suppression d'église depuis cet écran.
         return False
 
     # ------------------------------------------------------------------
@@ -288,16 +295,27 @@ class EgliseAdmin(EESAGScopedAdminMixin, admin.ModelAdmin):
     # ------------------------------------------------------------------
 
     def get_readonly_fields(self, request, obj=None):
-        if is_national_general(request.user) or is_national_special(request.user):
-            # Le Bureau national consulte les informations sans les modifier.
-            return tuple(
-                field.name for field in self.model._meta.fields
-            ) + tuple(self.readonly_fields)
+        # Le Bureau national spécialisé ne peut que consulter.
+        if is_national_special(request.user):
+            return tuple(dict.fromkeys(
+                tuple(field.name for field in self.model._meta.fields)
+                + tuple(self.readonly_fields)
+            ))
 
-        # Le Coordinateur peut modifier les informations de l'église,
-        # mais pas son état d'activation.
+        # Le Bureau national général peut créer une église.
+        # Après création, les champs restent en lecture seule :
+        # ses actions d'activation sont gérées séparément.
+        if is_national_general(request.user) and obj is not None:
+            return tuple(dict.fromkeys(
+                tuple(field.name for field in self.model._meta.fields)
+                + tuple(self.readonly_fields)
+            ))
+
+        # À la création, les champs de l'église sont modifiables.
+        # L'état d'activation ne peut pas être défini manuellement.
         return tuple(dict.fromkeys(
-            tuple(self.readonly_fields) + ("plateforme_active",)
+            tuple(self.readonly_fields)
+            + ("plateforme_active",)
         ))
 
     # ------------------------------------------------------------------

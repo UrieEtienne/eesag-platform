@@ -6,9 +6,7 @@ import FormulaireEglise from "../components/FormulaireEglise";
 
 export default function ListeEglises() {
   const [eglises, setEglises] = useState([]);
-  const [religions, setReligions] = useState([]);
   const [recherche, setRecherche] = useState("");
-  const [religionFiltre, setReligionFiltre] = useState("");
   const [afficherFormulaire, setAfficherFormulaire] = useState(false);
   const { estNational, utilisateur } = useAuth();
 
@@ -44,23 +42,19 @@ export default function ListeEglises() {
           onChange={(e) => setRecherche(e.target.value)}
           style={{ minWidth: 280 }}
         />
-        <select value={religionFiltre} onChange={(e) => setReligionFiltre(e.target.value)}>
-          <option value="">Toutes les religions</option>
-          {religions.map((r) => <option key={r.id} value={r.id}>{r.nom}</option>)}
-        </select>
       </div>
 
       <div className="carte table-wrap">
         <table>
           <thead><tr>
-            <th>Code</th><th>Église</th><th>Religion</th><th>Région</th><th>Préfecture</th>
+            <th>Code</th><th>Église</th><th>Région</th><th>Préfecture</th>
             {estNational && <><th>Responsable</th><th>Membres</th></>}
             <th>Statut</th><th></th>
           </tr></thead>
           <tbody>
             {eglises.map((e) => (
               <tr key={e.id}>
-                <td><b>{e.code}</b></td><td>{e.nom}</td><td>{e.religion_nom}</td><td>{e.region_nom}</td><td>{e.prefecture_nom}</td>
+                <td><b>{e.code}</b></td><td>{e.nom}</td><td>{e.region_nom}</td><td>{e.prefecture_nom}</td>
                 {estNational && <><td>{e.responsable_nom || "— non affecté —"}</td><td>{e.nombre_membres}</td></>}
                 <td><span className="tag">{e.statut}</span></td>
                 <td>{(estNational || utilisateur?.eglise === e.id) ? <Link className="btn btn-petit btn-secondaire" to={`/eglises/${e.id}`}>Ouvrir</Link> : <span className="tag">Annuaire</span>}</td>

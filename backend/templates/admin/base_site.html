@@ -276,9 +276,12 @@
 {% endblock %}
 
 {# En-tête unique : logo, navigation et profil #}
+
+{# En-tête unique : logo, navigation et profil #}
 {% block header %}
 <header id="header" class="eesag-header">
-    <a class="eesag-header-brand" href="{% url 'admin:index' %}"
+    <a class="eesag-header-brand"
+       href="{% url 'admin:index' %}"
        style="text-decoration:none">
         <img class="eesag-header-logo"
              src="{% static 'admin/img/logo_eesag.jpg' %}"
@@ -294,37 +297,85 @@
         <a href="{% url 'admin:index' %}">Tableau</a>
 
         {% if user.role == 'COORDINATEUR' or user.is_superuser %}
-            <a href="{% url 'admin:churches_eglise_changelist' %}">Églises</a>
-            <a href="{% url 'admin:accounts_utilisateur_changelist' %}">Comptes</a>
-            <a href="{% url 'admin:bureaux_bureau_changelist' %}">Bureaux</a>
-            <a href="{% url 'admin:finance_transaction_changelist' %}">Comptabilité</a>
+            {% url 'admin:auth_group_changelist' as groupes_url %}
+            {% if groupes_url %}
+                <a href="{{ groupes_url }}">Groupes</a>
+            {% endif %}
+
+            {% url 'admin:accounts_utilisateur_changelist' as comptes_url %}
+            {% if comptes_url %}
+                <a href="{{ comptes_url }}">Comptes</a>
+            {% endif %}
+
+            {% url 'admin:bureaux_bureau_changelist' as bureaux_url %}
+            {% if bureaux_url %}
+                <a href="{{ bureaux_url }}">Bureaux</a>
+            {% endif %}
+
+            {% url 'admin:finance_transaction_changelist' as finance_url %}
+            {% if finance_url %}
+                <a href="{{ finance_url }}">Comptabilité</a>
+            {% endif %}
+
             <a href="/systeme">Fonctionnalités</a>
 
         {% elif user.role == 'SUPERADMIN_INTL' or user.role == 'SUPERADMIN_NATIONAL' %}
             {% scope_is_national_general as general_national %}
+
             {% if general_national %}
-                <a href="{% url 'admin:churches_eglise_changelist' %}">Églises</a>
-                <a href="{% url 'admin:accounts_utilisateur_changelist' %}">Comptes à contrôler</a>
-                <a href="{% url 'admin:bureaux_bureau_changelist' %}">Bureaux</a>
+                {% url 'admin:churches_eglise_changelist' as eglises_url %}
+                {% if eglises_url %}
+                    <a href="{{ eglises_url }}">Églises</a>
+                {% endif %}
+
+                {% url 'admin:accounts_utilisateur_changelist' as comptes_url %}
+                {% if comptes_url %}
+                    <a href="{{ comptes_url }}">Comptes à contrôler</a>
+                {% endif %}
+
+                {% url 'admin:bureaux_bureau_changelist' as bureaux_url %}
+                {% if bureaux_url %}
+                    <a href="{{ bureaux_url }}">Bureaux</a>
+                {% endif %}
             {% else %}
-                <a href="{% url 'admin:bureaux_bureau_changelist' %}">Mon bureau</a>
-                <a href="{% url 'admin:bureaux_bureaumembre_changelist' %}">Composition</a>
+                {% url 'admin:bureaux_bureau_changelist' as mon_bureau_url %}
+                {% if mon_bureau_url %}
+                    <a href="{{ mon_bureau_url }}">Mon bureau</a>
+                {% endif %}
+
+                {% url 'admin:bureaux_bureaumembre_changelist' as composition_url %}
+                {% if composition_url %}
+                    <a href="{{ composition_url }}">Composition</a>
+                {% endif %}
             {% endif %}
 
         {% elif user.role == 'PASTEUR' or user.role == 'ADMIN_LOCAL' %}
-            <a href="{% url 'admin:accounts_utilisateur_changelist' %}">Membres &amp; comptes</a>
-            <a href="{% url 'admin:bureaux_bureau_changelist' %}">Bureaux</a>
-            <a href="{% url 'admin:finance_transaction_changelist' %}">Comptabilité</a>
+            {% url 'admin:accounts_utilisateur_changelist' as comptes_url %}
+            {% if comptes_url %}
+                <a href="{{ comptes_url }}">Membres &amp; comptes</a>
+            {% endif %}
+
+            {% url 'admin:bureaux_bureau_changelist' as bureaux_url %}
+            {% if bureaux_url %}
+                <a href="{{ bureaux_url }}">Bureaux</a>
+            {% endif %}
+
+            {% url 'admin:finance_transaction_changelist' as finance_url %}
+            {% if finance_url %}
+                <a href="{{ finance_url }}">Comptabilité</a>
+            {% endif %}
         {% endif %}
     </nav>
 
     <div class="eesag-header-user">
         {% if user.photo %}
             <img class="eesag-header-avatar"
-                 src="{{ user.photo.url }}" alt="Photo de profil">
+                 src="{{ user.photo.url }}"
+                 alt="Photo de profil">
         {% else %}
             <img class="eesag-header-avatar"
-                 src="{% static 'admin/img/logo_eesag.jpg' %}" alt="EESAG">
+                 src="{% static 'admin/img/logo_eesag.jpg' %}"
+                 alt="EESAG">
         {% endif %}
 
         <span class="eesag-header-user-info">
@@ -344,49 +395,74 @@
 </header>
 {% endblock %}
 
-{# Le menu principal est déjà dans le header : pas de deuxième navbar #}
-{% block nav-global %}{% endblock %}
 
-{# Menu latéral personnalisé #}
+
+{# Menu latéral personnalisé EESAG #}
 {% block nav-sidebar %}
 {% if user.is_active and user.is_staff %}
+{% url 'admin:index' as accueil_url %}
+{% url 'admin:churches_eglise_changelist' as eglises_url %}
+{% url 'admin:churches_eglise_add' as ajouter_eglise_url %}
+{% url 'admin:accounts_utilisateur_changelist' as utilisateurs_url %}
+{% url 'admin:auth_group_changelist' as groupes_url %}
+{% url 'admin:bureaux_bureau_changelist' as bureaux_url %}
+{% url 'admin:finance_transaction_changelist' as finances_url %}
+
 <nav id="nav-sidebar" class="eesag-sidebar" aria-label="Menu d'administration">
     <div class="eesag-sidebar-heading">Accueil</div>
-    <a class="eesag-sidebar-link" href="{% url 'admin:index' %}">
+
+    {% if accueil_url %}
+    <a class="eesag-sidebar-link" href="{{ accueil_url }}">
         Tableau de bord
     </a>
+    {% endif %}
 
     {% if user.role == 'COORDINATEUR' or user.is_superuser or user.role == 'SUPERADMIN_INTL' or user.role == 'SUPERADMIN_NATIONAL' %}
-    <div class="eesag-sidebar-heading">Églises</div>
-    <a class="eesag-sidebar-link" href="{% url 'admin:churches_eglise_changelist' %}">
-        Liste des églises
-    </a>
-    <a class="eesag-sidebar-link" href="{% url 'admin:churches_eglise_add' %}">
-        Ajouter une église
-    </a>
+        {% if eglises_url or ajouter_eglise_url %}
+        <div class="eesag-sidebar-heading">Églises</div>
+        {% endif %}
+
+        {% if eglises_url %}
+        <a class="eesag-sidebar-link" href="{{ eglises_url }}">
+            Liste des églises
+        </a>
+        {% endif %}
+
+        {% if ajouter_eglise_url %}
+        <a class="eesag-sidebar-link" href="{{ ajouter_eglise_url }}">
+            Ajouter une église
+        </a>
+        {% endif %}
     {% endif %}
 
+    {% if utilisateurs_url %}
     <div class="eesag-sidebar-heading">Comptes &amp; utilisateurs</div>
-    <a class="eesag-sidebar-link" href="{% url 'admin:accounts_utilisateur_changelist' %}">
+    <a class="eesag-sidebar-link" href="{{ utilisateurs_url }}">
         Utilisateurs
     </a>
+    {% endif %}
 
     {% if user.role == 'COORDINATEUR' or user.is_superuser %}
-    <a class="eesag-sidebar-link" href="{% url 'admin:auth_group_changelist' %}">
-        Groupes
+        {% if groupes_url %}
+        <a class="eesag-sidebar-link" href="{{ groupes_url }}">
+            Groupes
+        </a>
+        {% endif %}
+    {% endif %}
+    {% if bureaux_url %}
+    <div class="eesag-sidebar-heading">Bureaux</div>
+    <a class="eesag-sidebar-link" href="{{ bureaux_url }}">
+        Bureaux nationaux et locaux
     </a>
     {% endif %}
 
-    <div class="eesag-sidebar-heading">Bureaux</div>
-    <a class="eesag-sidebar-link" href="{% url 'admin:bureaux_bureau_changelist' %}">
-        Bureaux nationaux et locaux
-    </a>
-
     {% if user.role == 'COORDINATEUR' or user.is_superuser or user.role == 'ADMIN_LOCAL' or user.role == 'PASTEUR' %}
-    <div class="eesag-sidebar-heading">Finances</div>
-    <a class="eesag-sidebar-link" href="{% url 'admin:finance_transaction_changelist' %}">
-        Transactions
-    </a>
+        {% if finances_url %}
+        <div class="eesag-sidebar-heading">Finances</div>
+        <a class="eesag-sidebar-link" href="{{ finances_url }}">
+            Transactions
+        </a>
+        {% endif %}
     {% endif %}
 
     {% if user.role == 'COORDINATEUR' or user.is_superuser %}
@@ -403,6 +479,7 @@
 </nav>
 {% endif %}
 {% endblock %}
+
 
 {% block footer %}
 <div id="footer">

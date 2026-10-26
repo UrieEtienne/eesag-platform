@@ -1,0 +1,116 @@
+import { useState } from "react";
+
+export default function Dons() {
+  const [montant, setMontant] = useState("");
+  const [operateur, setOperateur] = useState("orange");
+
+  const numeroOrange =
+    import.meta.env.VITE_DON_ORANGE_NUMBER || "";
+
+  const numeroMTN =
+    import.meta.env.VITE_DON_MTN_NUMBER || "";
+
+  const numero =
+    operateur === "orange"
+      ? numeroOrange
+      : numeroMTN;
+
+  const envoyerDon = () => {
+    if (!montant || Number(montant) <= 0) {
+      alert("Veuillez saisir un montant valide.");
+      return;
+    }
+
+    if (!numero) {
+      alert(
+        "Le numéro de réception des dons n'est pas encore configuré."
+      );
+      return;
+    }
+
+    const message = encodeURIComponent(
+      `Don EESAG : ${Number(montant).toLocaleString(
+        "fr-FR"
+      )} FCFA`
+    );
+
+    window.location.href =
+      `tel:${numero}?text=${message}`;
+  };
+
+  return (
+    <div className="page-standard">
+
+      <div className="page-hero">
+        <div>
+          <span className="eyebrow">
+            SOUTENIR L'ŒUVRE
+          </span>
+
+          <h1>❤ Faire un don</h1>
+
+          <p>
+            Votre soutien contribue au développement
+            des activités et des projets.
+          </p>
+        </div>
+      </div>
+
+      <section className="carte donation-form">
+
+        <div className="form-champ">
+          <label>Montant du don</label>
+
+          <div className="money-input">
+            <input
+              type="number"
+              min="500"
+              step="500"
+              value={montant}
+              onChange={(e) =>
+                setMontant(e.target.value)
+              }
+              placeholder="Ex. 50 000"
+            />
+
+            <span>FCFA</span>
+          </div>
+        </div>
+
+        <div className="form-champ">
+          <label>Opérateur</label>
+
+          <select
+            value={operateur}
+            onChange={(e) =>
+              setOperateur(e.target.value)
+            }
+          >
+            <option value="orange">
+              Orange Money
+            </option>
+
+            <option value="mtn">
+              MTN Mobile Money
+            </option>
+          </select>
+        </div>
+
+        <button
+          type="button"
+          className="btn btn-primary"
+          onClick={envoyerDon}
+        >
+          Faire un don
+        </button>
+
+        <p className="donation-note">
+          Le numéro de réception doit être configuré
+          par l'administration EESAG avant utilisation.
+        </p>
+
+      </section>
+
+    </div>
+  );
+}

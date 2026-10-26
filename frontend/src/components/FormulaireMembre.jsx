@@ -25,9 +25,19 @@ export default function FormulaireMembre({ egliseId, onFerme, onCree }) {
   useEffect(() => { chargerReferentiels(); }, []);
 
   const [form, setForm] = useState({
-    nom: "", prenom: "", sexe: "H", date_naissance: "", telephone: "", email: "",
-    nationalite: "GN", date_bapteme_eau: "", date_bapteme_saint_esprit: "",
-    fonction_eglise: "MEMBRE", role: "MEMBRE", eglise: egliseId, departement: "", role_eglise: "",
+    nom: "",
+    prenom: "",
+    sexe: "H",
+    date_naissance: "",
+    telephone: "",
+    nationalite: "GN",
+    date_bapteme_eau: "",
+    date_bapteme_saint_esprit: "",
+    fonction_eglise: "MEMBRE",
+    role: "MEMBRE",
+    eglise: egliseId,
+    departement: "",
+    role_eglise: "",
   });
 
   const modifier = (champ, valeur) => setForm((f) => ({ ...f, [champ]: valeur }));

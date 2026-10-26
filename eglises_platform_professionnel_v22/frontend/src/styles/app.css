@@ -186,3 +186,813 @@ html[data-theme="dark"] body{background:#0b1220;color:#e5e7eb}html[data-theme="d
     width: 260px;
   }
 }
+
+/* =========================================================
+   EESAG — SIDEBAR RESPONSIVE
+   Sidebar totalement masqué = aucun espace réservé
+   ========================================================= */
+
+/* ---------- STRUCTURE PRINCIPALE ---------- */
+
+.app-layout {
+  width: 100%;
+  min-height: 100vh;
+  display: grid;
+
+  /* Sidebar ouverte */
+  grid-template-columns: 280px minmax(0, 1fr);
+
+  transition: grid-template-columns 0.25s ease;
+}
+
+/* Sidebar complètement masquée */
+.app-layout.sidebar-closed {
+  grid-template-columns: 0 minmax(0, 1fr);
+}
+
+/* ---------- SIDEBAR ---------- */
+
+.sidebar {
+  width: 280px;
+  min-width: 280px;
+  height: 100vh;
+
+  position: sticky;
+  top: 0;
+
+  overflow-x: hidden;
+  overflow-y: auto;
+
+  box-sizing: border-box;
+
+  transition:
+    width 0.25s ease,
+    min-width 0.25s ease,
+    opacity 0.18s ease,
+    transform 0.25s ease;
+
+  z-index: 1000;
+}
+
+/*
+ * IMPORTANT :
+ * Quand le sidebar est fermé :
+ * - largeur = 0
+ * - min-width = 0
+ * - aucune visibilité
+ * - aucun fond
+ * - aucun contenu
+ * - aucune barre bleue
+ */
+.app-layout.sidebar-closed .sidebar,
+.sidebar.sidebar-hidden {
+  width: 0 !important;
+  min-width: 0 !important;
+  max-width: 0 !important;
+
+  padding: 0 !important;
+  margin: 0 !important;
+  border: 0 !important;
+
+  opacity: 0 !important;
+  visibility: hidden !important;
+
+  overflow: hidden !important;
+
+  transform: translateX(-100%);
+  pointer-events: none;
+}
+
+/* Sidebar ouverte */
+.app-layout.sidebar-open .sidebar,
+.sidebar.sidebar-visible {
+  width: 280px;
+  min-width: 280px;
+
+  opacity: 1;
+  visibility: visible;
+
+  transform: translateX(0);
+
+  pointer-events: auto;
+}
+
+
+/* =========================================================
+   CONTENU PRINCIPAL
+   ========================================================= */
+
+.contenu-principal {
+  min-width: 0;
+  width: 100%;
+  min-height: 100vh;
+
+  overflow-x: hidden;
+
+  transition:
+    width 0.25s ease,
+    margin 0.25s ease;
+}
+
+/*
+ * Quand le sidebar disparaît, le contenu occupe
+ * automatiquement toute la largeur disponible.
+ */
+.app-layout.sidebar-closed .contenu-principal {
+  width: 100%;
+  min-width: 0;
+  margin-left: 0 !important;
+  padding-left: 0;
+}
+
+
+/* =========================================================
+   NAVBAR / TOPBAR
+   ========================================================= */
+
+.app-topbar {
+  width: 100%;
+
+  /* Navbar plus fine */
+  min-height: 54px;
+  height: 54px;
+
+  padding: 7px 18px;
+
+  box-sizing: border-box;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  position: sticky;
+  top: 0;
+
+  z-index: 900;
+
+  /* évite une grosse barre */
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+
+  transition:
+    height 0.2s ease,
+    min-height 0.2s ease;
+}
+
+
+/* ---------- Partie gauche ---------- */
+
+.topbar-left {
+  min-width: 0;
+
+  display: flex;
+  align-items: center;
+
+  gap: 10px;
+}
+
+
+/* ---------- Bouton sidebar ---------- */
+
+.sidebar-toggle {
+  width: 38px;
+  height: 38px;
+
+  min-width: 38px;
+
+  padding: 0;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  border: 0;
+  border-radius: 9px;
+
+  background: transparent;
+
+  cursor: pointer;
+
+  font-size: 21px;
+  line-height: 1;
+
+  transition:
+    background 0.15s ease,
+    transform 0.15s ease;
+}
+
+.sidebar-toggle:hover {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.sidebar-toggle:active {
+  transform: scale(0.94);
+}
+
+
+/* ---------- Informations espace ---------- */
+
+.app-topbar-scope {
+  min-width: 0;
+
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+
+  line-height: 1.1;
+}
+
+.topbar-overline {
+  font-size: 9px;
+  font-weight: 700;
+
+  letter-spacing: 0.08em;
+
+  opacity: 0.65;
+
+  white-space: nowrap;
+}
+
+.topbar-scope-name {
+  font-size: 13px;
+  font-weight: 700;
+
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+
+/* ---------- Partie droite ---------- */
+
+.topbar-actions {
+  display: flex;
+  align-items: center;
+
+  gap: 10px;
+
+  min-width: 0;
+}
+
+.topbar-user-name {
+  max-width: 220px;
+
+  font-size: 13px;
+  font-weight: 600;
+
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+
+/* ---------- Photo profil ---------- */
+
+.topbar-profile {
+  width: 34px;
+  height: 34px;
+
+  min-width: 34px;
+
+  border-radius: 50%;
+
+  overflow: hidden;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  text-decoration: none;
+}
+
+.topbar-profile img {
+  width: 100%;
+  height: 100%;
+
+  object-fit: cover;
+
+  display: block;
+}
+
+
+/* =========================================================
+   PAGE
+   ========================================================= */
+
+.page-container {
+  width: 100%;
+  max-width: 100%;
+
+  box-sizing: border-box;
+
+  padding: 18px 22px;
+}
+
+
+/* =========================================================
+   SIDEBAR INTERNE
+   ========================================================= */
+
+.sidebar-nav {
+  min-width: 0;
+  overflow-x: hidden;
+}
+
+.nav-link {
+  white-space: nowrap;
+}
+
+.nav-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+
+/* =========================================================
+   MOBILE
+   ========================================================= */
+
+@media (max-width: 767px) {
+
+  .app-layout {
+    display: block;
+    width: 100%;
+    min-height: 100vh;
+  }
+
+  /*
+   * Sur mobile le sidebar est totalement hors écran
+   * lorsqu'il est fermé.
+   */
+  .sidebar {
+    position: fixed;
+
+    top: 0;
+    left: 0;
+
+    width: 280px !important;
+    min-width: 280px !important;
+    height: 100vh;
+
+    z-index: 2000;
+
+    transition:
+      transform 0.25s ease,
+      opacity 0.2s ease;
+  }
+
+  .app-layout.sidebar-closed .sidebar,
+  .sidebar.sidebar-hidden {
+    width: 280px !important;
+    min-width: 280px !important;
+
+    opacity: 0 !important;
+    visibility: hidden !important;
+
+    transform: translateX(-105%) !important;
+
+    pointer-events: none;
+  }
+
+  .app-layout.sidebar-open .sidebar,
+  .sidebar.sidebar-visible {
+    width: 280px !important;
+    min-width: 280px !important;
+
+    opacity: 1 !important;
+    visibility: visible !important;
+
+    transform: translateX(0) !important;
+
+    pointer-events: auto;
+  }
+
+  /*
+   * Le contenu reste toujours 100 % de l'écran.
+   */
+  .contenu-principal {
+    width: 100%;
+    min-width: 0;
+
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .app-topbar {
+    height: 50px;
+    min-height: 50px;
+
+    padding: 6px 12px;
+  }
+
+  .sidebar-toggle {
+    width: 36px;
+    height: 36px;
+    min-width: 36px;
+  }
+
+  .topbar-user-name {
+    display: none;
+  }
+
+  .topbar-overline {
+    font-size: 8px;
+  }
+
+  .topbar-scope-name {
+    max-width: 170px;
+
+    font-size: 12px;
+  }
+
+  .topbar-profile {
+    width: 32px;
+    height: 32px;
+    min-width: 32px;
+  }
+
+  .page-container {
+    padding: 12px;
+  }
+}
+
+
+/* =========================================================
+   PETITES TABLETTES
+   ========================================================= */
+
+@media (min-width: 768px) and (max-width: 1100px) {
+
+  .app-layout {
+    grid-template-columns: 240px minmax(0, 1fr);
+  }
+
+  .app-layout.sidebar-closed {
+    grid-template-columns: 0 minmax(0, 1fr);
+  }
+
+  .sidebar,
+  .app-layout.sidebar-open .sidebar,
+  .sidebar.sidebar-visible {
+    width: 240px;
+    min-width: 240px;
+  }
+
+  .app-layout.sidebar-closed .sidebar,
+  .sidebar.sidebar-hidden {
+    width: 0 !important;
+    min-width: 0 !important;
+  }
+
+  .page-container {
+    padding: 16px;
+  }
+
+  .topbar-user-name {
+    max-width: 150px;
+  }
+}
+
+
+/* =========================================================
+   GRAND ÉCRAN
+   ========================================================= */
+
+@media (min-width: 1400px) {
+
+  .app-layout {
+    grid-template-columns: 280px minmax(0, 1fr);
+  }
+
+  .app-layout.sidebar-closed {
+    grid-template-columns: 0 minmax(0, 1fr);
+  }
+
+  .page-container {
+    padding: 20px 28px;
+  }
+}
+
+
+/* =========================================================
+   ACCESSIBILITÉ / ANIMATION
+   ========================================================= */
+
+@media (prefers-reduced-motion: reduce) {
+
+  .app-layout,
+  .sidebar,
+  .contenu-principal,
+  .app-topbar,
+  .sidebar-toggle {
+    transition: none !important;
+  }
+}
+
+/* ==========================================================
+   EESAG — SIDEBAR ENTIÈREMENT MASQUABLE ET NAVBAR COMPACTE
+   ========================================================== */
+
+.app-layout {
+  --eesag-sidebar-width: 260px;
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  min-height: 100vh;
+  overflow-x: clip;
+}
+
+.app-layout .sidebar {
+  box-sizing: border-box;
+  flex: 0 0 var(--eesag-sidebar-width);
+  width: var(--eesag-sidebar-width);
+  min-width: 0;
+  transition:
+    width 0.22s ease,
+    flex-basis 0.22s ease,
+    opacity 0.18s ease,
+    padding 0.22s ease,
+    border-width 0.22s ease;
+}
+
+.app-layout.sidebar-closed .sidebar {
+  flex: 0 0 0;
+  width: 0;
+  min-width: 0;
+  max-width: 0;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+  margin: 0 !important;
+  border: 0 !important;
+  opacity: 0;
+  overflow: hidden;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+/* La page reprend toute la largeur immédiatement. */
+.app-layout .contenu-principal {
+  flex: 1 1 0%;
+  width: 0;
+  min-width: 0;
+  max-width: 100%;
+  margin-left: 0 !important;
+  transition: width 0.22s ease, flex-basis 0.22s ease;
+}
+
+/* Navbar moins épaisse. */
+.app-layout .app-topbar {
+  box-sizing: border-box;
+  min-height: 54px;
+  height: auto;
+  padding: 6px 16px;
+  gap: 10px;
+}
+
+.app-layout .topbar-left,
+.app-layout .topbar-actions {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  gap: 10px;
+}
+
+.app-layout .sidebar-toggle {
+  display: inline-flex;
+  flex: 0 0 36px;
+  width: 36px;
+  height: 36px;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  cursor: pointer;
+}
+
+.app-layout .topbar-overline {
+  font-size: 10px;
+  line-height: 1.2;
+}
+
+.app-layout .topbar-scope-name {
+  display: block;
+  font-size: 13px;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.app-layout .topbar-user-name {
+  font-size: 12px;
+}
+
+.app-layout .topbar-profile {
+  flex: 0 0 34px;
+  width: 34px;
+  height: 34px;
+}
+
+/* Overlay uniquement lorsque le menu mobile est ouvert. */
+.app-layout .sidebar-overlay {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  .app-layout {
+    --eesag-sidebar-width: min(280px, 86vw);
+    display: block;
+    width: 100%;
+  }
+
+  .app-layout .sidebar {
+    position: fixed;
+    z-index: 1001;
+    inset: 0 auto 0 0;
+    width: var(--eesag-sidebar-width);
+    max-width: 86vw;
+    height: 100dvh;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    background: var(--sidebar-bg, #fff);
+    box-shadow: 8px 0 30px rgb(0 0 0 / 16%);
+    transition: transform 0.22s ease, visibility 0.22s ease;
+  }
+
+  .app-layout.sidebar-closed .sidebar {
+    width: var(--eesag-sidebar-width);
+    max-width: 86vw;
+    flex-basis: auto;
+    padding-left: initial !important;
+    padding-right: initial !important;
+    opacity: 1;
+    visibility: hidden;
+    transform: translateX(-105%);
+    box-shadow: none;
+  }
+
+  .app-layout.sidebar-open .sidebar {
+    visibility: visible;
+    transform: translateX(0);
+  }
+
+  .app-layout .contenu-principal {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .app-layout .app-topbar {
+    min-height: 48px;
+    padding: 5px 10px;
+    gap: 8px;
+  }
+
+  .app-layout .topbar-left,
+  .app-layout .topbar-actions {
+    gap: 7px;
+  }
+
+  .app-layout .topbar-overline {
+    display: none;
+  }
+
+  .app-layout .topbar-scope-name {
+    max-width: 44vw;
+    font-size: 12px;
+  }
+
+  .app-layout .topbar-user-name {
+    display: none;
+  }
+
+  .app-layout .sidebar-overlay {
+    display: block;
+    position: fixed;
+    z-index: 1000;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    padding: 0;
+    border: 0;
+    background: rgb(15 23 42 / 45%);
+    cursor: pointer;
+  }
+
+  body.menu-mobile-ouvert {
+    overflow: hidden;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-layout .sidebar,
+  .app-layout .contenu-principal {
+    transition: none !important;
+  }
+}
+
+/* ==========================================
+   CORRECTION SIDEBAR EESAG
+   ========================================== */
+
+.app-layout {
+  display: flex !important;
+  width: 100% !important;
+  min-height: 100vh;
+}
+
+/* Sidebar visible */
+.app-layout > .sidebar {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  bottom: 0 !important;
+  width: 286px !important;
+  height: 100vh !important;
+  overflow-y: auto;
+  z-index: 1000 !important;
+  transform: translateX(0);
+  visibility: visible;
+  pointer-events: auto;
+  transition:
+    transform 0.25s ease,
+    visibility 0.25s ease;
+}
+
+/* Sidebar masqué */
+.app-layout.sidebar-hidden > .sidebar {
+  transform: translateX(-100%) !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+/* Contenu principal : sidebar ouvert */
+.app-layout.sidebar-visible > .contenu-principal {
+  width: calc(100% - 286px) !important;
+  max-width: none !important;
+  min-width: 0 !important;
+  flex: 0 0 calc(100% - 286px) !important;
+  margin-left: 286px !important;
+  box-sizing: border-box !important;
+  transition:
+    width 0.25s ease,
+    margin-left 0.25s ease;
+}
+
+/* Contenu principal : sidebar fermé */
+.app-layout.sidebar-hidden > .contenu-principal {
+  width: 100% !important;
+  max-width: none !important;
+  min-width: 0 !important;
+  flex: 0 0 100% !important;
+  margin-left: 0 !important;
+  box-sizing: border-box !important;
+}
+
+/* Barre de navigation toujours visible */
+.app-layout > .contenu-principal > .app-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 900;
+  width: auto !important;
+  max-width: none !important;
+  box-sizing: border-box !important;
+}
+
+/* Bouton pour ouvrir/fermer le menu */
+.app-layout .app-topbar .sidebar-toggle {
+  display: inline-flex !important;
+  flex-shrink: 0 !important;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  z-index: 1100 !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  cursor: pointer;
+}
+
+/* Pages et tableaux : ne pas dépasser le contenu */
+.app-layout .contenu-principal .page-container {
+  width: 100%;
+  max-width: none;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+/* Adaptation aux petits écrans */
+@media (max-width: 800px) {
+  .app-layout > .sidebar {
+    width: min(286px, 85vw) !important;
+  }
+
+  .app-layout.sidebar-visible > .contenu-principal {
+    width: 100% !important;
+    flex: 1 1 100% !important;
+    margin-left: 0 !important;
+  }
+
+  .app-layout.sidebar-hidden > .contenu-principal {
+    width: 100% !important;
+    flex: 1 1 100% !important;
+    margin-left: 0 !important;
+  }
+}

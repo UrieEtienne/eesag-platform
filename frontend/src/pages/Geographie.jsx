@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import client from "../api/client";
+import GeolocalisationCarte from "../components/GeolocalisationCarte";
 
 export default function Geographie() {
   const [regions, setRegions] = useState([]);
@@ -41,6 +42,8 @@ export default function Geographie() {
   return (
     <div>
       <div className="barre-superieure"><h2>Découpage géographique</h2></div>
+
+      <GeolocalisationCarte />
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 20 }}>
         <div className="carte">

@@ -1,3 +1,4 @@
+from apps.core.admin_national import admin_national_site
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
@@ -13,6 +14,7 @@ def api_accueil(request):
 
 urlpatterns = [
     path("admin/", admin.site.urls),
+    path("admin-national/", admin_national_site.urls),
     path("api/", include("apps.accounts.urls")),
     path("api/geo/", include("apps.geo.urls")),
     path("api/", include("apps.churches.urls")),

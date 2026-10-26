@@ -1,0 +1,344 @@
+import { useCallback, useEffect, useState } from "react";
+import client, { mediaUrl } from "../api/client";
+import { useAuth } from "../context/AuthContext";
+
+const ANNEE_ACTUELLE = new Date().getFullYear();
+
+const ANNEES = [
+  ANNEE_ACTUELLE - 1,
+  ANNEE_ACTUELLE,
+  ANNEE_ACTUELLE + 1,
+];
+
+function extraireListe(data) {
+  if (Array.isArray(data)) return data;
+  if (Array.isArray(data?.results)) return data.results;
+  return [];
+}
+
+function nomMembre(membre) {
+  return (
+    membre?.nom_complet ||
+    [membre?.prenom, membre?.nom].filter(Boolean).join(" ") ||
+    membre?.identifiant ||
+    "Membre"
+  );
+}
+
+export default function BureauNational() {
+  const { estNational } = useAuth();
+
+  const [bureaux, setBureaux] = useState([]);
+  const [mandats, setMandats] = useState([]);
+  const [membres, setMembres] = useState([]);
+
+  const [annee, setAnnee] = useState(ANNEE_ACTUELLE);
+  const [chargement, setChargement] = useState(true);
+  const [erreur, setErreur] = useState("");
+  const [message, setMessage] = useState("");
+  const [enregistrement, setEnregistrement] = useState(false);
+
+  const [form, setForm] = useState({
+    bureau: "",
+    utilisateur: "",
+    poste: "",
+  });
+
+  const charger = useCallback(async () => {
+    setChargement(true);
+    setErreur("");
+    setMessage("");
+
+    try {
+      const [bureauxResponse, mandatsResponse, membresResponse] =
+        await Promise.all([
+          client.get("/bureaux/?niveau=NATIONAL&actif=true"),
+          client.get(
+            `/bureau-membres/?annee=${annee}&actif=true`
+          ),
+          client.get("/bureau-national/"),
+        ]);
+
+      const tousLesBureaux = extraireListe(bureauxResponse.data);
+      const tousLesMandats = extraireListe(mandatsResponse.data);
+      const tousLesMembres = extraireListe(membresResponse.data);
+
+      // Seuls les bureaux nationaux actifs sont affichés.
+      setBureaux(
+        tousLesBureaux.filter(
+          (bureau) =>
+            bureau.niveau === "NATIONAL" && bureau.actif === true
+        )
+      );
+
+      // Ne garder que les mandats de l'année sélectionnée
+      // appartenant à un bureau national actif.
+      setMandats(
+        tousLesMandats.filter(
+          (mandat) =>
+            Number(mandat.annee) === Number(annee) &&
+            mandat.actif === true &&
+            mandat.bureau &&
+            tousLesBureaux.some(
+              (bureau) =>
+                bureau.id === mandat.bureau &&
+                bureau.niveau === "NATIONAL" &&
+                bureau.actif === true
+            )
+        )
+      );
+
+      setMembres(tousLesMembres);
+    } catch (error) {
+      console.error("Erreur de chargement du Bureau national :", error);
+      setErreur(
+        "Impossible de charger les bureaux nationaux. Vérifiez votre connexion et vos droits d'accès."
+      );
+    } finally {
+      setChargement(false);
+    }
+  }, [annee]);
+
+  useEffect(() => {
+    charger();
+  }, [charger]);
+
+  const ajouter = async (event) => {
+    event.preventDefault();
+    setErreur("");
+    setMessage("");
+
+    if (!form.bureau || !form.utilisateur || !form.poste.trim()) {
+      setErreur("Choisissez un bureau, un membre et indiquez son poste.");
+      return;
+    }
+
+    setEnregistrement(true);
+
+    try {
+      await client.post("/bureau-membres/", {
+        bureau: Number(form.bureau),
+        utilisateur: Number(form.utilisateur),
+        poste: form.poste.trim(),
+        annee: Number(annee),
+        actif: true,
+      });
+
+      setForm({
+        bureau: "",
+        utilisateur: "",
+        poste: "",
+      });
+
+      setMessage("Le mandat a été enregistré avec succès.");
+      await charger();
+    } catch (error) {
+      console.error("Erreur d'enregistrement du mandat :", error);
+
+      const data = error?.response?.data;
+      const detail =
+        data?.detail ||
+        data?.utilisateur?.[0] ||
+        data?.bureau?.[0] ||
+        data?.poste?.[0];
+
+      setErreur(
+        detail ||
+          "Le mandat n'a pas pu être enregistré. Vérifiez les droits du compte et les informations saisies."
+      );
+    } finally {
+      setEnregistrement(false);
+    }
+  };
+
+  const bureauxAvecMembres = bureaux.map((bureau) => ({
+    ...bureau,
+    mandats: mandats.filter(
+      (mandat) => Number(mandat.bureau) === Number(bureau.id)
+    ),
+  }));
+
+  const nombreMandats = bureauxAvecMembres.reduce(
+    (total, bureau) => total + bureau.mandats.length,
+    0
+  );
+
+  return (
+    <div className="bureau-page">
+      <div className="page-hero bureau-hero">
+        <div>
+          <span className="eyebrow">GOUVERNANCE EESAG</span>
+          <h1>Bureaux nationaux</h1>
+          <p>
+            Composition des différents bureaux nationaux pour l'année
+            sélectionnée.
+          </p>
+        </div>
+
+        <label className="form-champ">
+          <span>Année du mandat</span>
+          <select
+            value={annee}
+            onChange={(event) => setAnnee(Number(event.target.value))}
+          >
+            {ANNEES.map((valeur) => (
+              <option key={valeur} value={valeur}>
+                {valeur}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+
+      {erreur && (
+        <div className="alert alert-danger" role="alert">
+          {erreur}
+        </div>
+      )}
+
+      {message && (
+        <div className="alert alert-success" role="status">
+          {message}
+        </div>
+      )}
+
+      {estNational && (
+        <section className="carte bureau-editor">
+          <div>
+            <h3>Ajouter un mandat national</h3>
+            <p className="sous-titre">
+              Affectez un membre à un bureau national pour {annee}.
+            </p>
+          </div>
+
+          <form className="form-grid" onSubmit={ajouter}>
+            <div className="form-champ">
+              <label htmlFor="bureau-national-select">Bureau national</label>
+              <select
+                id="bureau-national-select"
+                required
+                value={form.bureau}
+                onChange={(event) =>
+                  setForm({ ...form, bureau: event.target.value })
+                }
+              >
+                <option value="">Choisir un bureau</option>
+                {bureaux.map((bureau) => (
+                  <option key={bureau.id} value={bureau.id}>
+                    {bureau.nom}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="form-champ">
+              <label htmlFor="membre-national-select">Membre</label>
+              <select
+                id="membre-national-select"
+                required
+                value={form.utilisateur}
+                onChange={(event) =>
+                  setForm({ ...form, utilisateur: event.target.value })
+                }
+              >
+                <option value="">Choisir un membre national</option>
+                {membres.map((membre) => (
+                  <option key={membre.id} value={membre.id}>
+                    {nomMembre(membre)}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="form-champ">
+              <label htmlFor="poste-national">Poste occupé</label>
+              <input
+                id="poste-national"
+                required
+                value={form.poste}
+                onChange={(event) =>
+                  setForm({ ...form, poste: event.target.value })
+                }
+                placeholder="Président, Secrétaire général…"
+              />
+            </div>
+
+            <button className="btn" type="submit" disabled={enregistrement}>
+              {enregistrement ? "Enregistrement…" : "Enregistrer le mandat"}
+            </button>
+          </form>
+        </section>
+      )}
+
+      <div className="bureau-resume">
+        <div className="carte">
+          <span>Bureaux nationaux actifs</span>
+          <strong>{bureaux.length}</strong>
+        </div>
+        <div className="carte">
+          <span>Mandats actifs en {annee}</span>
+          <strong>{nombreMandats}</strong>
+        </div>
+      </div>
+
+      {chargement ? (
+        <div className="empty-state">Chargement des bureaux nationaux…</div>
+      ) : bureauxAvecMembres.length === 0 ? (
+        <div className="empty-state">
+          Aucun bureau national actif n'a été retourné par l'API.
+          Vérifiez les droits d'accès du compte connecté.
+        </div>
+      ) : (
+        <div className="bureau-grid">
+          {bureauxAvecMembres.map((bureau) => (
+            <section key={bureau.id} className="carte bureau-card">
+              <div className="bureau-card-entete">
+                <span className="eyebrow">
+                  {bureau.type_bureau_libelle || bureau.type_bureau}
+                </span>
+                <h2>{bureau.nom}</h2>
+                {bureau.description && <p>{bureau.description}</p>}
+                <span>
+                  {bureau.mandats.length} membre
+                  {bureau.mandats.length !== 1 ? "s" : ""} nommé
+                  {bureau.mandats.length !== 1 ? "s" : ""}
+                </span>
+              </div>
+
+              {bureau.mandats.length > 0 ? (
+                <div className="bureau-membres-liste">
+                  {bureau.mandats.map((mandat) => (
+                    <article key={mandat.id} className="bureau-membre-ligne">
+                      <div className="bureau-photo">
+                        {mandat.photo ? (
+                          <img
+                            src={mediaUrl(mandat.photo)}
+                            alt={nomMembre(mandat)}
+                          />
+                        ) : (
+                          <div className="bureau-avatar-placeholder">
+                            {nomMembre(mandat).charAt(0).toUpperCase()}
+                          </div>
+                        )}
+                      </div>
+
+                      <div>
+                        <h3>{nomMembre(mandat)}</h3>
+                        <p>{mandat.poste}</p>
+                        <span>Mandat {mandat.annee}</span>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              ) : (
+                <div className="bureau-sans-membre">
+                  Aucun membre nommé pour {annee}.
+                </div>
+              )}
+            </section>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}

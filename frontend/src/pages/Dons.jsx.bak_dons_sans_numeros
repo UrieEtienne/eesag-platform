@@ -1,0 +1,149 @@
+import { useState } from "react";
+
+export default function Dons() {
+  const [montant, setMontant] = useState("");
+  const [operateur, setOperateur] = useState("orange");
+  const [messageCopie, setMessageCopie] = useState("");
+
+  const numeroOrange =
+    import.meta.env.VITE_DON_ORANGE_NUMBER || "+224626483701";
+
+  const numeroMTN =
+    import.meta.env.VITE_DON_MTN_NUMBER || "+224669285815";
+
+  const numero =
+    operateur === "orange" ? numeroOrange : numeroMTN;
+
+  const copierNumero = async (numeroACopier, nomOperateur) => {
+    try {
+      await navigator.clipboard.writeText(numeroACopier);
+      setMessageCopie(`Numéro ${nomOperateur} copié.`);
+    } catch {
+      setMessageCopie(
+        `Copie automatique impossible. Numéro à copier : ${numeroACopier}`
+      );
+    }
+  };
+
+  const envoyerDon = () => {
+    if (!montant || Number(montant) <= 0) {
+      alert("Veuillez saisir un montant valide.");
+      return;
+    }
+
+    const montantFormate = Number(montant).toLocaleString("fr-FR");
+
+    alert(
+      `Votre don EESAG\n\n` +
+      `Montant : ${montantFormate} FCFA\n` +
+      `Opérateur : ${operateur === "orange" ? "Orange Money" : "MTN Mobile Money"}\n` +
+      `Numéro destinataire : ${numero}\n\n` +
+      `Effectuez le transfert dans votre application Mobile Money, puis vérifiez les informations avant de confirmer.`
+    );
+
+    copierNumero(numero, operateur === "orange" ? "Orange Money" : "MTN Mobile Money");
+  };
+
+  return (
+    <div className="page-standard">
+      <div className="page-hero">
+        <div>
+          <span className="eyebrow">SOUTENIR L'ŒUVRE</span>
+          <h1>❤ Faire un don</h1>
+          <p>
+            Votre soutien contribue au développement des activités
+            et des projets de l'EESAG.
+          </p>
+        </div>
+      </div>
+
+      <section className="carte donation-form">
+        <h2>Nos numéros de réception des dons</h2>
+
+        <div className="form-champ">
+          <label>Orange Money</label>
+          <div className="money-input">
+            <input value={numeroOrange} readOnly aria-label="Numéro Orange Money" />
+            <button
+              type="button"
+              className="btn"
+              onClick={() => copierNumero(numeroOrange, "Orange Money")}
+            >
+              Copier
+            </button>
+          </div>
+        </div>
+
+        <div className="form-champ">
+          <label>MTN Mobile Money</label>
+          <div className="money-input">
+            <input value={numeroMTN} readOnly aria-label="Numéro MTN Mobile Money" />
+            <button
+              type="button"
+              className="btn"
+              onClick={() => copierNumero(numeroMTN, "MTN Mobile Money")}
+            >
+              Copier
+            </button>
+          </div>
+        </div>
+
+        {messageCopie && (
+          <p className="status-active" role="status">
+            {messageCopie}
+          </p>
+        )}
+
+        <hr />
+
+        <h3>Préparer votre don</h3>
+
+        <div className="form-champ">
+          <label htmlFor="montant-don">Montant du don</label>
+          <div className="money-input">
+            <input
+              id="montant-don"
+              type="number"
+              min="500"
+              step="500"
+              value={montant}
+              onChange={(e) => setMontant(e.target.value)}
+              placeholder="Ex. 50000"
+            />
+            <span>FCFA</span>
+          </div>
+        </div>
+
+        <div className="form-champ">
+          <label htmlFor="operateur-don">Opérateur</label>
+          <select
+            id="operateur-don"
+            value={operateur}
+            onChange={(e) => setOperateur(e.target.value)}
+          >
+            <option value="orange">Orange Money</option>
+            <option value="mtn">MTN Mobile Money</option>
+          </select>
+        </div>
+
+        <p>
+          Numéro destinataire : <strong>{numero}</strong>
+        </p>
+
+        <button
+          type="button"
+          className="btn btn-primary"
+          onClick={envoyerDon}
+        >
+          Afficher les instructions du don
+        </button>
+
+        <p className="donation-note">
+          Vérifiez le numéro et le nom du bénéficiaire dans votre
+          application Mobile Money avant de confirmer le transfert.
+          Ce formulaire ne réalise pas lui-même le paiement.
+        </p>
+      </section>
+    </div>
+  );
+}

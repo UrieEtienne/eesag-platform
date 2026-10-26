@@ -14,7 +14,6 @@
   </div>
   <div class="ecg-dashboard-actions">
     {% if user.is_superuser or user.role == 'COORDINATEUR' %}<a class="ecg-button primary" href="{% url 'admin:accounts_utilisateur_add' %}">+ Créer un administrateur bureau</a>{% endif %}
-    <a class="ecg-button" href="/">Ouvrir l'application</a>
   </div>
 </div>
 

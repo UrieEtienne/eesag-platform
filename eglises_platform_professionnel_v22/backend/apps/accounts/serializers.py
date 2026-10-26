@@ -180,44 +180,184 @@ class AbonnementSerializer(serializers.ModelSerializer):
 
 
 class InscriptionMembreSerializer(serializers.Serializer):
-    nom = serializers.CharField(max_length=100)
-    prenom = serializers.CharField(max_length=100)
+    """
+    Inscription publique d'un membre déjà créé par son église.
+
+    Le membre ne crée pas une nouvelle fiche Utilisateur.
+    Il récupère la fiche existante grâce à son identifiant
+    personnel, par exemple : EGL68301-000007.
+    """
+
+    identifiant = serializers.CharField(
+        max_length=20,
+        min_length=14,
+        trim_whitespace=True,
+    )
     telephone = serializers.CharField(max_length=20)
-    password = serializers.CharField(write_only=True, min_length=6)
-    password_confirmation = serializers.CharField(write_only=True, min_length=6)
-    code_eglise = serializers.CharField(max_length=10)
-    email = serializers.EmailField(required=False, allow_blank=True)
+    password = serializers.CharField(
+        write_only=True,
+        min_length=6,
+    )
+    password_confirmation = serializers.CharField(
+        write_only=True,
+        min_length=6,
+    )
+    email = serializers.EmailField(
+        required=False,
+        allow_blank=True,
+    )
+
+    def validate_identifiant(self, value):
+        return value.strip().upper()
 
     def validate(self, attrs):
+        identifiant = attrs["identifiant"]
+
+        user = (
+            Utilisateur.objects
+            .select_related("eglise")
+            .filter(identifiant__iexact=identifiant)
+            .first()
+        )
+
+        if not user:
+            raise serializers.ValidationError({
+                "identifiant": (
+                    "Identifiant membre introuvable. "
+                    "Utilisez l'identifiant fourni par votre église."
+                )
+            })
+
+        # L'inscription publique concerne uniquement les membres
+        # préalablement créés par l'église.
+        if user.role != Role.MEMBRE:
+            raise serializers.ValidationError({
+                "identifiant": (
+                    "Cet identifiant n'est pas celui d'un membre "
+                    "autorisé à effectuer cette inscription."
+                )
+            })
+
+        # Le compte doit être encore en attente d'activation.
+        if user.actif:
+            raise serializers.ValidationError({
+                "identifiant": (
+                    "Ce compte est déjà activé. "
+                    "Vous pouvez vous connecter directement."
+                )
+            })
+
+        if not user.eglise:
+            raise serializers.ValidationError({
+                "identifiant": "Ce compte n'est rattaché à aucune église."
+            })
+
+        # L'église doit être active.
         from apps.churches.models import Eglise
-        eglise = Eglise.objects.filter(code__iexact=attrs["code_eglise"], statut=Eglise.Statut.ACTIVE).first()
-        if not eglise:
-            raise serializers.ValidationError({"code_eglise": "Code d’église invalide ou église inactive."})
+
+        if user.eglise.statut != Eglise.Statut.ACTIVE:
+            raise serializers.ValidationError({
+                "identifiant": "L'église associée à ce compte n'est pas active."
+            })
+
+        # La plateforme de l'église doit avoir été activée
+        # par le Bureau national.
+        if not user.eglise.plateforme_active:
+            raise serializers.ValidationError({
+                "identifiant": (
+                    "La plateforme de votre église n'est pas encore "
+                    "activée par le Bureau national."
+                )
+            })
+
         if attrs["password"] != attrs["password_confirmation"]:
-            raise serializers.ValidationError({"password_confirmation": "Les codes secrets ne correspondent pas."})
+            raise serializers.ValidationError({
+                "password_confirmation": (
+                    "Les mots de passe ne correspondent pas."
+                )
+            })
+
         try:
-            attrs["telephone"] = normaliser_telephone(attrs["telephone"])
+            telephone = normaliser_telephone(attrs["telephone"])
         except ValueError as exc:
-            raise serializers.ValidationError({"telephone": str(exc)})
-        if Utilisateur.objects.filter(telephone=attrs["telephone"]).exists():
-            raise serializers.ValidationError({"telephone": "Ce numéro est déjà enregistré."})
-        attrs["eglise"] = eglise
+            raise serializers.ValidationError({
+                "telephone": str(exc)
+            })
+
+        # Si le numéro appartient déjà à un AUTRE compte,
+        # on refuse l'inscription.
+        autre_utilisateur = (
+            Utilisateur.objects
+            .filter(telephone=telephone)
+            .exclude(pk=user.pk)
+            .first()
+        )
+
+        if autre_utilisateur:
+            raise serializers.ValidationError({
+                "telephone": "Ce numéro est déjà enregistré."
+            })
+
+        attrs["identifiant"] = user.identifiant
+        attrs["utilisateur"] = user
+        attrs["telephone"] = telephone
+
         return attrs
 
     @transaction.atomic
     def create(self, validated_data):
-        validated_data.pop("password_confirmation")
-        password = validated_data.pop("password")
-        eglise = validated_data.pop("eglise")
-        user = Utilisateur(
-            **validated_data, eglise=eglise, role=Role.MEMBRE, actif=False,
-        )
+        user = validated_data["utilisateur"]
+
+        telephone = validated_data["telephone"]
+        email = validated_data.get("email", "")
+        password = validated_data["password"]
+
+        # On met à jour la fiche créée précédemment
+        # par l'administration de l'église.
+        user.telephone = telephone
+        user.email = email
         user.set_password(password)
-        user.save()
-        from .services_sms import notifier_nouvel_identifiant, normaliser_telephone
-        resultats = notifier_nouvel_identifiant(
-            user, "le mot de passe que vous avez choisi", origine=eglise.nom
+        user.actif = False
+
+        # Le rôle, l'église et l'identifiant existants
+        # ne sont surtout pas modifiés.
+        user.save(
+            update_fields=[
+                "telephone",
+                "email",
+                "password",
+                "actif",
+            ]
         )
+
+        # Un ancien OTP non utilisé ne doit plus être prioritaire.
+        VerificationTelephone.objects.filter(
+            utilisateur=user,
+            utilise=False,
+        ).update(utilise=True)
+
+        # Génère/envoyer un nouveau code OTP.
+        from .services_sms import envoyer_otp
+
+        result = envoyer_otp(
+            user.telephone,
+            utilisateur=user,
+            creer_utilisateur=True,
+            origine=(
+                user.eglise.nom
+                if user.eglise
+                else "Bureau national EESAG"
+            ),
+        )
+
+        if not result.get("ok"):
+            raise serializers.ValidationError({
+                "telephone": result.get(
+                    "error",
+                    "Impossible d'envoyer le code de confirmation."
+                )
+            })
+
         return user
 
 

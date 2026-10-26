@@ -126,3 +126,415 @@ html[data-theme="dark"] body{background:#0b1220;color:#e5e7eb}html[data-theme="d
 .national-bottom-grid{display:grid;grid-template-columns:1.25fr 1fr;gap:14px;margin-top:14px}.national-finance-card{min-height:170px}.national-finance-total{display:flex;flex-direction:column;align-items:flex-end;gap:3px}.national-finance-total small{font-size:8px;color:#8e9da9}.national-finance-total strong{font-size:17px;color:#1b5365}.national-finance-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:15px}.national-finance-grid div{padding:14px;border-radius:12px;background:#f7fafb;border:1px solid #edf2f4}.national-finance-grid span{display:block;color:#8b9aa6;font-size:9px}.national-finance-grid strong{display:block;color:#183b56;font-size:15px;margin-top:5px}.national-governance-card{min-height:170px}.national-governance-list{display:grid;gap:5px}.national-governance-row{display:grid;grid-template-columns:30px minmax(0,1fr) auto;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #f0f4f6}.national-governance-row:last-child{border-bottom:0}.national-avatar{width:30px;height:30px;border-radius:10px;background:#e8f7f8;color:#206577;display:grid;place-items:center;font-size:9px;font-weight:900}.national-governance-row b{display:block;color:#153a54;font-size:10px}.national-governance-row small{display:block;margin-top:2px;color:#9aa6b1;font-size:8px}.national-governance-row>span{font-size:8px;font-weight:800;color:#36a36d}.national-empty{padding:38px 10px;text-align:center;color:#95a2ad;font-size:10px}.national-loading,.national-error{max-width:620px;margin:70px auto;padding:30px;text-align:center;border-radius:16px;background:#fff;border:1px solid #e0e7eb;box-shadow:0 12px 30px rgba(28,60,78,.06)}.national-loading{display:flex;gap:10px;align-items:center;justify-content:center;color:#7a8996;font-size:11px}.national-error{display:flex;flex-direction:column;gap:7px}.national-error strong{color:#163a54}.national-error span{color:#8c9aa7;font-size:11px;line-height:1.5}
 @media(max-width:1200px){.national-stat-grid{grid-template-columns:repeat(2,1fr)}.national-reference-grid{grid-template-columns:1fr 1fr}.national-chart-card.large{grid-column:span 2}.national-bottom-grid{grid-template-columns:1fr}}
 @media(max-width:760px){.national-dashboard-shell{margin:0;padding:10px 4px 34px}.national-hero{flex-direction:column;align-items:flex-start}.national-hero-meta{align-items:flex-start;min-width:0}.national-stat-grid{grid-template-columns:1fr}.national-reference-grid{grid-template-columns:1fr}.national-chart-card.large{grid-column:span 1}.national-bottom-grid{grid-template-columns:1fr}.national-finance-grid{grid-template-columns:1fr}.national-hero h1{font-size:27px}}
+
+
+/* Champ mot de passe avec icône intégrée */
+.champ-password {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-width: 0;
+}
+
+.champ-password input {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  min-height: 52px;
+  box-sizing: border-box;
+  padding: 14px 52px 14px 15px;
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+.champ-password .password-toggle {
+  position: absolute;
+  top: 50%;
+  right: 10px;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  margin: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: #64748b;
+  cursor: pointer;
+  box-shadow: none;
+}
+
+.champ-password .password-toggle:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+.champ-password .password-toggle:focus-visible {
+  outline: 2px solid #64748b;
+  outline-offset: 2px;
+}
+
+.champ-password .password-toggle:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+/* ============================================================
+   EESAG - NOUVEL ACCUEIL MEMBRE
+   ============================================================ */
+
+.eesag-home {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.home-hero {
+  position: relative;
+  min-height: 430px;
+  border-radius: 28px;
+  background-position: center;
+  background-size: cover;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  color: white;
+}
+
+.home-hero-content {
+  max-width: 760px;
+  padding: 48px;
+}
+
+.home-hero h1 {
+  font-size: clamp(2.2rem, 5vw, 4.5rem);
+  margin: 12px 0;
+}
+
+.home-church-name {
+  font-size: 1.4rem;
+  font-weight: 700;
+}
+
+.home-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 28px;
+}
+
+.home-slider-controls {
+  position: absolute;
+  bottom: 22px;
+  left: 48px;
+  display: flex;
+  gap: 8px;
+}
+
+.home-slider-controls button {
+  width: 12px;
+  height: 12px;
+  border: 0;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.home-slider-controls button.active {
+  transform: scale(1.25);
+}
+
+.daily-verse-card {
+  text-align: center;
+  padding: 34px;
+}
+
+.daily-verse-card blockquote {
+  font-size: 1.35rem;
+  line-height: 1.7;
+  margin: 18px auto;
+  max-width: 900px;
+}
+
+.home-section {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.home-service-grid {
+  display: grid;
+  grid-template-columns:
+    repeat(auto-fit, minmax(220px, 1fr));
+  gap: 18px;
+}
+
+.home-service-card {
+  display: block;
+  padding: 24px;
+  border-radius: 20px;
+  text-decoration: none;
+  transition:
+    transform .2s ease,
+    box-shadow .2s ease;
+}
+
+.home-service-card:hover {
+  transform: translateY(-4px);
+}
+
+.home-service-card > span {
+  font-size: 2rem;
+}
+
+.home-service-card h3 {
+  margin: 12px 0 8px;
+}
+
+.home-service-card p {
+  line-height: 1.6;
+  opacity: .8;
+}
+
+.home-church-panel {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 24px;
+  padding: 30px;
+}
+
+.home-purpose {
+  padding: 34px;
+}
+
+.location-result {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px;
+  margin-top: 16px;
+  border-radius: 14px;
+}
+
+.location-results {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.bible-verse {
+  font-size: 1.15rem;
+  line-height: 1.8;
+}
+
+.money-input {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.money-input input {
+  flex: 1;
+}
+
+.share-card {
+  text-align: center;
+  padding: 50px 30px;
+}
+
+.share-icon {
+  font-size: 4rem;
+  margin-bottom: 20px;
+}
+
+.donation-form {
+  max-width: 700px;
+}
+
+.donation-note {
+  opacity: .7;
+  margin-top: 18px;
+}
+
+[data-font-size="small"] {
+  font-size: 90%;
+}
+
+[data-font-size="normal"] {
+  font-size: 100%;
+}
+
+[data-font-size="large"] {
+  font-size: 112%;
+}
+
+[data-font-size="xlarge"] {
+  font-size: 125%;
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+}
+
+[data-theme="light"] {
+  color-scheme: light;
+}
+
+@media (max-width: 700px) {
+  .home-hero-content {
+    padding: 30px 22px;
+  }
+
+  .home-hero {
+    min-height: 480px;
+  }
+
+  .home-church-panel {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+/* =========================================================
+   EESAG — DISPOSITION STABLE : MENU FIXE ET PAGE DÉFILANTE
+   ========================================================= */
+
+html,
+body,
+#root {
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+  min-height: 100%;
+  margin: 0;
+}
+
+body {
+  overflow: hidden;
+}
+
+.app-layout {
+  display: flex !important;
+  position: relative;
+  width: 100% !important;
+  height: 100vh;
+  min-height: 0 !important;
+  margin: 0 !important;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+/* Menu latéral fixe, avec son propre défilement si nécessaire */
+.app-layout > .sidebar {
+  position: fixed !important;
+  inset: 0 auto 0 0 !important;
+  width: 286px !important;
+  min-width: 0;
+  height: 100vh !important;
+  max-height: 100vh;
+  overflow-x: hidden;
+  overflow-y: auto;
+  flex-shrink: 0;
+  z-index: 1000;
+  box-sizing: border-box;
+  transition: transform 0.25s ease, visibility 0.25s ease;
+}
+
+/* Menu ouvert */
+.app-layout.sidebar-visible > .sidebar {
+  transform: translateX(0) !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
+}
+
+/* Menu fermé */
+.app-layout.sidebar-hidden > .sidebar {
+  transform: translateX(-100%) !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+/* Zone principale : seul cet espace défile */
+.app-layout > .contenu-principal {
+  position: relative;
+  height: 100vh;
+  min-height: 0 !important;
+  min-width: 0 !important;
+  max-width: none !important;
+  flex: 1 1 100%;
+  width: 100%;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  box-sizing: border-box !important;
+  transition: margin-left 0.25s ease, width 0.25s ease;
+}
+
+/* Menu ouvert : la page commence après le menu */
+.app-layout.sidebar-visible > .contenu-principal {
+  width: calc(100% - 286px) !important;
+  flex: 0 0 calc(100% - 286px) !important;
+  margin-left: 286px !important;
+}
+
+/* Menu fermé : la page utilise toute la largeur */
+.app-layout.sidebar-hidden > .contenu-principal {
+  width: 100% !important;
+  flex: 0 0 100% !important;
+  margin-left: 0 !important;
+}
+
+/* Barre bleue en haut de la zone principale */
+.app-layout > .contenu-principal > .app-topbar {
+  position: sticky !important;
+  top: 0;
+  z-index: 900;
+  display: flex;
+  width: 100% !important;
+  max-width: none !important;
+  margin: 0 !important;
+  box-sizing: border-box;
+}
+
+/* Bouton menu toujours utilisable */
+.app-layout .app-topbar .sidebar-toggle {
+  display: inline-flex !important;
+  position: relative;
+  z-index: 1100;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  visibility: visible !important;
+  opacity: 1 !important;
+  cursor: pointer;
+}
+
+/* Contenu et tableaux sans débordement horizontal global */
+.app-layout > .contenu-principal > .page-container {
+  display: block;
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: none !important;
+  margin: 0 !important;
+  box-sizing: border-box;
+}
+
+/* Petit écran : menu en superposition, page pleine largeur */
+@media (max-width: 800px) {
+  .app-layout > .sidebar {
+    width: min(286px, 85vw) !important;
+  }
+
+  .app-layout.sidebar-visible > .contenu-principal,
+  .app-layout.sidebar-hidden > .contenu-principal {
+    width: 100% !important;
+    flex: 0 0 100% !important;
+    margin-left: 0 !important;
+  }
+}

@@ -87,19 +87,22 @@ export default function Layout({ children }) {
     );
   };
 
+  const nomEglise =
+    utilisateur?.eglise_nom ||
+    utilisateur?.eglise?.nom ||
+    "Mon église";
+
   const scopeName = estCoordinateur
     ? "Coordinateur · Propriétaire du système"
-    : estBureauNational && !estBureauNationalGeneral
-      ? (bureaux[0]?.nom || "Mon bureau national")
-      : estBureauNationalGeneral
-        ? "Bureau national"
-        : utilisateur?.eglise_nom || "Espace membre";
+    : estBureauNational
+      ? "Bureau national"
+      : nomEglise;
 
   const scopeKind = estCoordinateur
     ? "PROPRIÉTAIRE DU SYSTÈME"
     : estBureauNational
       ? "BUREAU NATIONAL"
-      : "ÉGLISE LOCALE";
+      : "MON ÉGLISE";
 
   return (
     <div className="app-layout">
@@ -110,7 +113,6 @@ export default function Layout({ children }) {
           </div>
           <div>
             <strong>EESAG</strong>
-            <small>Plateforme de gestion</small>
           </div>
         </div>
 

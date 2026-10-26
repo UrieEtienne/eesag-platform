@@ -18,7 +18,6 @@ const initial = {
 };
 
 export default function FormulaireEglise({ onFerme, onCree }) {
-  const [religions, setReligions] = useState([]);
   const [regions, setRegions] = useState([]);
   const [prefectures, setPrefectures] = useState([]);
   const [districts, setDistricts] = useState([]);
@@ -28,13 +27,11 @@ export default function FormulaireEglise({ onFerme, onCree }) {
   const [form, setForm] = useState(initial);
 
   useEffect(() => {
-    Promise.all([client.get("/religions/"), client.get("/geo/regions/")])
-      .then(([religionsResponse, regionsResponse]) => {
-        setReligions(religionsResponse.data.results || religionsResponse.data || []);
+    Promise.all([client.get("/geo/regions/")])
+      .then(([regionsResponse]) => {
         setRegions(regionsResponse.data.results || regionsResponse.data || []);
       })
       .catch(() => {
-        setReligions([]);
         setRegions([]);
       });
   }, []);

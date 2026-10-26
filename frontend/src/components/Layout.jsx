@@ -9,6 +9,7 @@ export default function Layout({ children }) {
     deconnecter,
     estCoordinateur,
     estBureauNational,
+    estBureauNationalGeneral,
     estGestionnaireEglise,
     estAdminLocal,
     estPasteur,
@@ -18,7 +19,68 @@ export default function Layout({ children }) {
   const [annonces, setAnnonces] = useState([]);
   const [sidebarOuverte, setSidebarOuverte] = useState(true);
 
+  const [mobile, setMobile] = useState(
+    () => window.matchMedia("(max-width: 767px)").matches
+  );
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(max-width: 767px)");
+
+    const handleResize = (event) => {
+      setMobile(event.matches);
+
+      if (event.matches) {
+        setSidebarOuverte(false);
+      }
+    };
+
+    handleResize(mediaQuery);
+
+    mediaQuery.addEventListener("change", handleResize);
+
+    return () => {
+      mediaQuery.removeEventListener("change", handleResize);
+    };
+  }, []);
+
+  useEffect(() => {
+    document.body.classList.toggle(
+      "menu-mobile-ouvert",
+      mobile && sidebarOuverte
+    );
+
+    return () => {
+      document.body.classList.remove("menu-mobile-ouvert");
+    };
+  }, [mobile, sidebarOuverte]);
+
+  const fermerSidebarSurMobile = () => {
+    if (mobile) {
+      setSidebarOuverte(false);
+    }
+  };
+
   const location = useLocation();
+
+  /*
+  |--------------------------------------------------------------------------
+  | URL DES ADMINISTRATIONS DJANGO
+  |--------------------------------------------------------------------------
+  */
+
+  // Administration Django principale : Coordinateur du système.
+  const djangoAdminUrl =
+    import.meta.env.VITE_DJANGO_ADMIN_URL ||
+    (import.meta.env.DEV
+      ? "http://127.0.0.1:8000/admin/"
+      : "/admin/");
+
+  // Administration Django séparée : Bureau national général.
+  const djangoAdminNationalUrl =
+    import.meta.env.VITE_DJANGO_ADMIN_NATIONAL_URL ||
+    (import.meta.env.DEV
+      ? "http://127.0.0.1:8000/admin-national/"
+      : "/admin-national/");
 
   /*
   |--------------------------------------------------------------------------
@@ -27,7 +89,11 @@ export default function Layout({ children }) {
   */
 
   useEffect(() => {
-    if (!utilisateur) return;
+    if (!utilisateur) {
+      setNonLues(0);
+      setAnnonces([]);
+      return;
+    }
 
     client
       .get("/notifications/")
@@ -91,29 +157,22 @@ export default function Layout({ children }) {
   |--------------------------------------------------------------------------
   */
 
+  const nomEglise =
+    utilisateur?.eglise_nom ||
+    utilisateur?.eglise?.nom ||
+    "Mon église";
+
   const scopeName = estCoordinateur
     ? "Coordinateur · Propriétaire du système"
     : estBureauNational
       ? "Bureau national"
-      : utilisateur?.eglise_nom || "Église locale";
+      : nomEglise;
 
   const scopeKind = estCoordinateur
     ? "PROPRIÉTAIRE DU SYSTÈME"
     : estBureauNational
       ? "BUREAU NATIONAL"
-      : "ÉGLISE LOCALE";
-
-  /*
-  |--------------------------------------------------------------------------
-  | URL DE L'ADMINISTRATION DJANGO
-  |--------------------------------------------------------------------------
-  */
-
-  const djangoAdminUrl =
-    import.meta.env.VITE_DJANGO_ADMIN_URL ||
-    (import.meta.env.DEV
-      ? "http://127.0.0.1:8000/admin/"
-      : "/admin/");
+      : "MON ÉGLISE";
 
   return (
     <div
@@ -136,7 +195,6 @@ export default function Layout({ children }) {
           {sidebarOuverte && (
             <div>
               <strong>EESAG</strong>
-              <small>Plateforme de gestion</small>
             </div>
           )}
         </div>
@@ -161,23 +219,29 @@ export default function Layout({ children }) {
         <nav className="sidebar-nav">
           {/* ACCUEIL */}
 
-          {sidebarOuverte && (
-            <div className="nav-section-label">Navigation</div>
-          )}
+          {/* {sidebarOuverte && (
+            <div className="nav-section-label">
+              Navigation
+            </div>
+          )} */}
 
           {estCoordinateur &&
             link("/national", "Tableau national", "⌂")}
 
           {estBureauNational &&
-            link("/national", "Tableau de bord national", "⌂")}
+            link(
+              "/national",
+              "Tableau de bord national",
+              "⌂"
+            )}
 
           {estGestionnaireEglise &&
-            link("/eglise-dashboard", "Tableau de bord", "⌂")}
+            link(
+              "/eglise-dashboard",
+              "Tableau de bord",
+              "⌂"
+            )}
 
-          {!estCoordinateur &&
-            !estBureauNational &&
-            !estGestionnaireEglise &&
-            link("/", "Accueil", "⌂")}
 
           {/* COORDINATEUR : ADMINISTRATION */}
 
@@ -189,14 +253,18 @@ export default function Layout({ children }) {
                 </div>
               )}
 
-              {link("/admin", "Administration EESAG", "⚙")}
+              {link(
+                "/admin",
+                "Administration EESAG",
+                "⚙"
+              )}
 
               <a
                 href={djangoAdminUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="nav-link django-admin-link"
-                title="Ouvrir l'administration Django"
+                title="Ouvrir l'administration Django du Coordinateur"
               >
                 <span className="nav-icon">⚙</span>
 
@@ -219,10 +287,49 @@ export default function Layout({ children }) {
                 </div>
               )}
 
-              {link("/eglises", "Liste des églises", "▤")}
-              {link("/bureaux", "Bureau national", "◆")}
-              {link("/documents", "Documents", "▣")}
-              {link("/rapports", "Rapports", "▤")}
+              {link(
+                "/eglises",
+                "Liste des églises",
+                "▤"
+              )}
+
+              {/* ADMIN DJANGO : BUREAU NATIONAL GÉNÉRAL */}
+
+              {estBureauNationalGeneral && (
+                <a
+                  href={djangoAdminNationalUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="nav-link django-admin-link"
+                  title="Créer et gérer les églises dans Django Admin"
+                >
+                  <span className="nav-icon">⚙</span>
+
+                  {sidebarOuverte && (
+                    <span className="nav-label">
+                      Admin Django · Créer des églises
+                    </span>
+                  )}
+                </a>
+              )}
+
+              {link(
+                "/bureaux",
+                "Bureau national",
+                "◆"
+              )}
+
+              {link(
+                "/documents",
+                "Documents",
+                "▣"
+              )}
+
+              {link(
+                "/rapports",
+                "Rapports",
+                "▤"
+              )}
             </>
           )}
 
@@ -247,7 +354,11 @@ export default function Layout({ children }) {
               {link("/annexes", "Annexes", "⌘")}
               {link("/courriers", "Courriers", "✉")}
               {link("/documents", "Documents", "▣")}
-              {link("/finances", "Comptabilité & projets", "₣")}
+              {link(
+                "/finances",
+                "Comptabilité & projets",
+                "₣"
+              )}
               {link("/rapports", "Rapports", "▤")}
             </>
           )}
@@ -272,9 +383,11 @@ export default function Layout({ children }) {
 
           {/* SERVICES COMMUNS */}
 
-          {sidebarOuverte && (
-            <div className="nav-section-label">Services</div>
-          )}
+          {/* {sidebarOuverte && (
+            <div className="nav-section-label">
+              Services
+            </div>
+          )} */}
 
           {link(
             "/notifications",
@@ -286,6 +399,26 @@ export default function Layout({ children }) {
           {link("/reunions", "Réunions vidéo", "◉")}
           {link("/profil", "Mon profil", "●")}
 
+          {link("/a-propos", "À propos", "ⓘ")}
+
+          {link(
+            "/parametres-interface",
+            "Paramètres",
+            "⚙"
+          )}
+
+          {link(
+            "/dons",
+            "Faire un don",
+            "❤"
+          )}
+
+          {link(
+            "/partager",
+            "Partager l'application",
+            "↗"
+          )}
+
           {/* CONTRÔLE GLOBAL DU COORDINATEUR */}
 
           {estCoordinateur && (
@@ -296,10 +429,29 @@ export default function Layout({ children }) {
                 </div>
               )}
 
-              {link("/eglises", "Toutes les églises", "◎")}
-              {link("/documents", "Tous les documents", "▣")}
-              {link("/finances", "Toutes les finances", "₣")}
-              {link("/rapports", "Tous les rapports", "▤")}
+              {link(
+                "/eglises",
+                "Toutes les églises",
+                "◎"
+              )}
+
+              {link(
+                "/documents",
+                "Tous les documents",
+                "▣"
+              )}
+
+              {link(
+                "/finances",
+                "Toutes les finances",
+                "₣"
+              )}
+
+              {link(
+                "/rapports",
+                "Tous les rapports",
+                "▤"
+              )}
             </>
           )}
 
@@ -310,14 +462,43 @@ export default function Layout({ children }) {
             !estAdminLocal &&
             !estPasteur && (
               <>
-                {sidebarOuverte && (
+                {/* {sidebarOuverte && (
                   <div className="nav-section-label">
-                    Mon espace
+                    MON ESPACE
                   </div>
+                )} */}
+
+                {link("/", "Accueil", "⌂")}
+
+                {link(
+                  "/bureau-national",
+                  "Bureau national",
+                  "◆"
                 )}
 
-                {link("/bureau-national", "Bureau national", "◆")}
-                {link("/notifications", "Communications", "◌")}
+                {link(
+                  "/bible",
+                  "Bible",
+                  "📖"
+                )}
+
+                {link(
+                  "/dictionnaire-biblique",
+                  "Dictionnaire biblique",
+                  "📚"
+                )}
+
+                {link(
+                  "/localisation",
+                  "Localisation",
+                  "📍"
+                )}
+
+                {link(
+                  "/notifications",
+                  "Communications",
+                  "◌"
+                )}
               </>
             )}
         </nav>
@@ -336,7 +517,10 @@ export default function Layout({ children }) {
 
         <div className="sidebar-footer">
           {sidebarOuverte && (
-            <NavLink className="team-link" to="/informations">
+            <NavLink
+              className="team-link"
+              to="/informations"
+            >
               <span>Équipe</span>
               <small>Équipe de développement</small>
             </NavLink>
@@ -364,7 +548,8 @@ export default function Layout({ children }) {
                 </b>
 
                 <small>
-                  {utilisateur?.role_libelle || utilisateur?.role}
+                  {utilisateur?.role_libelle ||
+                    utilisateur?.role}
                 </small>
               </div>
             )}
@@ -402,7 +587,10 @@ export default function Layout({ children }) {
           </button>
 
           <div className="app-topbar-scope">
-            <span className="topbar-overline">{scopeKind}</span>
+            <span className="topbar-overline">
+              {scopeKind}
+            </span>
+
             <strong className="topbar-scope-name">
               {scopeName}
             </strong>
@@ -432,7 +620,9 @@ export default function Layout({ children }) {
           </div>
         </header>
 
-        <div className="page-container">{children}</div>
+        <div className="page-container">
+          {children}
+        </div>
       </main>
     </div>
   );

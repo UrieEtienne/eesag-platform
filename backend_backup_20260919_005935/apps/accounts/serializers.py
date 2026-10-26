@@ -179,43 +179,118 @@ class InscriptionMembreSerializer(serializers.Serializer):
     nom = serializers.CharField(max_length=100)
     prenom = serializers.CharField(max_length=100)
     telephone = serializers.CharField(max_length=20)
-    password = serializers.CharField(write_only=True, min_length=6)
-    password_confirmation = serializers.CharField(write_only=True, min_length=6)
-    code_eglise = serializers.CharField(max_length=10)
-    email = serializers.EmailField(required=False, allow_blank=True)
+
+    password = serializers.CharField(
+        write_only=True,
+        min_length=6
+    )
+
+    password_confirmation = serializers.CharField(
+        write_only=True,
+        min_length=6
+    )
+
+    code_eglise = serializers.CharField(
+        min_length=8,
+        max_length=8,
+        trim_whitespace=True
+    )
+
+    email = serializers.EmailField(
+        required=False,
+        allow_blank=True
+    )
+
+    def validate_code_eglise(self, value):
+        """
+        Le code d'une église EESAG est toujours du type :
+        EGL12345 = 8 caractères.
+        """
+        value = value.strip().upper()
+
+        import re
+
+        if not re.fullmatch(r"EGL\d{5}", value):
+            raise serializers.ValidationError(
+                "Le code de l’église doit être au format EGL12345."
+            )
+
+        return value
 
     def validate(self, attrs):
         from apps.churches.models import Eglise
-        eglise = Eglise.objects.filter(code__iexact=attrs["code_eglise"], statut=Eglise.Statut.ACTIVE).first()
+
+        eglise = Eglise.objects.filter(
+            code__iexact=attrs["code_eglise"],
+            statut=Eglise.Statut.ACTIVE
+        ).first()
+
         if not eglise:
-            raise serializers.ValidationError({"code_eglise": "Code d’église invalide ou église inactive."})
+            raise serializers.ValidationError({
+                "code_eglise":
+                    "Code d’église invalide ou église inactive."
+            })
+
+        # IMPORTANT :
+        # l'inscription est impossible tant que le Bureau national
+        # n'a pas activé la plateforme de cette église.
         if not eglise.plateforme_active:
-            raise serializers.ValidationError({"code_eglise": "Cette église n’est pas encore activée par le Bureau national."})
+            raise serializers.ValidationError({
+                "code_eglise":
+                    "Cette église n’est pas encore activée par le Bureau national."
+            })
+
         if attrs["password"] != attrs["password_confirmation"]:
-            raise serializers.ValidationError({"password_confirmation": "Les codes secrets ne correspondent pas."})
+            raise serializers.ValidationError({
+                "password_confirmation":
+                    "Les codes secrets ne correspondent pas."
+            })
+
         try:
-            attrs["telephone"] = normaliser_telephone(attrs["telephone"])
+            attrs["telephone"] = normaliser_telephone(
+                attrs["telephone"]
+            )
         except ValueError as exc:
-            raise serializers.ValidationError({"telephone": str(exc)})
-        if Utilisateur.objects.filter(telephone=attrs["telephone"]).exists():
-            raise serializers.ValidationError({"telephone": "Ce numéro est déjà enregistré."})
+            raise serializers.ValidationError({
+                "telephone": str(exc)
+            })
+
+        if Utilisateur.objects.filter(
+            telephone=attrs["telephone"]
+        ).exists():
+            raise serializers.ValidationError({
+                "telephone":
+                    "Ce numéro est déjà enregistré."
+            })
+
         attrs["eglise"] = eglise
+
         return attrs
 
     @transaction.atomic
     def create(self, validated_data):
         validated_data.pop("password_confirmation")
+
         password = validated_data.pop("password")
         eglise = validated_data.pop("eglise")
+
         user = Utilisateur(
-            **validated_data, eglise=eglise, role=Role.MEMBRE, actif=False, is_staff=False,
+            **validated_data,
+            eglise=eglise,
+            role=Role.MEMBRE,
+            actif=False,
+            is_staff=False,
         )
+
         user.set_password(password)
         user.save()
-        from .services_sms import notifier_nouvel_identifiant, normaliser_telephone, envoyer_sms_detail
+
         resultats = notifier_nouvel_identifiant(
-            user, "le mot de passe que vous avez choisi", origine=eglise.nom
+            user,
+            "le mot de passe que vous avez choisi",
+            origine=eglise.nom
         )
+
         return user
 
 

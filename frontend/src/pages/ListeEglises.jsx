@@ -6,9 +6,7 @@ import { useAuth } from "../context/AuthContext";
 
 export default function ListeEglises() {
   const [eglises, setEglises] = useState([]);
-  const [religions, setReligions] = useState([]);
   const [recherche, setRecherche] = useState("");
-  const [religionFiltre, setReligionFiltre] = useState("");
   const [erreur, setErreur] = useState("");
   const [chargement, setChargement] = useState(false);
 
@@ -22,12 +20,6 @@ export default function ListeEglises() {
   const peutAdministrer = estCoordinateur || estBureauNationalGeneral;
   const lectureSeule = estBureauNational && !estBureauNationalGeneral;
 
-  useEffect(() => {
-    client
-      .get("/religions/")
-      .then((r) => setReligions(r.data.results || r.data || []))
-      .catch(() => setReligions([]));
-  }, []);
 
   useEffect(() => {
     let annule = false;
@@ -40,7 +32,6 @@ export default function ListeEglises() {
         const response = await client.get("/eglises/", {
           params: {
             ...(recherche.trim() ? { search: recherche.trim() } : {}),
-            ...(religionFiltre ? { religion: religionFiltre } : {}),
           },
         });
 
@@ -63,7 +54,7 @@ export default function ListeEglises() {
       annule = true;
       clearTimeout(timer);
     };
-  }, [recherche, religionFiltre]);
+  }, [recherche]);
 
   return (
     <div>
@@ -97,19 +88,6 @@ export default function ListeEglises() {
           onChange={(event) => setRecherche(event.target.value)}
           aria-label="Rechercher une église"
         />
-
-        <select
-          value={religionFiltre}
-          onChange={(event) => setReligionFiltre(event.target.value)}
-          aria-label="Filtrer par religion"
-        >
-          <option value="">Toutes les religions</option>
-          {religions.map((religion) => (
-            <option key={religion.id} value={religion.id}>
-              {religion.nom}
-            </option>
-          ))}
-        </select>
       </div>
 
       <div className="carte table-wrap">
@@ -118,7 +96,6 @@ export default function ListeEglises() {
             <tr>
               <th>Code</th>
               <th>Église</th>
-              <th>Religion</th>
               <th>Région</th>
               <th>Statut plateforme</th>
               {peutAdministrer && <th>Membres</th>}
@@ -133,7 +110,6 @@ export default function ListeEglises() {
                   <b>{eglise.code || "—"}</b>
                 </td>
                 <td>{eglise.nom || "—"}</td>
-                <td>{eglise.religion_nom || "—"}</td>
                 <td>{eglise.region_nom || "—"}</td>
                 <td>
                   {eglise.plateforme_active ? (

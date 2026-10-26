@@ -7,6 +7,30 @@
 {{ block.super }}
 <link rel="stylesheet" href="{% static 'admin/css/ecg_admin.css' %}?v=20261024-layout2">
 {% endblock %}
-{% block nav-global %}<div class="ecg-admin-global"><div class="ecg-admin-scope-pill"><span>PÉRIMÈTRE</span><b>{% scope_label %}</b></div><a href="{% url 'admin:index' %}" class="is-active">Tableau</a>{% if user.role == 'COORDINATEUR' or user.is_superuser %}<a href="{% url 'admin:churches_eglise_changelist' %}">Églises</a><a href="{% url 'admin:accounts_utilisateur_changelist' %}">Comptes</a><a href="{% url 'admin:bureaux_bureau_changelist' %}">Bureaux</a><a href="{% url 'admin:finance_transaction_changelist' %}">Comptabilité</a><a href="/systeme">Fonctionnalités</a>{% elif user.role == 'SUPERADMIN_INTL' or user.role == 'SUPERADMIN_NATIONAL' %}{% scope_is_national_general as general_national %}{% if general_national %}<a href="{% url 'admin:churches_eglise_changelist' %}">Églises</a><a href="{% url 'admin:accounts_utilisateur_changelist' %}">Comptes à contrôler</a><a href="{% url 'admin:bureaux_bureau_changelist' %}">Bureaux</a>{% else %}<a href="{% url 'admin:bureaux_bureau_changelist' %}">Mon bureau</a><a href="{% url 'admin:bureaux_bureaumembre_changelist' %}">Composition</a>{% endif %}{% elif user.role == 'PASTEUR' or user.role == 'ADMIN_LOCAL' %}<a href="{% url 'admin:accounts_utilisateur_changelist' %}">Membres & comptes</a><a href="{% url 'admin:bureaux_bureau_changelist' %}">Bureaux</a><a href="{% url 'admin:finance_transaction_changelist' %}">Comptabilité</a>{% endif %}<a href="/">Ouvrir la plateforme</a></div>{% endblock %}
+{% block nav-global %}<div class="ecg-admin-global"><div class="ecg-admin-scope-pill"><span>PÉRIMÈTRE</span><b>{% scope_label %}</b></div><a href="{% url 'admin:index' %}" class="is-active">Tableau</a>{% if user.role == 'COORDINATEUR' or user.is_superuser %}{% url 'admin:churches_eglise_changelist' as eglises_url %}
+{% if eglises_url %}
+    <a href="{{ eglises_url }}">Églises</a>
+{% endif %}{% url 'admin:accounts_utilisateur_changelist' as comptes_url %}
+{% if comptes_url %}
+    <a href="{{ comptes_url }}">Comptes</a>
+{% endif %}{% url 'admin:bureaux_bureau_changelist' as bureaux_url %}
+{% if bureaux_url %}
+  <a href="{{ bureaux_url }}">Bureaux</a>
+{% endif %}{% url 'admin:finance_transaction_changelist' as finance_url %}
+{% if finance_url %}
+    <a href="{{ finance_url }}">Comptabilité</a>
+{% endif %}<a href="/systeme">Fonctionnalités</a>{% elif user.role == 'SUPERADMIN_INTL' or user.role == 'SUPERADMIN_NATIONAL' %}{% scope_is_national_general as general_national %}{% if general_national %}{% url 'admin:churches_eglise_changelist' as eglises_url %}
+{% if eglises_url %}
+    <a href="{{ eglises_url }}">Églises</a>
+{% endif %}<a href="{% url 'admin:accounts_utilisateur_changelist' %}">Comptes à contrôler</a>{% url 'admin:bureaux_bureau_changelist' as bureaux_url %}
+{% if bureaux_url %}
+  <a href="{{ bureaux_url }}">Bureaux</a>
+{% endif %}{% else %}<a href="{% url 'admin:bureaux_bureau_changelist' %}">Mon bureau</a><a href="{% url 'admin:bureaux_bureaumembre_changelist' %}">Composition</a>{% endif %}{% elif user.role == 'PASTEUR' or user.role == 'ADMIN_LOCAL' %}<a href="{% url 'admin:accounts_utilisateur_changelist' %}">Membres & comptes</a>{% url 'admin:bureaux_bureau_changelist' as bureaux_url %}
+{% if bureaux_url %}
+  <a href="{{ bureaux_url }}">Bureaux</a>
+{% endif %}{% url 'admin:finance_transaction_changelist' as finance_url %}
+{% if finance_url %}
+    <a href="{{ finance_url }}">Comptabilité</a>
+{% endif %}{% endif %}<a href="/">Ouvrir la plateforme</a></div>{% endblock %}
 {% block footer %}<div id="footer"><span class="ecg-admin-footer-team"><a href="/informations">Équipe</a> · Développement EESAG</span></div>{% endblock %}
 {% block userlinks %}{% if user.is_active and user.is_staff %}<span class="ecg-admin-user-preview">{% if user.photo %}<img src="{{ user.photo.url }}" alt="Photo">{% else %}<img src="{% static 'admin/img/logo_eesag.jpg' %}" alt="EESAG">{% endif %}</span>{% endif %}{{ block.super }}{% endblock %}

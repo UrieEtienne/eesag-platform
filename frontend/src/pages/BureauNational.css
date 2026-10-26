@@ -1,0 +1,447 @@
+/* =========================================================
+   PAGE BUREAUX NATIONAUX
+========================================================= */
+
+.bureau-national-page {
+  min-height: 100vh;
+  background: #f5f8fc;
+  color: #172b4d;
+}
+
+/* =========================================================
+   HERO
+========================================================= */
+
+.bureau-national-hero {
+  min-height: 181px;
+  padding: 28px 72px 30px;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 40px;
+
+  background:
+    linear-gradient(
+      135deg,
+      #315d98 0%,
+      #244d83 100%
+    );
+
+  color: #ffffff;
+}
+
+.bureau-national-hero-content {
+  max-width: 760px;
+}
+
+.bureau-national-eyebrow {
+  display: block;
+  margin-bottom: 8px;
+
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.bureau-national-hero h1 {
+  margin: 0;
+
+  font-size: 38px;
+  line-height: 1.15;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.bureau-national-hero p {
+  margin: 9px 0 0;
+
+  font-size: 18px;
+  line-height: 1.5;
+
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.bureau-national-year {
+  width: 264px;
+  flex: 0 0 264px;
+}
+
+.bureau-national-year label {
+  display: block;
+  margin-bottom: 9px;
+
+  font-size: 17px;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.bureau-national-year select,
+.bureau-national-select-wrapper select {
+  width: 100%;
+  height: 49px;
+
+  padding: 0 17px;
+
+  border: 1px solid #d7e0eb;
+  border-radius: 9px;
+
+  background: #ffffff;
+  color: #263b59;
+
+  font-size: 17px;
+  font-weight: 500;
+
+  outline: none;
+  cursor: pointer;
+}
+
+.bureau-national-year select:focus,
+.bureau-national-select-wrapper select:focus {
+  border-color: #3569a7;
+  box-shadow: 0 0 0 3px rgba(53, 105, 167, 0.13);
+}
+
+/* =========================================================
+   SÉLECTION + COMPTEUR
+========================================================= */
+
+.bureau-national-selection {
+  min-height: 150px;
+
+  padding: 28px 80px;
+
+  display: grid;
+  grid-template-columns: minmax(400px, 1.25fr) minmax(320px, 0.75fr);
+  gap: 42px;
+  align-items: center;
+
+  background: #ffffff;
+
+  border-bottom: 1px solid #edf1f6;
+}
+
+.bureau-national-select-wrapper label {
+  display: block;
+  margin-bottom: 9px;
+
+  color: #73829a;
+
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.bureau-national-select-wrapper select {
+  height: 50px;
+}
+
+.bureau-national-count {
+  min-height: 90px;
+
+  padding: 15px 25px;
+
+  display: flex;
+  align-items: center;
+  gap: 17px;
+
+  border-radius: 14px;
+
+  background: #edf5ff;
+}
+
+.bureau-national-count-icon {
+  width: 58px;
+  height: 58px;
+
+  flex: 0 0 58px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 50%;
+
+  background: #dcecff;
+}
+
+.bureau-national-count-icon svg {
+  width: 31px;
+  height: 31px;
+
+  fill: none;
+  stroke: #2865a9;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.bureau-national-count span {
+  display: block;
+
+  margin-bottom: 2px;
+
+  color: #2d6bb1;
+
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.bureau-national-count strong {
+  display: block;
+
+  color: #2865a9;
+
+  font-size: 25px;
+  line-height: 1.1;
+}
+
+/* =========================================================
+   ZONE DES MEMBRES
+========================================================= */
+
+.bureau-national-members {
+  padding: 42px 50px 70px;
+}
+
+.bureau-national-members-grid {
+  max-width: 900px;
+  margin: 0 auto;
+
+  display: grid;
+
+  grid-template-columns:
+    repeat(
+      auto-fit,
+      minmax(245px, 1fr)
+    );
+
+  gap: 22px;
+
+  justify-content: center;
+}
+
+/* =========================================================
+   CARTE MEMBRE
+========================================================= */
+
+.bureau-national-member-card {
+  min-height: 337px;
+
+  padding: 30px 20px 26px;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+
+  text-align: center;
+
+  background: #ffffff;
+
+  border: 1px solid #edf0f5;
+  border-radius: 14px;
+
+  box-shadow:
+    0 8px 24px rgba(30, 55, 90, 0.08);
+
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.bureau-national-member-card:hover {
+  transform: translateY(-3px);
+
+  box-shadow:
+    0 14px 30px rgba(30, 55, 90, 0.12);
+}
+
+/* =========================================================
+   PHOTO
+========================================================= */
+
+.bureau-national-member-photo {
+  width: 194px;
+  height: 194px;
+
+  margin-bottom: 20px;
+
+  overflow: hidden;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 50%;
+
+  background: #e9ebef;
+
+  flex: 0 0 194px;
+}
+
+.bureau-national-member-photo img {
+  width: 100%;
+  height: 100%;
+
+  display: block;
+
+  object-fit: cover;
+  object-position: center;
+}
+
+.bureau-national-member-placeholder {
+  width: 100%;
+  height: 100%;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  background: #dfe7f1;
+
+  color: #35679f;
+
+  font-size: 58px;
+  font-weight: 800;
+}
+
+/* =========================================================
+   NOM + POSTE
+========================================================= */
+
+.bureau-national-member-info {
+  width: 100%;
+
+  text-align: center;
+}
+
+.bureau-national-member-info h2 {
+  margin: 0;
+
+  color: #1b2e4b;
+
+  font-size: 20px;
+  line-height: 1.25;
+  font-weight: 800;
+}
+
+.bureau-national-member-info p {
+  margin: 10px 0 0;
+
+  color: #7b879a;
+
+  font-size: 17px;
+  line-height: 1.35;
+  font-weight: 500;
+}
+
+/*
+ * Aucun :
+ * - "Mandat 2026"
+ * - "Membre sans compte EESAG"
+ * - nom du bureau
+ * dans la carte.
+ */
+
+/* =========================================================
+   ÉTATS
+========================================================= */
+
+.bureau-national-empty {
+  max-width: 800px;
+
+  margin: 50px auto;
+  padding: 35px 25px;
+
+  text-align: center;
+
+  border: 1px dashed #ccd7e5;
+  border-radius: 14px;
+
+  background: #ffffff;
+
+  color: #748196;
+
+  font-size: 17px;
+}
+
+.bureau-national-alert {
+  margin: 24px 50px 0;
+  padding: 13px 17px;
+
+  border: 1px solid #f0c6c6;
+  border-radius: 9px;
+
+  background: #fff3f3;
+
+  color: #a33a3a;
+
+  font-size: 15px;
+}
+
+/* =========================================================
+   RESPONSIVE
+========================================================= */
+
+@media (max-width: 1000px) {
+  .bureau-national-hero {
+    padding: 28px 35px;
+  }
+
+  .bureau-national-selection {
+    padding: 25px 35px;
+
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+
+  .bureau-national-count {
+    max-width: none;
+  }
+
+  .bureau-national-members {
+    padding: 35px;
+  }
+}
+
+@media (max-width: 700px) {
+  .bureau-national-hero {
+    min-height: auto;
+
+    padding: 25px 20px;
+
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .bureau-national-hero h1 {
+    font-size: 30px;
+  }
+
+  .bureau-national-hero p {
+    font-size: 16px;
+  }
+
+  .bureau-national-year {
+    width: 100%;
+  }
+
+  .bureau-national-selection {
+    padding: 22px 20px;
+  }
+
+  .bureau-national-members {
+    padding: 28px 18px 50px;
+  }
+
+  .bureau-national-members-grid {
+    grid-template-columns: 1fr;
+    max-width: 320px;
+  }
+
+  .bureau-national-member-card {
+    min-height: 330px;
+  }
+}

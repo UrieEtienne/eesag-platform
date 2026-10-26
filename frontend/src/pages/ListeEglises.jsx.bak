@@ -1,0 +1,164 @@
+
+import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
+import client from "../api/client";
+import { useAuth } from "../context/AuthContext";
+
+export default function ListeEglises() {
+  const [eglises, setEglises] = useState([]);
+  const [recherche, setRecherche] = useState("");
+  const [erreur, setErreur] = useState("");
+  const [chargement, setChargement] = useState(false);
+
+  const {
+    estCoordinateur,
+    estBureauNationalGeneral,
+    estBureauNational,
+    utilisateur,
+  } = useAuth();
+
+  const peutAdministrer = estCoordinateur || estBureauNationalGeneral;
+  const lectureSeule = estBureauNational && !estBureauNationalGeneral;
+
+
+  useEffect(() => {
+    let annule = false;
+
+    const timer = setTimeout(async () => {
+      setChargement(true);
+      setErreur("");
+
+      try {
+        const response = await client.get("/eglises/", {
+          params: {
+            ...(recherche.trim() ? { search: recherche.trim() } : {}),
+          },
+        });
+
+        if (!annule) {
+          setEglises(response.data.results || response.data || []);
+        }
+      } catch (error) {
+        if (!annule) {
+          setErreur(
+            error.response?.data?.detail ||
+              "Impossible de charger l’annuaire des églises."
+          );
+        }
+      } finally {
+        if (!annule) setChargement(false);
+      }
+    }, 250);
+
+    return () => {
+      annule = true;
+      clearTimeout(timer);
+    };
+  }, [recherche, religionFiltre]);
+
+  return (
+    <div>
+      <div className="page-hero">
+        <div>
+          <span className="eyebrow">ANNUAIRE EESAG</span>
+          <h1>Liste des églises</h1>
+          <p>
+            Consultez les informations des églises selon votre périmètre
+            d’accès. La création et l’activation se font dans les espaces
+            autorisés.
+          </p>
+        </div>
+      </div>
+
+      {lectureSeule && (
+        <div className="console-note">
+          Votre bureau national spécialisé dispose uniquement de l’annuaire.
+          Il ne peut pas créer d’église, administrer les comptes des églises,
+          ni gérer leurs membres ou départements.
+        </div>
+      )}
+
+      {erreur && <div className="console-error">{erreur}</div>}
+
+      <div className="filtres">
+        <input
+          type="search"
+          placeholder="Rechercher une église…"
+          value={recherche}
+          onChange={(event) => setRecherche(event.target.value)}
+          aria-label="Rechercher une église"
+        />
+      </div>
+
+      <div className="carte table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Code</th>
+              <th>Église</th>
+              <th>Région</th>
+              <th>Statut plateforme</th>
+              {peutAdministrer && <th>Membres</th>}
+              <th>Consultation</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            {eglises.map((eglise) => (
+              <tr key={eglise.id}>
+                <td>
+                  <b>{eglise.code || "—"}</b>
+                </td>
+                <td>{eglise.nom || "—"}</td>
+                <td>{eglise.region_nom || "—"}</td>
+                <td>
+                  {eglise.plateforme_active ? (
+                    <span className="status-active">Active</span>
+                  ) : (
+                    <span className="status-off">À activer</span>
+                  )}
+                </td>
+
+                {peutAdministrer && (
+                  <td>{eglise.nombre_membres ?? "—"}</td>
+                )}
+
+                <td>
+                  {peutAdministrer ||
+                  String(utilisateur?.eglise) === String(eglise.id) ? (
+                    <Link
+                      className="btn btn-petit btn-secondaire"
+                      to={`/eglises/${eglise.id}`}
+                    >
+                      Consulter
+                    </Link>
+                  ) : (
+                    <span className="tag">Annuaire</span>
+                  )}
+                </td>
+              </tr>
+            ))}
+
+            {!chargement && eglises.length === 0 && (
+              <tr>
+                <td colSpan={peutAdministrer ? 7 : 6}>
+                  <div className="empty-state">
+                    Aucune église trouvée.
+                  </div>
+                </td>
+              </tr>
+            )}
+
+            {chargement && (
+              <tr>
+                <td colSpan={peutAdministrer ? 7 : 6}>
+                  Chargement de l’annuaire…
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}

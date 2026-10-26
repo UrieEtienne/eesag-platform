@@ -21,11 +21,17 @@
 {% block nav-global %}
 <div class="ecg-admin-global">
   <a href="{% url 'admin:index' %}" class="is-active">Tableau de bord</a>
-  <a href="{% url 'admin:finance_transaction_changelist' %}">Comptabilité</a>
+  {% url 'admin:finance_transaction_changelist' as finance_url %}
+{% if finance_url %}
+    <a href="{{ finance_url }}">Comptabilité</a>
+{% endif %}
   <a href="{% url 'admin:finance_projet_changelist' %}">Projets</a>
   <a href="/reunions">Réunions vidéo</a>
   <a href="/rapports">Rapports</a>
-  <a href="{% url 'admin:churches_eglise_changelist' %}">Églises</a>
+  {% url 'admin:churches_eglise_changelist' as eglises_url %}
+{% if eglises_url %}
+    <a href="{{ eglises_url }}">Églises</a>
+{% endif %}
   {% if user.role == 'COORDINATEUR' or user.is_superuser %}
     <a class="primary" href="{% url 'admin:accounts_utilisateur_add' %}">+ Administrateur bureau</a>
     <a href="/parametres">Paramètres</a>

@@ -3,7 +3,7 @@ from django.core.management.base import BaseCommand
 from django.db import transaction
 from apps.accounts.models import Utilisateur, Role, PermissionEglise
 from apps.geo.models import Region, Prefecture, District, Commune
-from apps.churches.models import Religion, Eglise, Departement
+from apps.churches.models import Eglise, Departement
 
 PERMISSIONS = [
 ("GESTION_MEMBRES","Gestion des membres","Créer, modifier et rechercher les membres de l'église."),
@@ -37,9 +37,8 @@ class Command(BaseCommand):
         prefecture,_=Prefecture.objects.get_or_create(nom="Conakry",region=region)
         district,_=District.objects.get_or_create(nom="Kaloum",prefecture=prefecture)
         commune,_=Commune.objects.get_or_create(nom="Centre-ville",district=district)
-        religion,_=Religion.objects.get_or_create(nom="Christianisme",defaults={"description":"Ensemble des églises chrétiennes recensées par la plateforme."})
         if not Eglise.objects.exists():
-            eglise=Eglise.objects.create(nom="Église de la Grâce",religion=religion,region=region,prefecture=prefecture,district=district,commune=commune,adresse_precise="Avenue de la République",telephone="+224620000000",date_creation=date(2010,1,1))
+            eglise=Eglise.objects.create(nom="Église de la Grâce",region=region,prefecture=prefecture,district=district,commune=commune,adresse_precise="Avenue de la République",telephone="+224620000000",date_creation=date(2010,1,1))
             Departement.objects.create(nom="Chorale",eglise=eglise); Departement.objects.create(nom="Jeunesse",eglise=eglise)
             self.stdout.write(self.style.SUCCESS(f"Église de démonstration créée : {eglise.nom} ({eglise.code})"))
         self.stdout.write(self.style.SUCCESS("Amorçage terminé."))
