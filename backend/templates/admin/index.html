@@ -7,112 +7,232 @@
 {% platform_metrics as metrics %}
 
 <div class="eesag-dashboard">
+
   <header class="eesag-heading">
     <div>
       <p class="eesag-eyebrow">CENTRE DE CONTRÔLE EESAG</p>
       <h1>Tableau de bord</h1>
-      <p>{{ metrics.scope_label }}</p>
+      <p class="eesag-subtitle">{{ metrics.scope_label }}</p>
     </div>
+    <div class="eesag-heading-mark">EESAG</div>
   </header>
 
-  
-{% if user.role == "COORDINATEUR" or user.is_superuser or user.role == "ADMIN_LOCAL" or user.role == "PASTEUR" %}
-    {% url 'admin:accounts_utilisateur_add' as membre_add_url %}
-    {% url 'admin:churches_departement_add' as departement_add_url %}
-    {% url 'admin:accounts_utilisateur_changelist' as membre_list_url %}
-    {% url 'admin:churches_departement_changelist' as departement_list_url %}
+  {% if user.role == "COORDINATEUR" or user.is_superuser or user.role == "ADMIN_LOCAL" or user.role == "PASTEUR" %}
+    <h2 class="eesag-section-title">Actions rapides</h2>
 
     <section class="eesag-actions">
-        {% if membre_add_url %}
-        <a class="eesag-button" href="{{ membre_add_url }}">
-            + Créer un membre
-        </a>
-        {% endif %}
+      <a class="eesag-button eesag-button-primary"
+        {% url 'admin_national:accounts_utilisateur_add' %}
+        + Créer un membre
+      </a>
 
-        {% if departement_add_url %}
-        <a class="eesag-button eesag-button-light" href="{{ departement_add_url }}">
-            + Créer un département
-        </a>
-        {% endif %}
+      <a class="eesag-button"
+         href="{% url 'admin:churches_departement_add' %}">
+        + Créer un département
+      </a>
 
-        {% if membre_list_url %}
-        <a class="eesag-button eesag-button-light" href="{{ membre_list_url }}">
-            Gérer les membres
-        </a>
-        {% endif %}
+      <a class="eesag-button"
+        {% url 'admin_national:accounts_utilisateur_changelist' %}
+        Gérer les membres
+      </a>
 
-        {% if departement_list_url %}
-        <a class="eesag-button eesag-button-light" href="{{ departement_list_url }}">
-            Voir les départements
-        </a>
-        {% endif %}
+      <a class="eesag-button"
+        {% url 'admin_national:churches_departement_changelist' %}
+        Voir les départements
+      </a>
     </section>
-{% endif %}
-
-
-  {% if user.role == "COORDINATEUR" or user.is_superuser %}
-  <h2 class="eesag-section-title">Administration générale</h2>
-  <section class="eesag-actions">
-    <a class="eesag-button eesag-button-light" href="{% url 'admin:churches_eglise_add' %}">
-      + Créer une église
-    </a>
-    <a class="eesag-button eesag-button-light" href="{% url 'admin:churches_eglise_changelist' %}">
-      Gérer les églises
-    </a>
-    <a class="eesag-button eesag-button-light" href="{% url 'admin:accounts_utilisateur_changelist' %}?actif__exact=0">
-      Comptes en attente
-    </a>
-  </section>
   {% endif %}
 
-  <style>
-    .eesag-dashboard { max-width: 1500px; margin: 0 auto; }
-    .eesag-heading {
-      display: flex; justify-content: space-between; align-items: center;
-      gap: 20px; flex-wrap: wrap; padding: 24px;
-      border-radius: 16px; background: var(--body-bg, #fff);
-      border: 1px solid var(--border-color, #ddd); margin-bottom: 22px;
-    }
-    .eesag-heading h1 { margin: 5px 0; font-size: 30px; }
-    .eesag-heading p { margin-bottom: 0; }
-    .eesag-eyebrow { font-size: 12px; font-weight: 800; letter-spacing: 2px; }
-    .eesag-actions {
-      display: flex; gap: 12px; flex-wrap: wrap; margin: 16px 0 24px;
-    }
-    .eesag-button {
-      display: inline-block; padding: 12px 16px; border-radius: 9px;
-      background: #173d35; color: #fff !important; font-weight: 700;
-      text-decoration: none !important;
-    }
-    .eesag-button-light {
-      background: var(--body-bg, #fff); color: var(--body-fg, #222) !important;
-      border: 1px solid var(--border-color, #ccc);
-    }
-    .eesag-section-title { margin: 26px 0 14px; }
-    .eesag-stats {
-      display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));
-      gap: 16px;
-    }
-    .eesag-stat {
-      padding: 22px; border-radius: 13px;
-      background: var(--body-bg, #fff);
-      border: 1px solid var(--border-color, #ddd);
-      display: flex; flex-direction: column; gap: 12px;
-    }
-    .eesag-stat span { font-size: 14px; opacity: .8; }
-    .eesag-stat strong { font-size: 32px; }
-    .eesag-stat-total { border-top: 4px solid #173d35; }
-    @media (max-width: 900px) {
-      .eesag-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    }
-    @media (max-width: 480px) {
-      .eesag-stats { grid-template-columns: 1fr; }
-    }
-  </style>
+  {% if user.role == "COORDINATEUR" or user.is_superuser %}
+    <h2 class="eesag-section-title">Administration générale</h2>
+
+    <section class="eesag-actions">
+      <a class="eesag-button eesag-button-primary"
+         href="{% url 'admin:churches_eglise_add' %}">
+        + Créer une église
+      </a>
+
+      <a class="eesag-button"
+         href="{% url 'admin:churches_eglise_changelist' %}">
+        Gérer les églises
+      </a>
+
+      <a class="eesag-button"
+         href="{% url 'admin:accounts_utilisateur_changelist' %}?actif__exact=0">
+        Comptes en attente
+      </a>
+    </section>
+  {% endif %}
+
 </div>
+
+<style>
+/* ===================================================
+   EESAG — TABLEAU DE BORD
+   Compatible avec le thème clair et le thème sombre
+   =================================================== */
+
+.eesag-dashboard {
+    --eesag-blue: #0878b5;
+    --eesag-blue-dark: #075681;
+    --eesag-text: #183247;
+    --eesag-muted: #526779;
+    --eesag-card: #ffffff;
+    --eesag-border: #d8e4ed;
+
+    max-width: 1500px;
+    margin: 0 auto;
+    color: var(--eesag-text);
+}
+
+.eesag-heading {
+    box-sizing: border-box;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 20px;
+    flex-wrap: wrap;
+    padding: 28px;
+    margin-bottom: 28px;
+    border-radius: 15px;
+    background: linear-gradient(120deg, #075681, #0878b5);
+    border: 1px solid #08699b;
+    box-shadow: 0 5px 18px rgba(7, 63, 99, .15);
+}
+
+.eesag-heading .eesag-eyebrow,
+.eesag-heading h1,
+.eesag-heading .eesag-subtitle {
+    color: #ffffff !important;
+}
+
+.eesag-heading .eesag-eyebrow {
+    margin: 0 0 8px;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 2px;
+    opacity: .9;
+}
+
+.eesag-heading h1 {
+    margin: 0 0 8px;
+    font-size: clamp(25px, 3vw, 34px);
+    font-weight: 800;
+}
+
+.eesag-heading .eesag-subtitle {
+    margin: 0;
+    font-size: 14px;
+    opacity: .94;
+}
+
+.eesag-heading-mark {
+    padding: 12px 18px;
+    border: 1px solid rgba(255,255,255,.45);
+    border-radius: 10px;
+    color: #ffffff;
+    font-size: 20px;
+    font-weight: 800;
+    letter-spacing: 2px;
+}
+
+.eesag-section-title {
+    margin: 28px 0 14px;
+    color: var(--eesag-text);
+    font-size: 17px;
+    font-weight: 750;
+}
+
+.eesag-actions {
+    display: flex;
+    align-items: stretch;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin: 0 0 25px;
+}
+
+.eesag-button {
+    box-sizing: border-box;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+    padding: 12px 17px;
+    border: 1px solid var(--eesag-border);
+    border-radius: 9px;
+    background: var(--eesag-card);
+    color: var(--eesag-text) !important;
+    font-size: 13px;
+    font-weight: 700;
+    text-decoration: none !important;
+    box-shadow: 0 2px 6px rgba(20, 50, 75, .05);
+    transition: background .15s ease, transform .15s ease;
+}
+
+.eesag-button:hover {
+    background: #eaf5fc;
+    color: var(--eesag-blue-dark) !important;
+    transform: translateY(-1px);
+}
+
+.eesag-button-primary {
+    background: #0878b5;
+    border-color: #0878b5;
+    color: #ffffff !important;
+}
+
+.eesag-button-primary:hover {
+    background: #075681;
+    border-color: #075681;
+    color: #ffffff !important;
+}
+
+/* Thème sombre piloté par le bouton de la barre supérieure */
+html[data-admin-theme="dark"] .eesag-dashboard {
+    --eesag-text: #edf4fb;
+    --eesag-muted: #bdcbd8;
+    --eesag-card: #1c2b39;
+    --eesag-border: #3a5064;
+}
+
+html[data-admin-theme="dark"] .eesag-section-title {
+    color: #edf4fb !important;
+}
+
+html[data-admin-theme="dark"] .eesag-button:not(.eesag-button-primary) {
+    background: #1c2b39 !important;
+    border-color: #465c70 !important;
+    color: #edf4fb !important;
+}
+
+html[data-admin-theme="dark"] .eesag-button:not(.eesag-button-primary):hover {
+    background: #29445a !important;
+    color: #ffffff !important;
+}
+
+@media (max-width: 650px) {
+    .eesag-heading {
+        padding: 20px;
+    }
+
+    .eesag-heading-mark {
+        display: none;
+    }
+
+    .eesag-actions {
+        display: grid;
+        grid-template-columns: 1fr;
+    }
+
+    .eesag-button {
+        width: 100%;
+    }
+}
+</style>
 
 {% if available_apps %}
   <h2 class="eesag-section-title">Applications disponibles</h2>
   {% include "admin/app_list.html" with app_list=available_apps show_changelinks=True %}
 {% endif %}
+
 {% endblock %}

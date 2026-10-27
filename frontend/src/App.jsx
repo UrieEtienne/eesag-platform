@@ -27,7 +27,6 @@ import Reunions from "./pages/Reunions";
 import Parametres from "./pages/Parametres";
 import Bureaux from "./pages/Bureaux";
 import Informations from "./pages/Informations";
-import Systeme from "./pages/Systeme";
 import Departements from "./pages/Departements";
 import TableauDeBordEglise from "./pages/TableauDeBordEglise";
 import GestionAdminsEglise from "./pages/GestionAdminsEglise";
@@ -318,13 +317,6 @@ export default function App() {
         )}
       />
 
-      <Route
-        path="/systeme"
-        element={protect(
-          <Systeme />,
-          { roles: ["COORDINATEUR"] }
-        )}
-      />
     </Routes>
   );
 }

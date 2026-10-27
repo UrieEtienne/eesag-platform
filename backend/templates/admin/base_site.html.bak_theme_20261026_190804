@@ -1,0 +1,483 @@
+{% extends "admin/base.html" %}
+{% load static %}
+{% load admin_scope %}
+
+{% block title %}
+    {% if subtitle %}{{ subtitle }} | {% endif %}
+    {{ title|default:"Administration" }} | EESAG
+{% endblock %}
+
+{% block extrastyle %}
+    {{ block.super }}
+    <link rel="stylesheet" href="{% static 'admin/css/ecg_admin.css' %}">
+    <style>
+        /* Une seule barre supérieure */
+        #header.eesag-header {
+            position: fixed;
+            inset: 0 0 auto 0;
+            z-index: 1100;
+            display: flex;
+            align-items: center;
+            gap: 18px;
+            width: 100%;
+            height: 72px;
+            padding: 0 20px;
+            background: linear-gradient(90deg, #0a5f94, #0c76b3);
+            color: #fff;
+            box-sizing: border-box;
+        }
+
+        .eesag-header-brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex: 0 0 220px;
+            min-width: 0;
+        }
+
+        .eesag-header-logo {
+            width: 42px;
+            height: 42px;
+            flex: 0 0 42px;
+            object-fit: contain;
+            background: #fff;
+            border: 2px solid rgba(255,255,255,.8);
+            border-radius: 9px;
+        }
+
+        .eesag-header-brand-text {
+            min-width: 0;
+            line-height: 1.2;
+        }
+
+        .eesag-header-brand-text strong {
+            display: block;
+            color: #fff;
+            font-size: 19px;
+            font-weight: 800;
+            letter-spacing: .4px;
+        }
+
+        .eesag-header-brand-text small {
+            display: block;
+            margin-top: 3px;
+            color: rgba(255,255,255,.85);
+            font-size: 10px;
+            white-space: normal;
+        }
+
+        .eesag-header-nav {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            flex: 1 1 auto;
+            min-width: 0;
+            overflow-x: auto;
+            scrollbar-width: thin;
+        }
+
+        .eesag-header-nav a {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            flex: 0 0 auto;
+            min-height: 35px;
+            padding: 0 11px;
+            border-radius: 6px;
+            color: #fff !important;
+            background: rgba(255,255,255,.10);
+            font-size: 12px;
+            font-weight: 600;
+            text-decoration: none !important;
+            white-space: nowrap;
+        }
+
+        .eesag-header-nav a:hover,
+        .eesag-header-nav a.is-active {
+            background: rgba(255,255,255,.25);
+        }
+
+        .eesag-header-user {
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            flex: 0 0 auto;
+            max-width: 255px;
+            min-width: 0;
+            margin-left: auto;
+            color: #fff;
+        }
+
+        .eesag-header-avatar {
+            display: block;
+            width: 34px;
+            height: 34px;
+            flex: 0 0 34px;
+            object-fit: cover;
+            border: 2px solid rgba(255,255,255,.9);
+            border-radius: 50%;
+            background: #fff;
+        }
+
+        .eesag-header-user-info {
+            min-width: 0;
+            line-height: 1.25;
+        }
+
+        .eesag-header-user-info strong {
+            display: block;
+            max-width: 175px;
+            overflow: hidden;
+            color: #fff;
+            font-size: 11px;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .eesag-header-user-info small {
+            display: block;
+            margin-top: 3px;
+            color: rgba(255,255,255,.8);
+            font-size: 10px;
+            white-space: nowrap;
+        }
+
+        .eesag-header-logout {
+            color: #ffffff !important;
+            font-size: 11px;
+            white-space: nowrap;
+        }
+
+        
+/* ===== SIDEBAR EESAG : CORRECTION DU FOND BLANC ===== */
+#nav-sidebar.eesag-sidebar {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+
+    position: fixed !important;
+    top: 72px !important;
+    left: 0 !important;
+    bottom: 0 !important;
+
+    width: 260px !important;
+    height: calc(100vh - 72px) !important;
+    max-height: none !important;
+
+    padding: 18px 13px 24px !important;
+    margin: 0 !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+
+    background: #0e2a3d !important;
+    background-color: #0e2a3d !important;
+    border: none !important;
+    box-shadow: 3px 0 12px rgba(0, 0, 0, 0.12) !important;
+    box-sizing: border-box !important;
+
+    transform: none !important;
+}
+
+/* Rubriques */
+#nav-sidebar.eesag-sidebar .eesag-sidebar-heading {
+    display: block !important;
+    margin: 17px 0 7px !important;
+    padding: 12px 10px 7px !important;
+
+    color: #8fc9ee !important;
+    background: transparent !important;
+    border-top: 1px solid rgba(255, 255, 255, 0.15) !important;
+
+    font-size: 10px !important;
+    font-weight: 800 !important;
+    letter-spacing: 0.8px !important;
+    text-transform: uppercase !important;
+}
+
+#nav-sidebar.eesag-sidebar .eesag-sidebar-heading:first-child {
+    margin-top: 0 !important;
+    border-top: none !important;
+}
+
+/* Liens */
+#nav-sidebar.eesag-sidebar .eesag-sidebar-link {
+    display: flex !important;
+    align-items: center !important;
+    min-height: 40px !important;
+
+    margin: 3px 0 !important;
+    padding: 0 12px !important;
+    border-radius: 7px !important;
+
+    color: #e1edf5 !important;
+    background: transparent !important;
+
+    font-size: 13px !important;
+    font-weight: 500 !important;
+    text-decoration: none !important;
+}
+
+#nav-sidebar.eesag-sidebar .eesag-sidebar-link:hover,
+#nav-sidebar.eesag-sidebar .eesag-sidebar-link.is-active {
+    color: #ffffff !important;
+    background: #1383c5 !important;
+}
+
+/* Pied de sidebar */
+#nav-sidebar.eesag-sidebar .eesag-sidebar-footer {
+    display: block !important;
+    margin-top: 24px !important;
+    padding: 15px 12px !important;
+
+    color: #b8cbd9 !important;
+    background: transparent !important;
+    border-top: 1px solid rgba(255, 255, 255, 0.15) !important;
+
+    font-size: 11px !important;
+}
+
+#nav-sidebar.eesag-sidebar .eesag-sidebar-footer strong {
+    display: block !important;
+    margin-bottom: 4px !important;
+    color: #ffffff !important;
+    font-size: 13px !important;
+}
+
+/* Contenu à droite de la sidebar */
+@media (min-width: 701px) {
+    #content {
+        margin-left: 260px !important;
+    }
+
+    #footer {
+        margin-left: 260px !important;
+    }
+}
+
+/* Mobile */
+@media (max-width: 700px) {
+    #nav-sidebar.eesag-sidebar {
+        top: 62px !important;
+        left: 0 !important;
+        bottom: 0 !important;
+        width: 245px !important;
+        height: calc(100vh - 62px) !important;
+
+        transform: translateX(-100%) !important;
+        transition: transform 0.2s ease !important;
+    }
+
+    body.sidebar-open #nav-sidebar.eesag-sidebar {
+        transform: translateX(0) !important;
+    }
+}
+
+    </style>
+{% endblock %}
+
+{# En-tête unique : logo, navigation et profil #}
+
+{# En-tête unique : logo, navigation et profil #}
+{% block header %}
+<header id="header" class="eesag-header">
+    <a class="eesag-header-brand"
+       href="{% url 'admin:index' %}"
+       style="text-decoration:none">
+        <img class="eesag-header-logo"
+             src="{% static 'admin/img/logo_eesag.jpg' %}"
+             alt="Logo EESAG">
+        <span class="eesag-header-brand-text">
+            <strong>EESAG</strong>
+            <small>Administration &amp; centre de contrôle</small>
+        </span>
+    </a>
+
+    {% if user.is_active and user.is_staff %}
+    <nav class="eesag-header-nav" aria-label="Navigation principale">
+        <a href="{% url 'admin:index' %}">Tableau</a>
+
+        {% if user.role == 'COORDINATEUR' or user.is_superuser %}
+            {% url 'admin:auth_group_changelist' as groupes_url %}
+            {% if groupes_url %}
+                <a href="{{ groupes_url }}">Groupes</a>
+            {% endif %}
+
+            {% url 'admin:accounts_utilisateur_changelist' as comptes_url %}
+            {% if comptes_url %}
+                <a href="{{ comptes_url }}">Comptes</a>
+            {% endif %}
+
+            {% url 'admin:bureaux_bureau_changelist' as bureaux_url %}
+            {% if bureaux_url %}
+                <a href="{{ bureaux_url }}">Bureaux</a>
+            {% endif %}
+
+            {% url 'admin:finance_transaction_changelist' as finance_url %}
+            {% if finance_url %}
+                <a href="{{ finance_url }}">Comptabilité</a>
+            {% endif %}
+
+
+        {% elif user.role == 'SUPERADMIN_INTL' or user.role == 'SUPERADMIN_NATIONAL' %}
+            {% scope_is_national_general as general_national %}
+
+            {% if general_national %}
+                {% url 'admin:churches_eglise_changelist' as eglises_url %}
+                {% if eglises_url %}
+                    <a href="{{ eglises_url }}">Églises</a>
+                {% endif %}
+
+                {% url 'admin:accounts_utilisateur_changelist' as comptes_url %}
+                {% if comptes_url %}
+                    <a href="{{ comptes_url }}">Comptes à contrôler</a>
+                {% endif %}
+
+                {% url 'admin:bureaux_bureau_changelist' as bureaux_url %}
+                {% if bureaux_url %}
+                    <a href="{{ bureaux_url }}">Bureaux</a>
+                {% endif %}
+            {% else %}
+                {% url 'admin:bureaux_bureau_changelist' as mon_bureau_url %}
+                {% if mon_bureau_url %}
+                    <a href="{{ mon_bureau_url }}">Mon bureau</a>
+                {% endif %}
+
+                {% url 'admin:bureaux_bureaumembre_changelist' as composition_url %}
+                {% if composition_url %}
+                    <a href="{{ composition_url }}">Composition</a>
+                {% endif %}
+            {% endif %}
+
+        {% elif user.role == 'PASTEUR' or user.role == 'ADMIN_LOCAL' %}
+            {% url 'admin:accounts_utilisateur_changelist' as comptes_url %}
+            {% if comptes_url %}
+                <a href="{{ comptes_url }}">Membres &amp; comptes</a>
+            {% endif %}
+
+            {% url 'admin:bureaux_bureau_changelist' as bureaux_url %}
+            {% if bureaux_url %}
+                <a href="{{ bureaux_url }}">Bureaux</a>
+            {% endif %}
+
+            {% url 'admin:finance_transaction_changelist' as finance_url %}
+            {% if finance_url %}
+                <a href="{{ finance_url }}">Comptabilité</a>
+            {% endif %}
+        {% endif %}
+    </nav>
+
+    <div class="eesag-header-user">
+        {% if user.photo %}
+            <img class="eesag-header-avatar"
+                 src="{{ user.photo.url }}"
+                 alt="Photo de profil">
+        {% else %}
+            <img class="eesag-header-avatar"
+                 src="{% static 'admin/img/logo_eesag.jpg' %}"
+                 alt="EESAG">
+        {% endif %}
+
+        <span class="eesag-header-user-info">
+            <strong>{{ user.get_full_name|default:user.get_username }}</strong>
+            <small>
+                {{ user.get_role_display|default:user.role|default:"Administrateur" }}
+                · {% scope_label %}
+            </small>
+        </span>
+
+        {% if user.has_usable_password %}
+            <a class="eesag-header-logout"
+               href="{% url 'admin:password_change' %}">Compte</a>
+        {% endif %}
+    </div>
+    {% endif %}
+</header>
+{% endblock %}
+
+
+
+{# Menu latéral personnalisé EESAG #}
+{% block nav-sidebar %}
+{% if user.is_active and user.is_staff %}
+{% url 'admin:index' as accueil_url %}
+{% url 'admin:churches_eglise_changelist' as eglises_url %}
+{% url 'admin:churches_eglise_add' as ajouter_eglise_url %}
+{% url 'admin:accounts_utilisateur_changelist' as utilisateurs_url %}
+{% url 'admin:auth_group_changelist' as groupes_url %}
+{% url 'admin:bureaux_bureau_changelist' as bureaux_url %}
+{% url 'admin:finance_transaction_changelist' as finances_url %}
+
+<nav id="nav-sidebar" class="eesag-sidebar" aria-label="Menu d'administration">
+    <div class="eesag-sidebar-heading">Accueil</div>
+
+    {% if accueil_url %}
+    <a class="eesag-sidebar-link" href="{{ accueil_url }}">
+        Tableau de bord
+    </a>
+    {% endif %}
+
+    {% if user.role == 'COORDINATEUR' or user.is_superuser or user.role == 'SUPERADMIN_INTL' or user.role == 'SUPERADMIN_NATIONAL' %}
+        {% if eglises_url or ajouter_eglise_url %}
+        <div class="eesag-sidebar-heading">Églises</div>
+        {% endif %}
+
+        {% if eglises_url %}
+        <a class="eesag-sidebar-link" href="{{ eglises_url }}">
+            Liste des églises
+        </a>
+        {% endif %}
+
+        {% if ajouter_eglise_url %}
+        <a class="eesag-sidebar-link" href="{{ ajouter_eglise_url }}">
+            Ajouter une église
+        </a>
+        {% endif %}
+    {% endif %}
+
+    {% if utilisateurs_url %}
+    <div class="eesag-sidebar-heading">Comptes &amp; utilisateurs</div>
+    <a class="eesag-sidebar-link" href="{{ utilisateurs_url }}">
+        Utilisateurs
+    </a>
+    {% endif %}
+
+    {% if user.role == 'COORDINATEUR' or user.is_superuser %}
+        {% if groupes_url %}
+        <a class="eesag-sidebar-link" href="{{ groupes_url }}">
+            Groupes
+        </a>
+        {% endif %}
+    {% endif %}
+    {% if bureaux_url %}
+    <div class="eesag-sidebar-heading">Bureaux</div>
+    <a class="eesag-sidebar-link" href="{{ bureaux_url }}">
+        Bureaux nationaux et locaux
+    </a>
+    {% endif %}
+
+    {% if user.role == 'COORDINATEUR' or user.is_superuser or user.role == 'ADMIN_LOCAL' or user.role == 'PASTEUR' %}
+        {% if finances_url %}
+        <div class="eesag-sidebar-heading">Finances</div>
+        <a class="eesag-sidebar-link" href="{{ finances_url }}">
+            Transactions
+        </a>
+        {% endif %}
+    {% endif %}
+
+    <div class="eesag-sidebar-footer">
+        <strong>EESAG</strong>
+        v2.0.0 · Administration
+    </div>
+</nav>
+{% endif %}
+{% endblock %}
+
+
+{% block footer %}
+<div id="footer">
+    <span class="ecg-admin-footer-team">
+        <a href="/informations">Équipe</a>
+        · Développement EESAG
+    </span>
+</div>
+{% endblock %}

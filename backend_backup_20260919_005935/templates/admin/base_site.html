@@ -19,7 +19,7 @@
 {% endif %}{% url 'admin:finance_transaction_changelist' as finance_url %}
 {% if finance_url %}
     <a href="{{ finance_url }}">Comptabilité</a>
-{% endif %}<a href="/systeme">Fonctionnalités</a>{% elif user.role == 'SUPERADMIN_INTL' or user.role == 'SUPERADMIN_NATIONAL' %}{% scope_is_national_general as general_national %}{% if general_national %}{% url 'admin:churches_eglise_changelist' as eglises_url %}
+{% endif %}{% elif user.role == 'SUPERADMIN_INTL' or user.role == 'SUPERADMIN_NATIONAL' %}{% scope_is_national_general as general_national %}{% if general_national %}{% url 'admin:churches_eglise_changelist' as eglises_url %}
 {% if eglises_url %}
     <a href="{{ eglises_url }}">Églises</a>
 {% endif %}<a href="{% url 'admin:accounts_utilisateur_changelist' %}">Comptes à contrôler</a>{% url 'admin:bureaux_bureau_changelist' as bureaux_url %}

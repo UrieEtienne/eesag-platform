@@ -88,18 +88,7 @@ export default function AdministrationSysteme() {
                 className="small fw-bold text-uppercase mb-3"
                 style={{ color: "#e5c878", letterSpacing: 2 }}
               >
-                EESAG · Administration centrale
               </div>
-
-              <h1 className="h2 fw-bold mb-3">
-                Administration du système
-              </h1>
-
-              <p style={{ color: "#e0e8f2", maxWidth: 680 }}>
-                Bienvenue
-                {utilisateur?.prenom ? ` ${utilisateur.prenom}` : ""}.
-                Gérez les utilisateurs, les églises et la gouvernance.
-              </p>
 
               <span className="badge rounded-pill text-bg-light px-3 py-2">
                 Coordinateur du système

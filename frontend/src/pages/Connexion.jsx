@@ -17,7 +17,7 @@ export default function Connexion() {
     e.preventDefault();
     setErreur("");
 
-    const id = identifiant.trim().toUpperCase();
+    const id = identifiant.trim();
 
     if (!id || !password) {
       setErreur("Veuillez saisir votre identifiant et votre mot de passe.");

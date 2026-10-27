@@ -15,11 +15,13 @@ export default function Systeme() {
 
   useEffect(() => {
     if (!estCoordinateur) return;
+
     charger();
+
     client.get("/systeme/offres-mise-a-jour/")
       .then((r) => setOffres(Array.isArray(r.data) ? r.data : []))
       .catch(() => setOffres([]));
-  }, []);
+  }, [estCoordinateur]);
 
   const basculer = async (f) => {
     if (!estCoordinateur && f.verrouillee_globalement && !f.actif) return;

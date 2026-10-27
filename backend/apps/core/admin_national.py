@@ -2,6 +2,12 @@ from django.contrib.admin import AdminSite
 
 from apps.core.admin_scopes import is_national_general
 
+from apps.churches.models import Eglise, Departement
+from apps.churches.admin import EgliseAdmin, DepartementAdmin
+
+from apps.accounts.models import Utilisateur
+from apps.accounts.admin import UtilisateurAdmin
+
 
 class EESAGNationalAdminSite(AdminSite):
     site_header = "EESAG — Administration du Bureau national"
@@ -20,12 +26,22 @@ admin_national_site = EESAGNationalAdminSite(
     name="admin_national"
 )
 
-# On partage les classes d'administration, mais pas le site Django.
-# Les permissions de chaque modèle continuent de s'appliquer.
-from apps.churches.admin import EgliseAdmin
-from apps.churches.models import Eglise
-from apps.accounts.admin import UtilisateurAdmin
-from apps.accounts.models import Utilisateur
 
-admin_national_site.register(Eglise, EgliseAdmin)
-admin_national_site.register(Utilisateur, UtilisateurAdmin)
+# ============================================================
+# ENREGISTREMENT DES MODÈLES SUR L'ADMIN NATIONAL
+# ============================================================
+
+admin_national_site.register(
+    Eglise,
+    EgliseAdmin,
+)
+
+admin_national_site.register(
+    Departement,
+    DepartementAdmin,
+)
+
+admin_national_site.register(
+    Utilisateur,
+    UtilisateurAdmin,
+)

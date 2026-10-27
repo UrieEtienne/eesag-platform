@@ -86,6 +86,32 @@ class TransactionAdmin(EESAGScopedAdminMixin, admin.ModelAdmin):
             return qs.filter(eglise__isnull=True, bureau__isnull=True)
         return qs.none()
 
+    def has_module_permission(self, request):
+        if request.user.role == "COORDINATEUR":
+            return False
+        return super().has_module_permission(request)
+
+    def has_view_permission(self, request, obj=None):
+        if request.user.role == "COORDINATEUR":
+            return False
+        return super().has_view_permission(request, obj)
+
+    def has_add_permission(self, request):
+        if request.user.role == "COORDINATEUR":
+            return False
+        return super().has_add_permission(request)
+
+    def has_change_permission(self, request, obj=None):
+        if request.user.role == "COORDINATEUR":
+            return False
+        return super().has_change_permission(request, obj)
+
+    def has_delete_permission(self, request, obj=None):
+        if request.user.role == "COORDINATEUR":
+            return False
+        return super().has_delete_permission(request, obj)
+
+
     def has_add_permission(self, request):
         return perimetre_financier_utilisateur(request.user)["type"] != "NONE"
 

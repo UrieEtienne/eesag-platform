@@ -15,7 +15,7 @@ def _assigned_bureau(user):
 
 
 def is_coordinator(user):
-    return bool(user and user.is_authenticated and (user.role == "COORDINATEUR" or user.is_superuser))
+    return bool(user and user.is_authenticated and user.role == "COORDINATEUR")
 
 
 def is_national_role(user):

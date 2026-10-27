@@ -189,11 +189,6 @@ export default function Layout({ children }) {
 
               {link("/parametres", "Paramètres système", "⚙")}
               {link("/systeme", "Mes fonctionnalités", "◈")}
-
-              <div className="nav-section-label">
-                Administration du système
-              </div>
-
               <a
                 href={
                   import.meta.env.VITE_DJANGO_ADMIN_URL ||

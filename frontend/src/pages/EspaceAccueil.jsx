@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
@@ -45,6 +45,15 @@ export default function EspaceAccueil() {
   } = useAuth();
 
   const [imageIndex, setImageIndex] = useState(0);
+
+  // Défilement automatique du carrousel toutes les 5 secondes.
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setImageIndex((current) => (current + 1) % IMAGES.length);
+    }, 5000);
+
+    return () => window.clearInterval(timer);
+  }, []);
 
   const verset = useMemo(() => {
     const index =

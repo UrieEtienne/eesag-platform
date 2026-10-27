@@ -16,7 +16,7 @@ def _synchroniser_acces_admin_eglise(eglise, actif):
     """
     Synchronise les comptes de gestion de l'église avec son activation.
 
-    L'activation de la plateforme par le Bureau national ouvre le compte
+    L'activation de l'accès de l'église par le Coordinateur ouvre le compte
     de gestion local (Django + plateforme) pour les ADMIN_LOCAL/PASTEUR.
     La désactivation referme leurs accès.
     """
@@ -283,8 +283,8 @@ class EgliseAdmin(EESAGScopedAdminMixin, admin.ModelAdmin):
     def get_actions(self, request):
         actions = super().get_actions(request)
 
-        # L'activation est réservée au Bureau national général.
-        if not is_national_general(request.user):
+        # L'activation et la désactivation sont réservées au Coordinateur.
+        if not is_coordinator(request.user):
             actions.pop("activer_plateformes", None)
             actions.pop("desactiver_plateformes", None)
 
@@ -399,7 +399,7 @@ class EgliseAdmin(EESAGScopedAdminMixin, admin.ModelAdmin):
                             "activee_par",
                         ),
                         "description": (
-                            "Seul le Bureau national général peut activer ou désactiver la plateforme."
+                            "Seul le Coordinateur peut activer ou désactiver l'accès de cette église à la plateforme."
                         ),
                     },
                 ),
@@ -437,10 +437,10 @@ class EgliseAdmin(EESAGScopedAdminMixin, admin.ModelAdmin):
 
     @admin.action(description="Activer la plateforme pour les églises sélectionnées")
     def activer_plateformes(self, request, queryset):
-        if not is_national_general(request.user):
+        if not is_coordinator(request.user):
             self.message_user(
                 request,
-                "Seul le Bureau national général peut activer une église.",
+                "Seul le Coordinateur peut activer l'accès d'une église à la plateforme.",
                 level=messages.ERROR,
             )
             return
@@ -458,10 +458,10 @@ class EgliseAdmin(EESAGScopedAdminMixin, admin.ModelAdmin):
 
     @admin.action(description="Désactiver la plateforme pour les églises sélectionnées")
     def desactiver_plateformes(self, request, queryset):
-        if not is_national_general(request.user):
+        if not is_coordinator(request.user):
             self.message_user(
                 request,
-                "Seul le Bureau national général peut désactiver une église.",
+                "Seul le Coordinateur peut désactiver l'accès d'une église à la plateforme.",
                 level=messages.ERROR,
             )
             return
@@ -486,7 +486,7 @@ class EgliseAdmin(EESAGScopedAdminMixin, admin.ModelAdmin):
         # Le Coordinateur peut consulter mais ne peut pas activer l'église.
         if change:
             # L'état d'activation ne peut changer que par les actions
-            # réservées au Bureau national général.
+            # réservées au Coordinateur.
             previous = Eglise.objects.get(pk=obj.pk)
             obj.plateforme_active = previous.plateforme_active
             obj.date_activation_plateforme = previous.date_activation_plateforme
@@ -529,7 +529,7 @@ class EgliseAdmin(EESAGScopedAdminMixin, admin.ModelAdmin):
                             "responsable_telephone", "responsable_email",
                         ])
 
-            # Si une activation a été faite par le Bureau national,
+            # Si une activation a été faite par le Coordinateur,
             # synchroniser les comptes locaux concernés.
             if is_coordinator(request.user) and change and "plateforme_active" in form.changed_data:
                 _synchroniser_acces_admin_eglise(obj, obj.plateforme_active)
@@ -543,7 +543,7 @@ class EgliseAdmin(EESAGScopedAdminMixin, admin.ModelAdmin):
                 format_html(
                     "<strong>Église créée.</strong> Compte administrateur local : "
                     "<strong>{}</strong> · Code secret : <strong>{}</strong>. "
-                    "L'église reste inactive jusqu'à son activation par le Bureau national.",
+                    "L'église reste inactive jusqu'à son activation par le Coordinateur.",
                     identifiant, password,
                 ),
                 level=messages.SUCCESS,

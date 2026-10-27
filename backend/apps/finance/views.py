@@ -10,42 +10,74 @@ from .models import Transaction, Projet
 from .serializers import TransactionSerializer, ProjetSerializer
 
 
+
 def perimetre_financier_utilisateur(user):
-    if user.role == Role.COORDINATEUR or user.is_superuser:
-        return {"type": "GLOBAL"}
+    if not user or not user.is_authenticated:
+        return {"type": "NONE"}
+
+    # Le Coordinateur configure la plateforme, mais ne gère aucune finance.
+    if user.role == Role.COORDINATEUR:
+        return {"type": "NONE"}
+
     if user.role in [Role.ADMIN_LOCAL, Role.PASTEUR] and user.eglise_id:
         return {"type": "EGLISE", "eglise_id": user.eglise_id}
-    admin = BureauAdministrateur.objects.filter(utilisateur=user, actif=True, peut_gerer_finances=True).select_related("bureau").first()
+
+    admin = (
+        BureauAdministrateur.objects
+        .filter(
+            utilisateur=user,
+            actif=True,
+            peut_gerer_finances=True,
+        )
+        .select_related("bureau")
+        .first()
+    )
     if admin:
-        return {"type": "BUREAU", "bureau_id": admin.bureau_id, "bureau_nom": admin.bureau.nom}
+        return {
+            "type": "BUREAU",
+            "bureau_id": admin.bureau_id,
+            "bureau_nom": admin.bureau.nom,
+        }
+
     if user.role in ROLES_BUREAU_NATIONAL:
         return {"type": "NATIONAL"}
+
     return {"type": "NONE"}
 
 
 def perimetre_projet_utilisateur(user):
-    if user.role == Role.COORDINATEUR or user.is_superuser:
-        return {"type": "GLOBAL"}
+    if not user or not user.is_authenticated:
+        return {"type": "NONE"}
+
+    # Aucun accès aux projets opérationnels pour le Coordinateur.
+    if user.role == Role.COORDINATEUR:
+        return {"type": "NONE"}
+
     if user.role in [Role.ADMIN_LOCAL, Role.PASTEUR] and user.eglise_id:
         return {"type": "EGLISE", "eglise_id": user.eglise_id}
-    admin = BureauAdministrateur.objects.filter(utilisateur=user, actif=True, peut_gerer_projets=True).select_related("bureau").first()
+
+    admin = (
+        BureauAdministrateur.objects
+        .filter(
+            utilisateur=user,
+            actif=True,
+            peut_gerer_projets=True,
+        )
+        .select_related("bureau")
+        .first()
+    )
     if admin:
-        return {"type": "BUREAU", "bureau_id": admin.bureau_id, "bureau_nom": admin.bureau.nom}
+        return {
+            "type": "BUREAU",
+            "bureau_id": admin.bureau_id,
+            "bureau_nom": admin.bureau.nom,
+        }
+
     if user.role in ROLES_BUREAU_NATIONAL:
         return {"type": "NATIONAL"}
+
     return {"type": "NONE"}
 
-
-def _filter_scope(qs, scope):
-    if scope["type"] == "GLOBAL":
-        return qs
-    if scope["type"] == "EGLISE":
-        return qs.filter(eglise_id=scope["eglise_id"])
-    if scope["type"] == "BUREAU":
-        return qs.filter(bureau_id=scope["bureau_id"])
-    if scope["type"] == "NATIONAL":
-        return qs.filter(eglise__isnull=True, bureau__isnull=True)
-    return qs.none()
 
 
 class TransactionViewSet(viewsets.ModelViewSet):

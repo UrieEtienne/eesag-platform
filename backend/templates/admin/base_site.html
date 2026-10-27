@@ -317,7 +317,6 @@
                 <a href="{{ finance_url }}">Comptabilité</a>
             {% endif %}
 
-            <a href="/systeme">Fonctionnalités</a>
 
         {% elif user.role == 'SUPERADMIN_INTL' or user.role == 'SUPERADMIN_NATIONAL' %}
             {% scope_is_national_general as general_national %}
@@ -385,6 +384,26 @@
                 · {% scope_label %}
             </small>
         </span>
+
+        <button
+            type="button"
+            id="eesag-theme-toggle"
+            aria-label="Changer le thème"
+            title="Changer le thème"
+            style="
+                flex: 0 0 auto;
+                margin-left: 8px;
+                padding: 8px 12px;
+                border: 1px solid rgba(255,255,255,.45);
+                border-radius: 8px;
+                background: rgba(255,255,255,.14);
+                color: #fff;
+                font-size: 12px;
+                font-weight: 700;
+                cursor: pointer;
+                white-space: nowrap;
+            "
+        >🌙 Thème sombre</button>
 
         {% if user.has_usable_password %}
             <a class="eesag-header-logout"
@@ -465,19 +484,90 @@
         {% endif %}
     {% endif %}
 
-    {% if user.role == 'COORDINATEUR' or user.is_superuser %}
-    <div class="eesag-sidebar-heading">Paramètres</div>
-    <a class="eesag-sidebar-link" href="/systeme">
-        Paramètres système
-    </a>
-    {% endif %}
-
     <div class="eesag-sidebar-footer">
         <strong>EESAG</strong>
         v2.0.0 · Administration
     </div>
 </nav>
 {% endif %}
+{% endblock %}
+
+
+
+{% block extrajs %}
+    {{ block.super }}
+    <script>
+    (function () {
+        const STORAGE_KEY = "eesag-admin-theme";
+
+        function appliquerTheme(theme) {
+            const mode = theme === "dark" ? "dark" : "light";
+
+            document.documentElement.setAttribute("data-admin-theme", mode);
+
+            const bouton = document.getElementById("eesag-theme-toggle");
+
+            if (bouton) {
+                bouton.textContent =
+                    mode === "dark" ? "☀️ Thème clair" : "🌙 Thème sombre";
+
+                bouton.setAttribute(
+                    "aria-label",
+                    mode === "dark"
+                        ? "Activer le thème clair"
+                        : "Activer le thème sombre"
+                );
+
+                bouton.setAttribute("aria-pressed", String(mode === "dark"));
+            }
+        }
+
+        function initialiserTheme() {
+            let theme = "light";
+
+            try {
+                const sauvegarde = localStorage.getItem(STORAGE_KEY);
+                if (sauvegarde === "dark" || sauvegarde === "light") {
+                    theme = sauvegarde;
+                }
+            } catch (erreur) {
+                console.warn("Le stockage du thème est indisponible.", erreur);
+            }
+
+            appliquerTheme(theme);
+
+            const bouton = document.getElementById("eesag-theme-toggle");
+
+            if (bouton && bouton.dataset.themeListener !== "active") {
+                bouton.dataset.themeListener = "active";
+
+                bouton.addEventListener("click", function (event) {
+                    event.preventDefault();
+
+                    const actuel = document.documentElement.getAttribute(
+                        "data-admin-theme"
+                    );
+
+                    const nouveau = actuel === "dark" ? "light" : "dark";
+
+                    appliquerTheme(nouveau);
+
+                    try {
+                        localStorage.setItem(STORAGE_KEY, nouveau);
+                    } catch (erreur) {
+                        console.warn("Impossible de mémoriser le thème.", erreur);
+                    }
+                });
+            }
+        }
+
+        if (document.readyState === "loading") {
+            document.addEventListener("DOMContentLoaded", initialiserTheme);
+        } else {
+            initialiserTheme();
+        }
+    })();
+    </script>
 {% endblock %}
 
 

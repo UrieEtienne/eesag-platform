@@ -247,18 +247,6 @@ export default function Layout({ children }) {
 
           {estCoordinateur && (
             <>
-              {sidebarOuverte && (
-                <div className="nav-section-label">
-                  ADMINISTRATION DU SYSTÈME
-                </div>
-              )}
-
-              {link(
-                "/admin",
-                "Administration EESAG",
-                "⚙"
-              )}
-
               <a
                 href={djangoAdminUrl}
                 target="_blank"

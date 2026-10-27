@@ -21,6 +21,21 @@ from apps.churches.models import Departement, Eglise, Religion
 from apps.finance.models import Projet, Transaction
 
 
+
+def _refuser_coordinateur_dashboard(request):
+    if request.user.role == Role.COORDINATEUR:
+        return Response(
+            {
+                "detail": (
+                    "Le Coordinateur n'a pas accès au tableau de bord "
+                    "opérationnel ni aux données financières."
+                )
+            },
+            status=403,
+        )
+    return None
+
+
 def _repartition_membres(queryset):
     total = queryset.count()
     hommes = queryset.filter(sexe="H").count()
@@ -205,6 +220,12 @@ def _safe_count_model(app_label, model_name, **filters):
 
 class StatistiquesNationalesView(APIView):
     permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        # Le Coordinateur ne doit accéder à aucun tableau de bord.
+        refus = _refuser_coordinateur_dashboard(request)
+        if refus:
+            return refu
 
     def get(self, request):
         if not _est_coordinateur(request.user) and not _est_national_general(request.user):
