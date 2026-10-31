@@ -178,34 +178,31 @@ class PeutGererFinances(BasePermission):
         user = request.user
         if not user or not user.is_authenticated:
             return False
-        if user.role == Role.COORDINATEUR or user.is_superuser:
-            return True
-        if user.role in [Role.ADMIN_LOCAL, Role.PASTEUR] and user.eglise_id:
-            return True
-        from apps.bureaux.models import BureauAdministrateur
-        if BureauAdministrateur.objects.filter(
-            utilisateur=user, actif=True, peut_gerer_finances=True
-        ).exists():
-            return True
-        return est_bureau_national_general(user)
+
+        from apps.finance.views import perimetre_financier_utilisateur
+
+        return (
+            perimetre_financier_utilisateur(user)["type"] != "NONE"
+        )
 
     def has_object_permission(self, request, view, obj):
-        user = request.user
-        if user.role == Role.COORDINATEUR or user.is_superuser:
-            return True
-        if user.role in [Role.ADMIN_LOCAL, Role.PASTEUR]:
-            return getattr(obj, "eglise_id", None) == user.eglise_id
-        from apps.bureaux.models import BureauAdministrateur
-        return BureauAdministrateur.objects.filter(
-            utilisateur=user,
-            bureau_id=getattr(obj, "bureau_id", None),
-            actif=True,
-            peut_gerer_finances=True,
-        ).exists() or (
-            est_bureau_national_general(user)
-            and getattr(obj, "bureau_id", None) is None
-            and getattr(obj, "eglise_id", None) is None
-        )
+        from apps.finance.views import perimetre_financier_utilisateur
+
+        scope = perimetre_financier_utilisateur(request.user)
+
+        if scope["type"] == "EGLISE":
+            return (
+                getattr(obj, "eglise_id", None) == scope["eglise_id"]
+                and getattr(obj, "bureau_id", None) is None
+            )
+
+        if scope["type"] == "BUREAU":
+            return (
+                getattr(obj, "bureau_id", None) == scope["bureau_id"]
+                and getattr(obj, "eglise_id", None) is None
+            )
+
+        return False
 
 
 class PeutGererProjets(BasePermission):
@@ -213,7 +210,9 @@ class PeutGererProjets(BasePermission):
         user = request.user
         if not user or not user.is_authenticated:
             return False
-        if user.role == Role.COORDINATEUR or user.is_superuser:
+        if user.role == Role.COORDINATEUR:
+            return False
+        if user.is_superuser:
             return True
         if user.role in [Role.ADMIN_LOCAL, Role.PASTEUR] and user.eglise_id:
             return True
@@ -226,7 +225,9 @@ class PeutGererProjets(BasePermission):
 
     def has_object_permission(self, request, view, obj):
         user = request.user
-        if user.role == Role.COORDINATEUR or user.is_superuser:
+        if user.role == Role.COORDINATEUR:
+            return False
+        if user.is_superuser:
             return True
         if user.role in [Role.ADMIN_LOCAL, Role.PASTEUR]:
             return getattr(obj, "eglise_id", None) == user.eglise_id

@@ -9,7 +9,6 @@ class NiveauBureau(models.TextChoices):
 
 
 class TypeBureau(models.TextChoices):
-    HOMMES = "HOMMES", "Bureau national des hommes"
     FEMMES = "FEMMES", "Bureau national des femmes"
     JEUNESSE = "JEUNESSE", "Bureau national des jeunes"
     ENFANTS = "ENFANTS", "Bureau national des enfants"
@@ -18,12 +17,9 @@ class TypeBureau(models.TextChoices):
     EVANGELISATION = "EVANGELISATION", "Équipe nationale d'évangélisation"
     COMMUNICATION = "COMMUNICATION", "Bureau de la communication"
     MUSIQUE = "MUSIQUE", "Bureau de la musique / chorale"
-    MISSIONS = "MISSIONS", "Bureau des missions"
-    AUTRE = "AUTRE", "Autre bureau / commission"
 
 # les constantes de sécurité
 TYPES_BUREAUX_NATIONAUX = (
-    TypeBureau.HOMMES,
     TypeBureau.FEMMES,
     TypeBureau.JEUNESSE,
     TypeBureau.ENFANTS,
@@ -55,7 +51,6 @@ class Bureau(models.Model):
         related_name="bureaux_enfants",
         help_text=(
             "Bureau responsable de cet espace. "
-            "Par exemple, le Bureau national des hommes "
             "peut être responsable des autres bureaux nationaux."
         ),
     )

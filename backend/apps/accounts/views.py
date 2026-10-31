@@ -6,7 +6,7 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework_simplejwt.views import TokenObtainPairView
 from django_filters.rest_framework import DjangoFilterBackend
-
+from rest_framework.exceptions import PermissionDenied
 from .models import (
     Utilisateur, Role, ROLES_NATIONAUX, ROLES_BUREAU_NATIONAL, Abonnement, MandatBureauNational,
     VerificationTelephone, PermissionEglise, DelegationEglise,
@@ -72,7 +72,6 @@ class ChangerCodeSecretView(generics.GenericAPIView):
         request.user.code_secret_clair = ""
         request.user.save()
         return Response({"detail": "Code secret mis à jour."})
-
 
 class UtilisateurViewSet(viewsets.ModelViewSet):
     serializer_class = UtilisateurSerializer
@@ -152,7 +151,7 @@ class UtilisateurViewSet(viewsets.ModelViewSet):
         )
 
         if user.role == Role.COORDINATEUR or user.is_superuser:
-            return qs.exclude(role=Role.COORDINATEUR)
+            return qs
 
         if user.role in [
             Role.SUPERADMIN_INTL,
@@ -190,7 +189,7 @@ class UtilisateurViewSet(viewsets.ModelViewSet):
             role=Role.COORDINATEUR
         )
 
-
+    # ACTITIVER 
     @action(detail=True, methods=["post"])
     def activer(self, request, pk=None):
         """Active plus tard un administrateur local/pasteur déjà créé."""
@@ -224,6 +223,74 @@ class UtilisateurViewSet(viewsets.ModelViewSet):
         compte.is_staff = False
         compte.save(update_fields=["actif", "is_staff"])
         return Response(self.get_serializer(compte).data)
+
+    # --------------------------------------------------------
+    # BLOCAGE GLOBAL DES COMPTES
+    # Réservé exclusivement au Coordinateur
+    # --------------------------------------------------------
+
+    def _verifier_droit_blocage(self, request):
+        if (
+            not request.user.is_authenticated
+            or request.user.role != Role.COORDINATEUR
+        ):
+            raise PermissionDenied(
+                "Seul le Coordinateur peut bloquer ou débloquer un compte."
+            )
+
+    @action(detail=True, methods=["post"])
+    def bloquer(self, request, pk=None):
+        self._verifier_droit_blocage(request)
+
+        compte = self.get_object()
+
+        if compte.pk == request.user.pk:
+            return Response(
+                {"detail": "Tu ne peux pas bloquer ton propre compte."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if compte.role == Role.COORDINATEUR or compte.is_superuser:
+            return Response(
+                {"detail": "Ce compte privilégié ne peut pas être bloqué depuis cette interface."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        if compte.actif:
+            compte.actif = False
+            compte.save(update_fields=["actif"])
+
+        return Response({
+            "detail": f"Le compte de {compte.prenom} {compte.nom} a été bloqué.",
+            "utilisateur": self.get_serializer(compte).data,
+        })
+
+    @action(detail=True, methods=["post"])
+    def debloquer(self, request, pk=None):
+        self._verifier_droit_blocage(request)
+
+        compte = self.get_object()
+
+        if compte.pk == request.user.pk:
+            return Response(
+                {"detail": "Cette opération n'est pas autorisée sur ton propre compte."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if compte.role == Role.COORDINATEUR or compte.is_superuser:
+            return Response(
+                {"detail": "Ce compte privilégié ne peut pas être modifié depuis cette interface."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        if not compte.actif:
+            compte.actif = True
+            compte.save(update_fields=["actif"])
+
+        return Response({
+            "detail": f"Le compte de {compte.prenom} {compte.nom} a été débloqué.",
+            "utilisateur": self.get_serializer(compte).data,
+        })
 
 
 class RechercheMembreView(generics.ListAPIView):
@@ -352,12 +419,23 @@ class DiagnosticSMSView(generics.GenericAPIView):
 
     def get(self, request):
         if request.user.role != Role.COORDINATEUR:
-            return Response({"detail": "Seul le Coordinateur peut consulter le diagnostic SMS."}, status=403)
+            return Response(
+                {"detail": "Seul le Coordinateur peut consulter le diagnostic SMS."},
+                status=403,
+            )
+
         from django.conf import settings
         from .services_sms import diagnostic_sms
+
         data = diagnostic_sms()
-        data["ready"] = bool(data["sms_api_url_present"] and data["sms_api_key_present"])
-        data["note"] = "Les secrets Twilio sont détenus uniquement par le microservice FastAPI SMS."
+        data["ready"] = bool(
+            data["sms_api_url_present"]
+            and data["sms_api_key_present"]
+        )
+        data["note"] = (
+            "Les secrets Twilio sont détenus uniquement "
+            "par le microservice FastAPI SMS."
+        )
         return Response(data)
 
 

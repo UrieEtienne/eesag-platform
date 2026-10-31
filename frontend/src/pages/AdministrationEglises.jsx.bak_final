@@ -1,0 +1,336 @@
+
+import { useCallback, useEffect, useState } from "react";
+import FormulaireEglise from "../components/FormulaireEglise";
+
+const API_URL = (import.meta.env.VITE_API_URL || "/api").replace(/\/+$/, "");
+
+function obtenirToken() {
+  return (
+    localStorage.getItem("access") ||
+    localStorage.getItem("access_token") ||
+    localStorage.getItem("accessToken") ||
+    localStorage.getItem("token") ||
+    ""
+  );
+}
+
+async function requeteAPI(chemin, options = {}) {
+  const token = obtenirToken();
+
+  const response = await fetch(`${API_URL}${chemin}`, {
+    ...options,
+    headers: {
+      Accept: "application/json",
+      ...(options.body ? { "Content-Type": "application/json" } : {}),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...options.headers,
+    },
+  });
+
+  const type = response.headers.get("content-type") || "";
+  const data = type.includes("application/json")
+    ? await response.json()
+    : await response.text();
+
+  if (!response.ok) {
+    const detail =
+      typeof data === "string"
+        ? data
+        : data?.detail ||
+          data?.message ||
+          `Erreur HTTP ${response.status}`;
+
+    throw new Error(detail);
+  }
+
+  return data;
+}
+
+function listeDepuis(data) {
+  if (Array.isArray(data)) return data;
+  if (Array.isArray(data?.results)) return data.results;
+  if (Array.isArray(data?.data)) return data.data;
+  return [];
+}
+
+export default function AdministrationEglises() {
+  const [eglises, setEglises] = useState([]);
+  const [chargement, setChargement] = useState(true);
+  const [actionEnCours, setActionEnCours] = useState(null);
+  const [recherche, setRecherche] = useState("");
+  const [message, setMessage] = useState("");
+  const [erreur, setErreur] = useState("");
+
+  const chargerEglises = useCallback(async () => {
+    setChargement(true);
+    setErreur("");
+
+    try {
+      const data = await requeteAPI("/eglises/");
+      setEglises(listeDepuis(data));
+    } catch (e) {
+      setErreur(e.message || "Impossible de charger les églises.");
+    } finally {
+      setChargement(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    chargerEglises();
+  }, [chargerEglises]);
+
+  const changerPlateforme = async (eglise) => {
+    if (!eglise?.id) return;
+
+    const activer = !eglise.plateforme_active;
+    const action = activer ? "activer_plateforme" : "desactiver_plateforme";
+
+    const confirme = window.confirm(
+      `Confirmer la ${activer ? "mise en service" : "désactivation"} de la plateforme de « ${eglise.nom} » ?`
+    );
+
+    if (!confirme) return;
+
+    setErreur("");
+    setMessage("");
+    setActionEnCours(eglise.id);
+
+    try {
+      const resultat = await requeteAPI(
+        `/eglises/${eglise.id}/${action}/`,
+        { method: "POST" }
+      );
+
+      setMessage(
+        resultat?.detail ||
+        `La plateforme de ${eglise.nom} a été ${activer ? "activée" : "désactivée"}.`
+      );
+
+      await chargerEglises();
+    } catch (e) {
+      setErreur(e.message || "Impossible de modifier la plateforme.");
+    } finally {
+      setActionEnCours(null);
+    }
+  };
+
+  const handleCree = async (resultat) => {
+    setMessage(
+      resultat?.nom
+        ? `L'église « ${resultat.nom} » a été créée.`
+        : "L'église a été créée avec succès."
+    );
+    setErreur("");
+    await chargerEglises();
+  };
+
+  const filtrer = eglises.filter((eglise) => {
+    const terme = recherche.trim().toLocaleLowerCase();
+    if (!terme) return true;
+
+    return [
+      eglise.nom,
+      eglise.code,
+      eglise.region_nom,
+      eglise.prefecture_nom,
+      eglise.district_nom,
+      eglise.commune_nom,
+      eglise.telephone,
+    ]
+      .filter(Boolean)
+      .some((valeur) =>
+        String(valeur).toLocaleLowerCase().includes(terme)
+      );
+  });
+
+  return (
+    <main className="container-fluid px-3 px-lg-4 py-4">
+      <section className="card border-0 shadow-sm mb-4">
+        <div className="card-body p-4">
+          <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
+            <div>
+              <div className="text-uppercase small fw-bold text-primary mb-2">
+                EESAG · Contrôle global
+              </div>
+              <h2 className="mb-1">Gestion des églises</h2>
+              <p className="text-muted mb-0">
+                Créer les églises et gérer leur accès à la plateforme EESAG.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              className="btn btn-outline-secondary"
+              onClick={chargerEglises}
+              disabled={chargement}
+            >
+              Actualiser
+            </button>
+          </div>
+
+          <div className="row g-3 mt-2">
+            <div className="col-6 col-lg-3">
+              <div className="border rounded p-3 h-100">
+                <div className="small text-muted">Églises enregistrées</div>
+                <div className="fs-3 fw-bold">{eglises.length}</div>
+              </div>
+            </div>
+            <div className="col-6 col-lg-3">
+              <div className="border rounded p-3 h-100">
+                <div className="small text-muted">Plateformes actives</div>
+                <div className="fs-3 fw-bold text-success">
+                  {eglises.filter((e) => e.plateforme_active).length}
+                </div>
+              </div>
+            </div>
+            <div className="col-6 col-lg-3">
+              <div className="border rounded p-3 h-100">
+                <div className="small text-muted">Plateformes inactives</div>
+                <div className="fs-3 fw-bold text-warning">
+                  {eglises.filter((e) => !e.plateforme_active).length}
+                </div>
+              </div>
+            </div>
+            <div className="col-6 col-lg-3">
+              <div className="border rounded p-3 h-100">
+                <div className="small text-muted">Résultats affichés</div>
+                <div className="fs-3 fw-bold">{filtrer.length}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {erreur && (
+        <div className="alert alert-danger" role="alert">
+          <strong>Erreur :</strong> {erreur}
+        </div>
+      )}
+
+      {message && (
+        <div className="alert alert-success" role="status">
+          {message}
+        </div>
+      )}
+
+      <section className="card border-0 shadow-sm mb-4">
+        <div className="card-header bg-white py-3">
+          <h5 className="mb-0">Enregistrer une nouvelle église</h5>
+        </div>
+        <div className="card-body p-3 p-md-4">
+          <FormulaireEglise
+            onFerme={() => setMessage("")}
+            onCree={handleCree}
+          />
+        </div>
+      </section>
+
+      <section className="card border-0 shadow-sm">
+        <div className="card-header bg-white py-3">
+          <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
+            <h5 className="mb-0">Toutes les églises</h5>
+            <input
+              type="search"
+              className="form-control"
+              style={{ maxWidth: 340 }}
+              placeholder="Rechercher par nom, code, région..."
+              value={recherche}
+              onChange={(e) => setRecherche(e.target.value)}
+              aria-label="Rechercher une église"
+            />
+          </div>
+        </div>
+
+        <div className="card-body p-0">
+          {chargement ? (
+            <div className="p-4 text-center text-muted">
+              Chargement des églises...
+            </div>
+          ) : filtrer.length === 0 ? (
+            <div className="p-4 text-center text-muted">
+              Aucune église trouvée.
+            </div>
+          ) : (
+            <div className="table-responsive">
+              <table className="table table-hover table-striped align-middle mb-0">
+                <thead className="table-light">
+                  <tr>
+                    <th>Église</th>
+                    <th>Code</th>
+                    <th>Localisation</th>
+                    <th>Statut administratif</th>
+                    <th>Plateforme</th>
+                    <th className="text-end">Action</th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {filtrer.map((eglise) => (
+                    <tr key={eglise.id}>
+                      <td>
+                        <strong>{eglise.nom || "Église sans nom"}</strong>
+                        {eglise.telephone && (
+                          <small className="d-block text-muted">
+                            {eglise.telephone}
+                          </small>
+                        )}
+                      </td>
+
+                      <td>{eglise.code || "—"}</td>
+
+                      <td>
+                        {[
+                          eglise.commune_nom,
+                          eglise.district_nom,
+                          eglise.prefecture_nom,
+                          eglise.region_nom,
+                        ]
+                          .filter(Boolean)
+                          .join(" · ") || "—"}
+                      </td>
+
+                      <td>
+                        <span className="badge bg-secondary">
+                          {eglise.statut || "Non renseigné"}
+                        </span>
+                      </td>
+
+                      <td>
+                        {eglise.plateforme_active ? (
+                          <span className="badge bg-success">Activée</span>
+                        ) : (
+                          <span className="badge bg-warning text-dark">
+                            Désactivée
+                          </span>
+                        )}
+                      </td>
+
+                      <td className="text-end">
+                        <button
+                          type="button"
+                          className={`btn btn-sm ${
+                            eglise.plateforme_active
+                              ? "btn-outline-danger"
+                              : "btn-outline-success"
+                          }`}
+                          disabled={actionEnCours === eglise.id}
+                          onClick={() => changerPlateforme(eglise)}
+                        >
+                          {actionEnCours === eglise.id
+                            ? "Traitement..."
+                            : eglise.plateforme_active
+                              ? "Désactiver"
+                              : "Activer"}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </section>
+    </main>
+  );
+}

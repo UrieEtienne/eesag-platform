@@ -17,15 +17,13 @@ from .models import (
 
 def _est_coordinateur(user):
     """
-    Le Coordinateur du système possède les droits globaux.
+    Seul le rôle métier COORDINATEUR donne les droits de Coordinateur.
+    is_superuser ne donne aucun privilège métier supplémentaire.
     """
     return bool(
         user
         and user.is_authenticated
-        and (
-            user.role == Role.COORDINATEUR
-            or user.is_superuser
-        )
+        and user.role == Role.COORDINATEUR
     )
 
 
@@ -53,18 +51,8 @@ def _bureaux_administres(user):
 
 def _est_national_general(user):
     """
-    Un utilisateur national sans affectation active à un bureau
-    spécialisé est considéré comme relevant du périmètre
-    national général.
-
-    IMPORTANT :
-    Le Bureau national général n'est PAS un cinquième bureau.
-
-    Les seuls bureaux nationaux fonctionnels sont :
-        - HOMMES
-        - FEMMES
-        - JEUNESSE
-        - ENFANTS
+    Un compte national sans affectation active à un bureau
+    national est considéré comme relevant du périmètre général.
     """
     if not user or not user.is_authenticated:
         return False
@@ -75,21 +63,12 @@ def _est_national_general(user):
     if user.role not in ROLES_BUREAU_NATIONAL:
         return False
 
-    return not (
-        BureauAdministrateur.objects
-        .filter(
-            utilisateur=user,
-            actif=True,
-            bureau__niveau=NiveauBureau.NATIONAL,
-            bureau__type_bureau__in={
-                TypeBureau.HOMMES,
-                TypeBureau.FEMMES,
-                TypeBureau.JEUNESSE,
-                TypeBureau.ENFANTS,
-            },
-        )
-        .exists()
-    )
+    return not BureauAdministrateur.objects.filter(
+        utilisateur=user,
+        actif=True,
+        bureau__niveau=NiveauBureau.NATIONAL,
+        bureau__eglise__isnull=True,
+    ).exists()
 
 
 # ============================================================
@@ -97,59 +76,36 @@ def _est_national_general(user):
 # ============================================================
 
 def est_bureau_national_principal(bureau):
-    """
-    Le Bureau national des Hommes est le bureau national principal.
-
-    Il est le bureau qui peut créer/gérer la structure des
-    trois autres bureaux nationaux :
-        - Femmes
-        - Jeunesse
-        - Enfants
-    """
-    if not bureau:
-        return False
-
+    """Le bureau national principal est l'unique bureau GENERAL."""
     return bool(
-        bureau.niveau == NiveauBureau.NATIONAL
-        and bureau.type_bureau == TypeBureau.HOMMES
+        bureau
+        and bureau.niveau == NiveauBureau.NATIONAL
+        and bureau.type_bureau == TypeBureau.GENERAL
         and not bureau.eglise_id
+    )
+
+
+def _bureau_national_general():
+    """Retourne le bureau national général, s'il existe."""
+    return (
+        Bureau.objects.filter(
+            niveau=NiveauBureau.NATIONAL,
+            type_bureau=TypeBureau.GENERAL,
+            eglise__isnull=True,
+        ).first()
     )
 
 
 def _bureau_national_hommes():
     """
-    Retourne le Bureau national des Hommes.
-
-    Il s'agit du bureau national principal.
+    Alias de compatibilité pour les anciens appels.
+    Le bureau principal est désormais de type GENERAL.
     """
-    return (
-        Bureau.objects
-        .filter(
-            niveau=NiveauBureau.NATIONAL,
-            type_bureau=TypeBureau.HOMMES,
-            eglise__isnull=True,
-        )
-        .first()
-    )
-
-
-# Alias explicite pour les endroits du code qui parlent
-# du bureau national principal.
-def _bureau_national_general():
-    """
-    Compatibilité avec l'ancien code.
-
-    Dans la nouvelle architecture, le Bureau national général
-    administratif ne constitue pas un bureau supplémentaire.
-
-    Le bureau structurel principal est le Bureau national
-    des Hommes.
-    """
-    return _bureau_national_hommes()
+    return _bureau_national_general()
 
 
 # ============================================================
-# BUREAUX NATIONAUX SECONDAIRES
+# BUREAUX NATIONAUX SPÉCIALISÉS
 # ============================================================
 
 BUREAUX_NATIONAUX_SECONDAIRES = {
@@ -160,21 +116,15 @@ BUREAUX_NATIONAUX_SECONDAIRES = {
 
 
 def est_bureau_national_secondaire(bureau):
-    """
-    Vérifie qu'un bureau est l'un des trois bureaux nationaux
-    secondaires autorisés.
-    """
-    if not bureau:
-        return False
-
+    """Vérifie qu'un bureau appartient aux trois types spécialisés."""
     return bool(
-        bureau.niveau == NiveauBureau.NATIONAL
+        bureau
+        and bureau.niveau == NiveauBureau.NATIONAL
         and bureau.type_bureau in BUREAUX_NATIONAUX_SECONDAIRES
         and not bureau.eglise_id
     )
 
 
-# ============================================================
 # CRÉATION DES BUREAUX NATIONAUX
 # ============================================================
 
@@ -227,14 +177,22 @@ def peut_creer_bureau_national(user):
 # ============================================================
 
 def a_droit_bureau(user, bureau, droit):
-    if not user or not user.is_authenticated:
+    """
+    Vérifie une autorisation explicite sur un bureau.
+
+    Aucun droit financier n'est accordé automatiquement
+    en fonction du rôle technique.
+    """
+    if not user or not user.is_authenticated or not bureau:
         return False
 
+    # Le Coordinateur ne reçoit pas de droits financiers
+    # ni de droits internes par simple privilège global.
     if _est_coordinateur(user):
-        return True
+        return False
 
-    # Un compte délégué ne doit jamais hériter des droits globaux
-    # simplement parce qu'il possède un rôle national.
+    # Les droits des comptes nationaux sont exclusivement
+    # ceux de leur affectation active dans ce bureau.
     if user.role in ROLES_BUREAU_NATIONAL:
         attribution = BureauAdministrateur.objects.filter(
             bureau=bureau,
@@ -243,26 +201,13 @@ def a_droit_bureau(user, bureau, droit):
             bureau__actif=True,
         ).first()
 
-        if attribution:
-            return bool(getattr(attribution, droit, False))
+        return bool(
+            attribution
+            and getattr(attribution, droit, False)
+        )
 
-        # Pas d'attribution : pas de droit d'administration du bureau.
-        # Le Coordinateur est traité plus haut.
-        return False
-
-    if (
-        user.role in ("ADMIN_LOCAL", "PASTEUR")
-        and bureau.niveau == NiveauBureau.LOCAL
-        and bureau.eglise_id == user.eglise_id
-    ):
-        return droit in {
-            "peut_gerer_membres",
-            "peut_gerer_finances",
-            "peut_gerer_projets",
-            "peut_envoyer_notifications",
-            "peut_gerer_rapports",
-        }
-
+    # Les administrateurs locaux et pasteurs ne reçoivent
+    # plus automatiquement le droit financier.
     attribution = BureauAdministrateur.objects.filter(
         bureau=bureau,
         utilisateur=user,
@@ -270,4 +215,7 @@ def a_droit_bureau(user, bureau, droit):
         bureau__actif=True,
     ).first()
 
-    return bool(attribution and getattr(attribution, droit, False))
+    return bool(
+        attribution
+        and getattr(attribution, droit, False)
+    )

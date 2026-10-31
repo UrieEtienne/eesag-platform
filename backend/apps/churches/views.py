@@ -6,22 +6,20 @@ from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from apps.accounts.models import Role, ROLES_NATIONAUX, Utilisateur
+from django.utils import timezone
 from apps.accounts.permissions import (
     EstAdminLocalOuPlus,
     EstCoordinateurOuGestionEglise,
     EstCoordinateurOuBureauNationalGeneral,
     EstSuperAdminNationalOuPlus,
 )
-
 from apps.bureaux.models import BureauAdministrateur
-
 from .models import (
     Annexe,
     Departement,
     Eglise,
     RoleEglise,
 )
-
 from .serializers import (
     EgliseAnnuaireSerializer,
     EgliseCreateSerializer,
@@ -118,7 +116,7 @@ class EgliseViewSet(viewsets.ModelViewSet):
         "nom",
         "code",
         "telephone",
-        "email",
+        
         "adresse_precise",
     ]
 
@@ -208,6 +206,71 @@ class EgliseViewSet(viewsets.ModelViewSet):
             return qs.filter(id=eglise_id)
 
         return qs.none()
+        # --------------------------------------------------------
+    # 4.4 ACTIVATION / DÉSACTIVATION DE LA PLATEFORME
+    # Réservé exclusivement au Coordinateur
+    # --------------------------------------------------------
+
+    def _verifier_coordinateur(self, request):
+        if (
+            not request.user.is_authenticated
+            or request.user.role != Role.COORDINATEUR
+        ):
+            raise PermissionDenied(
+                "Seul le Coordinateur peut modifier l'accès à la plateforme."
+            )
+
+    @action(
+        detail=True,
+        methods=["post"],
+        url_path="activer_plateforme",
+        permission_classes=[IsAuthenticated],
+    )
+    def activer_plateforme(self, request, pk=None):
+        self._verifier_coordinateur(request)
+
+        eglise = self.get_object()
+
+        if not eglise.plateforme_active:
+            eglise.plateforme_active = True
+            eglise.date_activation_plateforme = timezone.now()
+            eglise.activee_par = request.user
+            eglise.save(update_fields=[
+                "plateforme_active",
+                "date_activation_plateforme",
+                "activee_par",
+            ])
+
+        return Response({
+            "detail": f"La plateforme de {eglise.nom} est activée.",
+            "eglise": EgliseListSerializer(
+                eglise,
+                context={"request": request},
+            ).data,
+        })
+
+    @action(
+        detail=True,
+        methods=["post"],
+        url_path="desactiver_plateforme",
+        permission_classes=[IsAuthenticated],
+    )
+    def desactiver_plateforme(self, request, pk=None):
+        self._verifier_coordinateur(request)
+
+        eglise = self.get_object()
+
+        if eglise.plateforme_active:
+            eglise.plateforme_active = False
+            eglise.save(update_fields=["plateforme_active"])
+
+        return Response({
+            "detail": f"La plateforme de {eglise.nom} est désactivée.",
+            "eglise": EgliseListSerializer(
+                eglise,
+                context={"request": request},
+            ).data,
+        })
 
     # --------------------------------------------------------
     # 4.4 ANNUAIRE DES ÉGLISES DESTINATAIRES

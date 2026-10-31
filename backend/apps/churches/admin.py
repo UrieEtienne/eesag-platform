@@ -1,3 +1,5 @@
+
+
 from django import forms
 from django.contrib import admin, messages
 from django.utils.html import format_html
@@ -49,7 +51,6 @@ class EgliseAdminForm(forms.ModelForm):
     admin_nom = forms.CharField(label="Nom de l'administrateur", max_length=100, required=False)
     admin_prenom = forms.CharField(label="Prénom de l'administrateur", max_length=100, required=False)
     admin_telephone = forms.CharField(label="Téléphone", max_length=20, required=False)
-    admin_email = forms.EmailField(label="Email", required=False)
     admin_mot_de_passe = forms.CharField(
         label="Code secret / mot de passe",
         widget=forms.PasswordInput(render_value=False),
@@ -71,21 +72,25 @@ class EgliseAdminForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.request = request
         self._can_create_admin = bool(
-            request and is_coordinator(request.user)
+            request
+            and (
+                is_coordinator(request.user)
+                or is_national_general(request.user)
+            )
         ) 
         # Ces champs supplémentaires ne sont affichés qu'à la création et
         # uniquement au Coordinateur.
         if self.instance and self.instance.pk:
             for name in (
                 "creer_compte_admin", "admin_nom", "admin_prenom",
-                "admin_telephone", "admin_email", "admin_mot_de_passe",
+                "admin_telephone", "admin_mot_de_passe",
                 "admin_confirmation",
             ):
                 self.fields.pop(name, None)
         elif not self._can_create_admin:
             for name in (
                 "creer_compte_admin", "admin_nom", "admin_prenom",
-                "admin_telephone", "admin_email", "admin_mot_de_passe",
+                "admin_telephone", "admin_mot_de_passe",
                 "admin_confirmation",
             ):
                 self.fields.pop(name, None)
@@ -106,7 +111,6 @@ class EgliseAdminForm(forms.ModelForm):
             if creer and admin_nom and admin_prenom:
                 cleaned["responsable_nom"] = f"{admin_prenom} {admin_nom}".strip()
                 cleaned["responsable_telephone"] = admin_telephone or ""
-                cleaned["responsable_email"] = cleaned.get("admin_email") or ""
             else:
                 self.add_error(
                     "responsable_nom",
@@ -184,6 +188,39 @@ class EgliseAdmin(EESAGScopedAdminMixin, admin.ModelAdmin):
         Transmet explicitement request au formulaire.
         Cela évite le KeyError sur creer_compte_admin.
         """
+        # Inclure explicitement les champs personnalisés dans le
+        # ModelForm généré par Django Admin.
+        if obj is None and (
+            is_coordinator(request.user)
+            or is_national_general(request.user)
+        ):
+            custom_fields = (
+                "creer_compte_admin",
+                "admin_nom",
+                "admin_prenom",
+                "admin_telephone",
+                
+                "admin_mot_de_passe",
+                "admin_confirmation",
+            )
+            current_fields = kwargs.get("fields")
+            if current_fields is None:
+                current_fields = self.get_fieldsets(request, obj)
+                current_fields = tuple(
+                    field
+                    for _, options in current_fields
+                    for line in options["fields"]
+                    for field in (
+                        (line,) if isinstance(line, str) else line
+                    )
+                )
+            else:
+                current_fields = tuple(current_fields)
+
+            kwargs["fields"] = tuple(dict.fromkeys(
+                tuple(current_fields) + custom_fields
+            ))
+
         BaseForm = super().get_form(
             request,
             obj=obj,
@@ -284,7 +321,10 @@ class EgliseAdmin(EESAGScopedAdminMixin, admin.ModelAdmin):
         actions = super().get_actions(request)
 
         # L'activation et la désactivation sont réservées au Coordinateur.
-        if not is_coordinator(request.user):
+        if not (
+            is_coordinator(request.user)
+            or is_national_general(request.user)
+        ):
             actions.pop("activer_plateformes", None)
             actions.pop("desactiver_plateformes", None)
 
@@ -345,17 +385,13 @@ class EgliseAdmin(EESAGScopedAdminMixin, admin.ModelAdmin):
                     "fields": (
                         "responsable",
                         "responsable_nom",
-                        "responsable_telephone",
-                        "responsable_email",
                     )
                 },
             ),
             (
-                "Contact & fondation",
+                "fondation",
                 {
                     "fields": (
-                        "telephone",
-                        "email",
                         "date_creation",
                         "date_enregistrement_systeme",
                     )
@@ -365,7 +401,7 @@ class EgliseAdmin(EESAGScopedAdminMixin, admin.ModelAdmin):
 
         # À la création uniquement :
         # le Coordinateur peut créer le premier administrateur local.
-        if obj is None and is_coordinator(request.user):
+        if obj is None and (is_coordinator(request.user) or is_national_general(request.user)):
             fieldsets.append(
                 (
                     "Compte administrateur local",
@@ -375,7 +411,7 @@ class EgliseAdmin(EESAGScopedAdminMixin, admin.ModelAdmin):
                             "admin_nom",
                             "admin_prenom",
                             "admin_telephone",
-                            "admin_email",
+                            
                             "admin_mot_de_passe",
                             "admin_confirmation",
                         ),
@@ -388,29 +424,29 @@ class EgliseAdmin(EESAGScopedAdminMixin, admin.ModelAdmin):
                 )
             )
 
-        fieldsets.extend(
-            [
-                (
-                    "Activation de la plateforme",
-                    {
-                        "fields": (
-                            "plateforme_active",
-                            "date_activation_plateforme",
-                            "activee_par",
-                        ),
-                        "description": (
-                            "Seul le Coordinateur peut activer ou désactiver l'accès de cette église à la plateforme."
-                        ),
-                    },
-                ),
-                (
-                    "Statut administratif",
-                    {
-                        "fields": ("statut",),
-                    },
-                ),
-            ]
-        )
+        # fieldsets.extend(
+        #     [
+        #         (
+        #             "Activation de la plateforme",
+        #             {
+        #                 "fields": (
+        #                     "plateforme_active",
+        #                     "date_activation_plateforme",
+        #                     "activee_par",
+        #                 ),
+        #                 "description": (
+        #                     "Seul le Coordinateur peut activer ou désactiver l'accès de cette église à la plateforme."
+        #                 ),
+        #             },
+        #         ),
+        #         (
+        #             "Statut administratif",
+        #             {
+        #                 "fields": ("statut",),
+        #             },
+        #         ),
+        #     ]
+        # )
 
         return tuple(fieldsets)
 
@@ -437,10 +473,13 @@ class EgliseAdmin(EESAGScopedAdminMixin, admin.ModelAdmin):
 
     @admin.action(description="Activer la plateforme pour les églises sélectionnées")
     def activer_plateformes(self, request, queryset):
-        if not is_coordinator(request.user):
+        if not (
+            is_coordinator(request.user)
+            or is_national_general(request.user)
+        ):
             self.message_user(
                 request,
-                "Seul le Coordinateur peut activer l'accès d'une église à la plateforme.",
+                "Action réservée au Coordinateur et au Bureau national général.",
                 level=messages.ERROR,
             )
             return
@@ -458,10 +497,13 @@ class EgliseAdmin(EESAGScopedAdminMixin, admin.ModelAdmin):
 
     @admin.action(description="Désactiver la plateforme pour les églises sélectionnées")
     def desactiver_plateformes(self, request, queryset):
-        if not is_coordinator(request.user):
+        if not (
+            is_coordinator(request.user)
+            or is_national_general(request.user)
+        ):
             self.message_user(
                 request,
-                "Seul le Coordinateur peut désactiver l'accès d'une église à la plateforme.",
+                "Action réservée au Coordinateur et au Bureau national général.",
                 level=messages.ERROR,
             )
             return
@@ -497,7 +539,7 @@ class EgliseAdmin(EESAGScopedAdminMixin, admin.ModelAdmin):
 
             # À la création, le premier administrateur local est créé dans
             # le même écran et immédiatement rattaché à l'église.
-            if not change and is_coordinator(request.user):
+            if not change and (is_coordinator(request.user) or is_national_general(request.user)):
                 creer = form.cleaned_data.get("creer_compte_admin", False)
                 if creer:
                     password = form.cleaned_data.get("admin_mot_de_passe")
@@ -505,7 +547,6 @@ class EgliseAdmin(EESAGScopedAdminMixin, admin.ModelAdmin):
                         nom=form.cleaned_data.get("admin_nom", "").strip(),
                         prenom=form.cleaned_data.get("admin_prenom", "").strip(),
                         telephone=form.cleaned_data.get("admin_telephone", ""),
-                        email=form.cleaned_data.get("admin_email", ""),
                         role=Role.ADMIN_LOCAL,
                         eglise=obj,
                         actif=False,
@@ -522,16 +563,13 @@ class EgliseAdmin(EESAGScopedAdminMixin, admin.ModelAdmin):
                     if not obj.responsable:
                         obj.responsable = compte
                         obj.responsable_nom = f"{compte.prenom} {compte.nom}".strip()
-                        obj.responsable_telephone = compte.telephone
-                        obj.responsable_email = compte.email or ""
                         obj.save(update_fields=[
                             "responsable", "responsable_nom",
-                            "responsable_telephone", "responsable_email",
                         ])
 
             # Si une activation a été faite par le Coordinateur,
             # synchroniser les comptes locaux concernés.
-            if is_coordinator(request.user) and change and "plateforme_active" in form.changed_data:
+            if (is_coordinator(request.user) or is_national_general(request.user)) and change and "plateforme_active" in form.changed_data:
                 _synchroniser_acces_admin_eglise(obj, obj.plateforme_active)
 
     def response_add(self, request, obj, post_url_continue=None):
@@ -543,7 +581,7 @@ class EgliseAdmin(EESAGScopedAdminMixin, admin.ModelAdmin):
                 format_html(
                     "<strong>Église créée.</strong> Compte administrateur local : "
                     "<strong>{}</strong> · Code secret : <strong>{}</strong>. "
-                    "L'église reste inactive jusqu'à son activation par le Coordinateur.",
+                    "L'église reste inactive jusqu'à son activation par le Coordinateur ou le Bureau national général.",
                     identifiant, password,
                 ),
                 level=messages.SUCCESS,

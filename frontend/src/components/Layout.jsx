@@ -23,6 +23,8 @@ export default function Layout({ children }) {
     () => window.matchMedia("(max-width: 767px)").matches
   );
 
+  const location = useLocation();
+
   useEffect(() => {
     const mediaQuery = window.matchMedia("(max-width: 767px)");
 
@@ -35,7 +37,6 @@ export default function Layout({ children }) {
     };
 
     handleResize(mediaQuery);
-
     mediaQuery.addEventListener("change", handleResize);
 
     return () => {
@@ -54,40 +55,19 @@ export default function Layout({ children }) {
     };
   }, [mobile, sidebarOuverte]);
 
-  const fermerSidebarSurMobile = () => {
-    if (mobile) {
-      setSidebarOuverte(false);
-    }
-  };
-
-  const location = useLocation();
-
-  /*
-  |--------------------------------------------------------------------------
-  | URL DES ADMINISTRATIONS DJANGO
-  |--------------------------------------------------------------------------
-  */
-
-  // Administration Django principale : Coordinateur du système.
   const djangoAdminUrl =
     import.meta.env.VITE_DJANGO_ADMIN_URL ||
     (import.meta.env.DEV
       ? "http://127.0.0.1:8000/admin/"
       : "/admin/");
 
-  // Administration Django séparée : Bureau national général.
   const djangoAdminNationalUrl =
     import.meta.env.VITE_DJANGO_ADMIN_NATIONAL_URL ||
     (import.meta.env.DEV
       ? "http://127.0.0.1:8000/admin-national/"
       : "/admin-national/");
 
-  /*
-  |--------------------------------------------------------------------------
-  | NOTIFICATIONS ET ANNONCES
-  |--------------------------------------------------------------------------
-  */
-
+  // Notifications et annonces
   useEffect(() => {
     if (!utilisateur) {
       setNonLues(0);
@@ -106,9 +86,7 @@ export default function Layout({ children }) {
             : 0
         );
       })
-      .catch(() => {
-        setNonLues(0);
-      });
+      .catch(() => setNonLues(0));
 
     client
       .get("/systeme/annonces/")
@@ -119,22 +97,18 @@ export default function Layout({ children }) {
             : r.data?.results || []
         );
       })
-      .catch(() => {
-        setAnnonces([]);
-      });
+      .catch(() => setAnnonces([]));
   }, [utilisateur?.id, location.pathname]);
 
-  /*
-  |--------------------------------------------------------------------------
-  | LIEN DE NAVIGATION
-  |--------------------------------------------------------------------------
-  */
-
+  // Navigation
   const link = (to, label, icon, badge = null) => (
     <NavLink
       key={`${to}-${label}`}
       to={to}
       end={to === "/"}
+      onClick={() => {
+        if (mobile) setSidebarOuverte(false);
+      }}
       className={({ isActive }) =>
         `nav-link ${isActive ? "active" : ""}`
       }
@@ -145,18 +119,13 @@ export default function Layout({ children }) {
         <span className="nav-label">{label}</span>
       )}
 
-      {badge && sidebarOuverte ? (
+      {badge && sidebarOuverte && (
         <b className="nav-badge">{badge}</b>
-      ) : null}
+      )}
     </NavLink>
   );
 
-  /*
-  |--------------------------------------------------------------------------
-  | IDENTITÉ DE L'ESPACE
-  |--------------------------------------------------------------------------
-  */
-
+  // Identité de l'espace
   const nomEglise =
     utilisateur?.eglise_nom ||
     utilisateur?.eglise?.nom ||
@@ -177,16 +146,11 @@ export default function Layout({ children }) {
   return (
     <div
       className={`app-layout ${
-        sidebarOuverte
-          ? "sidebar-visible"
-          : "sidebar-hidden"
+        sidebarOuverte ? "sidebar-visible" : "sidebar-hidden"
       }`}
     >
-      {/* SIDEBAR */}
-
       <aside className="sidebar">
         {/* LOGO */}
-
         <div className="brand">
           <div className="brand-mark logo-brand">
             <img src="/assets/logo_eesag.jpg" alt="EESAG" />
@@ -200,7 +164,6 @@ export default function Layout({ children }) {
         </div>
 
         {/* IDENTITÉ DE L'ESPACE */}
-
         {sidebarOuverte && (
           <div className="scope-card">
             <span>{scopeKind}</span>
@@ -217,36 +180,30 @@ export default function Layout({ children }) {
         )}
 
         <nav className="sidebar-nav">
-          {/* ACCUEIL */}
+          {/* ACCUEIL COMMUN — PREMIER BOUTON POUR TOUS LES PROFILS */}
+          {link("/", "Accueil", "⌂")}
 
-          {/* {sidebarOuverte && (
-            <div className="nav-section-label">
-              Navigation
-            </div>
-          )} */}
-
-          {estCoordinateur &&
-            link("/national", "Tableau national", "⌂")}
-
-          {estBureauNational &&
-            link(
-              "/national",
-              "Tableau de bord national",
-              "⌂"
-            )}
-
-          {estGestionnaireEglise &&
-            link(
-              "/eglise-dashboard",
-              "Tableau de bord",
-              "⌂"
-            )}
-
-
-          {/* COORDINATEUR : ADMINISTRATION */}
-
+          {/* COORDINATEUR */}
           {estCoordinateur && (
             <>
+              {link(
+                "/national",
+                "Tableau national",
+                "⌂"
+              )}
+
+              {link(
+                "/admin-eglises",
+                "Gestion des églises",
+                "⚙"
+              )}
+
+              {link(
+                "/admin-utilisateurs",
+                "Gestion des utilisateurs",
+                "♙"
+              )}
+
               <a
                 href={djangoAdminUrl}
                 target="_blank"
@@ -266,7 +223,6 @@ export default function Layout({ children }) {
           )}
 
           {/* BUREAU NATIONAL */}
-
           {estBureauNational && (
             <>
               {sidebarOuverte && (
@@ -276,13 +232,18 @@ export default function Layout({ children }) {
               )}
 
               {link(
+                "/national",
+                "Tableau de bord national",
+                "⌂"
+              )}
+
+              {link(
                 "/eglises",
                 "Liste des églises",
                 "▤"
               )}
 
               {/* ADMIN DJANGO : BUREAU NATIONAL GÉNÉRAL */}
-
               {estBureauNationalGeneral && (
                 <a
                   href={djangoAdminNationalUrl}
@@ -322,7 +283,6 @@ export default function Layout({ children }) {
           )}
 
           {/* ADMINISTRATEUR LOCAL */}
-
           {estAdminLocal && (
             <>
               {sidebarOuverte && (
@@ -342,17 +302,16 @@ export default function Layout({ children }) {
               {link("/annexes", "Annexes", "⌘")}
               {link("/courriers", "Courriers", "✉")}
               {link("/documents", "Documents", "▣")}
-              {link(
-                "/finances",
-                "Comptabilité & projets",
-                "₣"
+
+              {peutGererFinances && (
+                link("/finances", "Comptabilité & projets", "₣")
               )}
+
               {link("/rapports", "Rapports", "▤")}
             </>
           )}
 
           {/* PASTEUR */}
-
           {estPasteur && (
             <>
               {sidebarOuverte && (
@@ -370,13 +329,6 @@ export default function Layout({ children }) {
           )}
 
           {/* SERVICES COMMUNS */}
-
-          {/* {sidebarOuverte && (
-            <div className="nav-section-label">
-              Services
-            </div>
-          )} */}
-
           {link(
             "/notifications",
             "Notifications",
@@ -386,7 +338,6 @@ export default function Layout({ children }) {
 
           {link("/reunions", "Réunions vidéo", "◉")}
           {link("/profil", "Mon profil", "●")}
-
           {link("/a-propos", "À propos", "ⓘ")}
 
           {link(
@@ -395,20 +346,10 @@ export default function Layout({ children }) {
             "⚙"
           )}
 
-          {link(
-            "/dons",
-            "Faire un don",
-            "❤"
-          )}
-
-          {link(
-            "/partager",
-            "Partager l'application",
-            "↗"
-          )}
+          {link("/dons", "Faire un don", "❤")}
+          {link("/partager", "Partager l'application", "↗")}
 
           {/* CONTRÔLE GLOBAL DU COORDINATEUR */}
-
           {estCoordinateur && (
             <>
               {sidebarOuverte && (
@@ -421,12 +362,6 @@ export default function Layout({ children }) {
                 "/eglises",
                 "Toutes les églises",
                 "◎"
-              )}
-
-              {link(
-                "/documents",
-                "Tous les documents",
-                "▣"
               )}
 
               {link(
@@ -443,32 +378,19 @@ export default function Layout({ children }) {
             </>
           )}
 
-          {/* MEMBRE */}
-
+          {/* MEMBRE SIMPLE */}
           {!estCoordinateur &&
             !estBureauNational &&
             !estAdminLocal &&
             !estPasteur && (
               <>
-                {/* {sidebarOuverte && (
-                  <div className="nav-section-label">
-                    MON ESPACE
-                  </div>
-                )} */}
-
-                {link("/", "Accueil", "⌂")}
-
                 {link(
                   "/bureau-national",
                   "Bureau national",
                   "◆"
                 )}
 
-                {link(
-                  "/bible",
-                  "Bible",
-                  "📖"
-                )}
+                {link("/bible", "Bible", "📖")}
 
                 {link(
                   "/dictionnaire-biblique",
@@ -492,7 +414,6 @@ export default function Layout({ children }) {
         </nav>
 
         {/* ANNONCES */}
-
         {sidebarOuverte && annonces.length > 0 && (
           <div className="sidebar-announcement">
             <span>NOUVEAUTÉ</span>
@@ -502,7 +423,6 @@ export default function Layout({ children }) {
         )}
 
         {/* PIED DE LA SIDEBAR */}
-
         <div className="sidebar-footer">
           {sidebarOuverte && (
             <NavLink
@@ -556,7 +476,6 @@ export default function Layout({ children }) {
       </aside>
 
       {/* CONTENU PRINCIPAL */}
-
       <main className="contenu-principal">
         <header className="app-topbar">
           <button

@@ -157,7 +157,7 @@ class EgliseDetailSerializer(EgliseListSerializer):
         fields = EgliseListSerializer.Meta.fields + [
             "adresse_precise",
             "telephone",
-            "email",
+            
             "date_creation",
             "date_enregistrement_systeme",
             "departements",
@@ -212,7 +212,7 @@ class EgliseCreateSerializer(serializers.ModelSerializer):
             "commune",
             "adresse_precise",
             "telephone",
-            "email",
+            
             "date_creation",
             "statut",
             "plateforme_active",

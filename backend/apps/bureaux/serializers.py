@@ -1,14 +1,13 @@
 from rest_framework import serializers
-from rest_framework import serializers
-
+from apps.accounts.models import Role
 from .models import (
     Bureau,
     BureauZone,
     BureauMembre,
     BureauMembreMandat,
     BureauAdministrateur,
+    NiveauBureau,
 )
-
 class BureauSerializer(serializers.ModelSerializer):
     eglise_nom = serializers.CharField(
         source="eglise.nom",
@@ -38,6 +37,8 @@ class BureauSerializer(serializers.ModelSerializer):
             "type_bureau_libelle",
             "eglise",
             "eglise_nom",
+            "zone",
+            "bureau_parent",
             "description",
             "actif",
             "membres_actifs",
@@ -309,23 +310,97 @@ class BureauAdministrateurSerializer(serializers.ModelSerializer):
     class Meta:
         model = BureauAdministrateur
         fields = [
-            "id", "bureau", "bureau_nom", "utilisateur", "nom_complet",
-            "peut_gerer_membres", "peut_gerer_finances", "peut_gerer_projets",
-            "peut_envoyer_notifications", "peut_gerer_rapports", "actif", "date_attribution",
+            "id",
+            "bureau",
+            "bureau_nom",
+            "utilisateur",
+            "nom_complet",
+            "peut_gerer_membres",
+            "peut_gerer_finances",
+            "peut_gerer_projets",
+            "peut_envoyer_notifications",
+            "peut_gerer_rapports",
+            "peut_gerer_utilisateurs",
+            "peut_creer_bureaux",
+            "peut_gerer_eglises",
+            "peut_gerer_bureaux_zonaux",
+            "actif",
+            "date_attribution",
         ]
         read_only_fields = ["date_attribution"]
 
     def validate(self, attrs):
-        bureau = attrs.get("bureau", getattr(self.instance, "bureau", None))
-        user = attrs.get("utilisateur", getattr(self.instance, "utilisateur", None))
-        if bureau and user:
-            if user.role == "COORDINATEUR":
-                raise serializers.ValidationError("Le Coordinateur ne doit pas être administrateur d'un bureau.")
-            if bureau.niveau == "NATIONAL" and user.eglise_id:
-                raise serializers.ValidationError("Un administrateur d'un bureau national ne doit pas être rattaché à une église.")
-            if bureau.niveau == "LOCAL" and user.eglise_id != bureau.eglise_id:
-                raise serializers.ValidationError("L'administrateur local doit appartenir à la même église.")
+        bureau = attrs.get(
+            "bureau",
+            getattr(self.instance, "bureau", None),
+        )
+        utilisateur = attrs.get(
+            "utilisateur",
+            getattr(self.instance, "utilisateur", None),
+        )
+
+        if not bureau or not utilisateur:
+            return attrs
+
+        if utilisateur.role == Role.COORDINATEUR or utilisateur.is_superuser:
+            raise serializers.ValidationError(
+                "Le Coordinateur et les superutilisateurs ne peuvent "
+                "pas recevoir une affectation financière de bureau."
+            )
+
+        if not utilisateur.actif:
+            raise serializers.ValidationError(
+                "Un compte inactif ne peut pas recevoir une affectation."
+            )
+
+        if bureau.niveau == NiveauBureau.NATIONAL:
+            if utilisateur.eglise_id:
+                raise serializers.ValidationError(
+                    "Un administrateur national ne doit pas être "
+                    "rattaché à une église."
+                )
+
+        elif bureau.niveau == NiveauBureau.ZONAL:
+            if utilisateur.eglise_id:
+                raise serializers.ValidationError(
+                    "Un administrateur zonal ne doit pas être "
+                    "rattaché directement à une église."
+                )
+
+            if not bureau.zone_id or not bureau.bureau_parent_id:
+                raise serializers.ValidationError(
+                    "Le bureau zonal doit posséder une zone et un "
+                    "bureau national parent."
+                )
+
+        elif bureau.niveau == NiveauBureau.LOCAL:
+            if utilisateur.eglise_id != bureau.eglise_id:
+                raise serializers.ValidationError(
+                    "L'administrateur local doit appartenir "
+                    "à la même église."
+                )
+
+        if attrs.get(
+            "peut_gerer_finances",
+            getattr(self.instance, "peut_gerer_finances", False),
+        ):
+            roles_autorises = {
+                Role.SUPERADMIN_INTL,
+                Role.SUPERADMIN_NATIONAL,
+                Role.ADMIN_LOCAL,
+                Role.PASTEUR,
+                Role.RESPONSABLE_DEPARTEMENT,
+            }
+
+            if utilisateur.role not in roles_autorises:
+                raise serializers.ValidationError({
+                    "utilisateur": (
+                        "Ce compte ne peut pas recevoir "
+                        "la responsabilité financière."
+                    )
+                })
+
         return attrs
 
     def get_nom_complet(self, obj):
-        return f"{obj.utilisateur.prenom} {obj.utilisateur.nom}"
+        return f"{obj.utilisateur.prenom} {obj.utilisateur.nom}".strip()

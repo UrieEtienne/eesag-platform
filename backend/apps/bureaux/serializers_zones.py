@@ -131,16 +131,14 @@ class BureauZonalSerializer(serializers.ModelSerializer):
             })
 
         if parent.type_bureau not in {
-            TypeBureau.HOMMES,
             TypeBureau.FEMMES,
             TypeBureau.JEUNESSE,
             TypeBureau.ENFANTS,
         }:
             raise serializers.ValidationError({
                 "bureau_parent": (
-                    "Ce type de bureau national "
-                    "ne possède pas de structure zonale."
+                    "Seuls les bureaux nationaux des Femmes, "
+                    "de la Jeunesse et des Enfants peuvent "
+                    "posséder des structures zonales."
                 )
             })
-
-        return attrs

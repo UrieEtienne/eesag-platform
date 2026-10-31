@@ -90,7 +90,7 @@ class UtilisateurSerializer(serializers.ModelSerializer):
         model = Utilisateur
         fields = [
             "id", "identifiant", "nom", "prenom", "nom_complet", "sexe", "date_naissance",
-            "categorie_age", "telephone", "email", "photo", "nationalite", "date_bapteme_eau", "date_bapteme_saint_esprit", "fonction_eglise", "role", "role_libelle",
+            "categorie_age", "telephone",  "photo", "nationalite", "date_bapteme_eau", "date_bapteme_saint_esprit", "fonction_eglise", "role", "role_libelle",
             "eglise", "eglise_nom", "departement", "departement_nom", "role_eglise", "role_eglise_nom", "fonction_bureau_national",
             "date_enregistrement", "actif",
         ]
@@ -128,7 +128,7 @@ class CreerUtilisateurSerializer(serializers.ModelSerializer):
             "sexe",
             "date_naissance",
             "telephone",
-            "email",
+            
             "photo",
             "nationalite",
             "date_bapteme_eau",
@@ -567,7 +567,7 @@ class InscriptionMembreSerializer(serializers.Serializer):
         # ---------------------------------------------------------
         # 10. EMAIL FACULTATIF
         # ---------------------------------------------------------
-        email = attrs.get("email", "").strip()
+        email = (attrs.get("email") or "").strip()
 
         attrs["identifiant"] = identifiant
         attrs["utilisateur"] = utilisateur
@@ -581,7 +581,7 @@ class InscriptionMembreSerializer(serializers.Serializer):
         utilisateur = validated_data["utilisateur"]
 
         password = validated_data["password"]
-        email = validated_data.get("email", "").strip()
+        email = (validated_data.get("email") or "").strip()
 
         # ---------------------------------------------------------
         # IMPORTANT :
@@ -603,6 +603,7 @@ class InscriptionMembreSerializer(serializers.Serializer):
             update_fields=[
                 "password",
                 "email",
+                
                 "actif",
                 "is_staff",
             ]
@@ -696,17 +697,71 @@ class PermissionEgliseSerializer(serializers.ModelSerializer):
         model = PermissionEglise
         fields = ["id", "code", "libelle", "description"]
 
-
 class DelegationEgliseSerializer(serializers.ModelSerializer):
-    permissions_detail = PermissionEgliseSerializer(source="permissions", many=True, read_only=True)
-    def validate_utilisateur(self, value):
-        if value.role != Role.ADMIN_LOCAL:
-            raise serializers.ValidationError("Une délégation ne peut être attribuée qu'à un administrateur local.")
-        return value
+    permissions_detail = PermissionEgliseSerializer(
+        source="permissions",
+        many=True,
+        read_only=True,
+    )
+
     class Meta:
         model = DelegationEglise
-        fields = ["id", "utilisateur", "permissions", "permissions_detail", "cree_par", "date_creation", "actif"]
+        fields = [
+            "id",
+            "utilisateur",
+            "permissions",
+            "permissions_detail",
+            "cree_par",
+            "date_creation",
+            "actif",
+        ]
         read_only_fields = ["cree_par", "date_creation"]
+
+    def validate_utilisateur(self, value):
+        from .models import Role
+
+        roles_autorises = {
+            Role.ADMIN_LOCAL,
+            Role.PASTEUR,
+            Role.RESPONSABLE_DEPARTEMENT,
+        }
+
+        if value.role not in roles_autorises:
+            raise serializers.ValidationError(
+                "Une délégation doit être attribuée à un administrateur "
+                "ou responsable déjà enregistré."
+            )
+
+        if not value.actif:
+            raise serializers.ValidationError(
+                "Impossible d'attribuer une délégation à un compte inactif."
+            )
+
+        return value
+
+    def validate(self, attrs):
+        utilisateur = attrs.get(
+            "utilisateur",
+            getattr(self.instance, "utilisateur", None),
+        )
+        permissions = attrs.get("permissions")
+
+        if utilisateur and permissions is not None:
+            if permissions.filter(code="GESTION_FINANCES").exists():
+                if not utilisateur.eglise_id:
+                    raise serializers.ValidationError({
+                        "permissions": (
+                            "Le responsable financier doit être rattaché "
+                            "à une église."
+                        )
+                    })
+
+                if utilisateur.role == Role.COORDINATEUR:
+                    raise serializers.ValidationError({
+                        "permissions": "Le Coordinateur ne peut pas gérer les finances."
+                    })
+
+        return attrs
 
 
 class ProfilSerializer(serializers.ModelSerializer):
@@ -714,7 +769,7 @@ class ProfilSerializer(serializers.ModelSerializer):
     eglise_nom = serializers.CharField(source="eglise.nom", read_only=True, default=None)
     class Meta:
         model = Utilisateur
-        fields = ["id","identifiant","nom","prenom","sexe","date_naissance","telephone","email","photo","nationalite","date_bapteme_eau","date_bapteme_saint_esprit","fonction_eglise","eglise","eglise_nom","departement","role","nom_complet"]
+        fields = ["id","identifiant","nom","prenom","sexe","date_naissance","telephone","photo","nationalite","date_bapteme_eau","date_bapteme_saint_esprit","fonction_eglise","eglise","eglise_nom","departement","role","nom_complet"]
         read_only_fields = ["id","identifiant","eglise","departement","role","nom_complet"]
     def get_nom_complet(self,obj): return f"{obj.prenom} {obj.nom}"
 

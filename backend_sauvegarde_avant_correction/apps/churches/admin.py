@@ -1,3 +1,7 @@
+
+from apps.churches.models import Religion
+from django.utils.html import format_html
+
 from django import forms
 from django.contrib import admin, messages
 from django.contrib.auth import password_validation
@@ -49,7 +53,6 @@ class EgliseAdminForm(forms.ModelForm):
     admin_nom = forms.CharField(label="Nom de l'administrateur", max_length=100, required=False)
     admin_prenom = forms.CharField(label="Prénom de l'administrateur", max_length=100, required=False)
     admin_telephone = forms.CharField(label="Téléphone", max_length=20, required=False)
-    admin_email = forms.EmailField(label="Email", required=False)
     admin_mot_de_passe = forms.CharField(
         label="Code secret / mot de passe",
         widget=forms.PasswordInput(render_value=False),
@@ -79,14 +82,14 @@ class EgliseAdminForm(forms.ModelForm):
         if self.instance and self.instance.pk:
             for name in (
                 "creer_compte_admin", "admin_nom", "admin_prenom",
-                "admin_telephone", "admin_email", "admin_mot_de_passe",
+                "admin_telephone", "admin_mot_de_passe",
                 "admin_confirmation",
             ):
                 self.fields.pop(name, None)
         elif not self._can_create_admin:
             for name in (
                 "creer_compte_admin", "admin_nom", "admin_prenom",
-                "admin_telephone", "admin_email", "admin_mot_de_passe",
+                "admin_telephone", "admin_mot_de_passe",
                 "admin_confirmation",
             ):
                 self.fields.pop(name, None)
@@ -107,7 +110,6 @@ class EgliseAdminForm(forms.ModelForm):
             if creer and admin_nom and admin_prenom:
                 cleaned["responsable_nom"] = f"{admin_prenom} {admin_nom}".strip()
                 cleaned["responsable_telephone"] = admin_telephone or ""
-                cleaned["responsable_email"] = cleaned.get("admin_email") or ""
             else:
                 self.add_error(
                     "responsable_nom",
@@ -253,11 +255,11 @@ class EgliseAdmin(EESAGScopedAdminMixin, admin.ModelAdmin):
             }),
             ("Responsable", {
                 "fields": (
-                    "responsable", "responsable_nom", "responsable_telephone", "responsable_email",
+                    "responsable", "responsable_nom",
                 )
             }),
-            ("Contact & fondation", {
-                "fields": ("telephone", "email", "date_creation", "date_enregistrement_systeme")
+            ("Fondation", {
+                "fields": ("date_creation", "date_enregistrement_systeme")
             }),
         ]
 
@@ -268,7 +270,7 @@ class EgliseAdmin(EESAGScopedAdminMixin, admin.ModelAdmin):
                     "fields": (
                         "creer_compte_admin",
                         "admin_nom", "admin_prenom",
-                        "admin_telephone", "admin_email",
+                        "admin_telephone", 
                         "admin_mot_de_passe", "admin_confirmation",
                     ),
                     "description": (
@@ -387,7 +389,7 @@ class EgliseAdmin(EESAGScopedAdminMixin, admin.ModelAdmin):
                         nom=form.cleaned_data.get("admin_nom", "").strip(),
                         prenom=form.cleaned_data.get("admin_prenom", "").strip(),
                         telephone=form.cleaned_data.get("admin_telephone", ""),
-                        email=form.cleaned_data.get("admin_email", ""),
+                        email=form.cleaned_data.get(""),
                         role=Role.ADMIN_LOCAL,
                         eglise=obj,
                         actif=False,

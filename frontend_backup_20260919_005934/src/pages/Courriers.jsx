@@ -47,7 +47,7 @@ export default function Courriers() {
   };
 
   return (
-    <div className="page-shell">
+    <div className="page-shell page-courriers">
       <div className="page-hero">
         <div>
           <span className="eyebrow">COURRIERS EESAG</span>

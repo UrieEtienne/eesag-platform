@@ -10,7 +10,7 @@ class InscriptionMembreForm(forms.ModelForm):
     class Meta:
         model = Utilisateur
         fields = [
-            "nom", "prenom", "sexe", "date_naissance", "telephone", "email", "nationalite",
+            "nom", "prenom", "sexe", "date_naissance", "telephone",  "nationalite",
             "date_bapteme_eau", "date_bapteme_saint_esprit", "fonction_eglise", "eglise",
             "departement", "role_eglise", "photo",
         ]
@@ -21,7 +21,7 @@ class InscriptionMembreForm(forms.ModelForm):
 
     def __init__(self,*args,**kwargs):
         super().__init__(*args,**kwargs)
-        for name in ["email","date_naissance","date_bapteme_eau","date_bapteme_saint_esprit","photo","departement","role_eglise"]:
+        for name in ["date_naissance","date_bapteme_eau","date_bapteme_saint_esprit","photo","departement","role_eglise"]:
             self.fields[name].required=False
 
     def clean_telephone(self):

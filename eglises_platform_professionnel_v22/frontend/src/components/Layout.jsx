@@ -10,9 +10,10 @@ export default function Layout({ children }) {
     estCoordinateur,
     estBureauNational,
     estBureauNationalGeneral,
+    estGestionnaireEglise,
     estAdminLocal,
     estPasteur,
-    estGestionnaireEglise,
+    peutGererFinances,
   } = useAuth();
 
   const location = useLocation();

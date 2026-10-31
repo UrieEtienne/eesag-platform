@@ -1,81 +1,35 @@
-import { Navigate, useLocation } from "react-router-dom";
+import { Navigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
 export default function RouteProtegee({
   children,
   roles = [],
+  finance = false,
 }) {
   const {
     utilisateur,
     chargement,
+    peutGererFinances,
   } = useAuth();
-
-  const location = useLocation();
-
-  /*
-  |--------------------------------------------------------------------------
-  | CHARGEMENT
-  |--------------------------------------------------------------------------
-  */
 
   if (chargement) {
     return (
-      <div className="page-loading">
-        Chargement de votre espace...
+      <div className="page-chargement">
+        Chargement EESAG…
       </div>
     );
   }
 
-  /*
-  |--------------------------------------------------------------------------
-  | NON CONNECTE
-  |--------------------------------------------------------------------------
-  */
-
   if (!utilisateur) {
-    return (
-      <Navigate
-        to="/connexion"
-        replace
-        state={{
-          from: location.pathname,
-        }}
-      />
-    );
+    return <Navigate to="/connexion" replace />;
   }
 
-  /*
-  |--------------------------------------------------------------------------
-  | VERIFICATION ROLE
-  |--------------------------------------------------------------------------
-  */
+  if (roles.length && !roles.includes(utilisateur.role)) {
+    return <Navigate to="/" replace />;
+  }
 
-  if (roles.length > 0) {
-    const roleUtilisateur =
-      utilisateur?.role?.toUpperCase?.() || "";
-
-    const autorise = roles
-      .map((role) => role.toUpperCase())
-      .includes(roleUtilisateur);
-
-    /*
-     * Le superuser Django est assimilé au Coordinateur.
-     */
-
-    const estSuperuser =
-      utilisateur?.is_superuser === true;
-
-    if (!autorise && !(
-      estSuperuser &&
-      roles.includes("COORDINATEUR")
-    )) {
-      return (
-        <Navigate
-          to="/"
-          replace
-        />
-      );
-    }
+  if (finance && !peutGererFinances) {
+    return <Navigate to="/" replace />;
   }
 
   return children;

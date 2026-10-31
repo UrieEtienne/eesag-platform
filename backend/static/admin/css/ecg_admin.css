@@ -1781,3 +1781,55 @@ html[data-admin-theme="dark"] #content-main .module .viewlink {
     color: #73ceff !important;
 }
 
+
+/* EESAG : contraste lisible des formulaires en thème clair */
+#content,
+#content-main,
+#content-related,
+#content form,
+#content .module,
+#content .form-row,
+#content fieldset {
+    color: #183247 !important;
+}
+
+#content label,
+#content .form-row label,
+#content fieldset label,
+#content .aligned label,
+#content .help,
+#content .helptext,
+#content .form-row p,
+#content .required {
+    color: #263b4d !important;
+    opacity: 1 !important;
+}
+
+#content input:not([type="checkbox"]):not([type="radio"]),
+#content select,
+#content textarea,
+#content .vTextField,
+#content .vLargeTextField {
+    color: #183247 !important;
+    background-color: #ffffff !important;
+    border: 1px solid #b7c9d8 !important;
+}
+
+#content input::placeholder,
+#content textarea::placeholder {
+    color: #647789 !important;
+    opacity: 1 !important;
+}
+
+#content select option {
+    color: #183247 !important;
+    background-color: #ffffff !important;
+}
+
+#content h1,
+#content h2,
+#content h3,
+#content legend,
+#content .readonly {
+    color: #123b5b !important;
+}

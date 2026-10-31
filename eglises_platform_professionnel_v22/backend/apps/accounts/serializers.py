@@ -43,7 +43,7 @@ class UtilisateurSerializer(serializers.ModelSerializer):
         model = Utilisateur
         fields = [
             "id", "identifiant", "nom", "prenom", "nom_complet", "sexe", "date_naissance",
-            "categorie_age", "telephone", "email", "photo", "nationalite", "date_bapteme_eau", "date_bapteme_saint_esprit", "fonction_eglise", "role", "role_libelle",
+            "categorie_age", "telephone",  "photo", "nationalite", "date_bapteme_eau", "date_bapteme_saint_esprit", "fonction_eglise", "role", "role_libelle",
             "eglise", "eglise_nom", "departement", "departement_nom", "role_eglise", "role_eglise_nom", "fonction_bureau_national",
             "date_enregistrement", "actif",
         ]
@@ -73,7 +73,7 @@ class CreerUtilisateurSerializer(serializers.ModelSerializer):
     class Meta:
         model = Utilisateur
         fields = [
-            "nom", "prenom", "sexe", "date_naissance", "telephone", "email", "photo",
+            "nom", "prenom", "sexe", "date_naissance", "telephone",  "photo",
             "nationalite", "date_bapteme_eau", "date_bapteme_saint_esprit", "fonction_eglise",
             "role", "eglise", "departement", "role_eglise", "fonction_bureau_national",
         ]
@@ -309,7 +309,7 @@ class InscriptionMembreSerializer(serializers.Serializer):
         user = validated_data["utilisateur"]
 
         telephone = validated_data["telephone"]
-        email = validated_data.get("email", "")
+        email = validated_data.get( "")
         password = validated_data["password"]
 
         # On met à jour la fiche créée précédemment
@@ -324,7 +324,7 @@ class InscriptionMembreSerializer(serializers.Serializer):
         user.save(
             update_fields=[
                 "telephone",
-                "email",
+                
                 "password",
                 "actif",
             ]
@@ -411,7 +411,7 @@ class ProfilSerializer(serializers.ModelSerializer):
     eglise_nom = serializers.CharField(source="eglise.nom", read_only=True, default=None)
     class Meta:
         model = Utilisateur
-        fields = ["id","identifiant","nom","prenom","sexe","date_naissance","telephone","email","photo","nationalite","date_bapteme_eau","date_bapteme_saint_esprit","fonction_eglise","eglise","eglise_nom","departement","role","nom_complet"]
+        fields = ["id","identifiant","nom","prenom","sexe","date_naissance","telephone","photo","nationalite","date_bapteme_eau","date_bapteme_saint_esprit","fonction_eglise","eglise","eglise_nom","departement","role","nom_complet"]
         read_only_fields = ["id","identifiant","eglise","departement","role","nom_complet"]
     def get_nom_complet(self,obj): return f"{obj.prenom} {obj.nom}"
 

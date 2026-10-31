@@ -118,7 +118,7 @@ class EgliseViewSet(viewsets.ModelViewSet):
         "nom",
         "code",
         "telephone",
-        "email",
+        
         "adresse_precise",
     ]
 

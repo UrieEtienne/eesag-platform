@@ -49,7 +49,7 @@ class EgliseAdminForm(forms.ModelForm):
     admin_nom = forms.CharField(label="Nom de l'administrateur", max_length=100, required=False)
     admin_prenom = forms.CharField(label="Prénom de l'administrateur", max_length=100, required=False)
     admin_telephone = forms.CharField(label="Téléphone", max_length=20, required=False)
-    admin_email = forms.EmailField(label="Email", required=False)
+    admin_email = forms.EmailField(label= required=False)
     admin_mot_de_passe = forms.CharField(
         label="Code secret / mot de passe",
         widget=forms.PasswordInput(render_value=False),
@@ -355,7 +355,7 @@ class EgliseAdmin(EESAGScopedAdminMixin, admin.ModelAdmin):
                 {
                     "fields": (
                         "telephone",
-                        "email",
+                        
                         "date_creation",
                         "date_enregistrement_systeme",
                     )

@@ -81,7 +81,11 @@ export default function App() {
          ====================================================== */}
       <Route
         path="/"
-        element={protect(<EspaceAccueil />)}
+        element={
+          <Layout>
+            <EspaceAccueil />
+          </Layout>
+        }
       />
 
       {/* ======================================================
@@ -100,13 +104,7 @@ export default function App() {
       <Route
         path="/admin-utilisateurs"
         element={
-          <RouteProtegee
-            roles={[
-              "COORDINATEUR",
-              "SUPERADMIN_INTL",
-              "SUPERADMIN_NATIONAL",
-            ]}
-          >
+          <RouteProtegee roles={["COORDINATEUR"]}>
             <Layout>
               <AdministrationUtilisateurs />
             </Layout>
@@ -166,7 +164,7 @@ export default function App() {
         path="/admin-eglises"
         element={protect(
           <AdministrationEglises />,
-          { roles: NATIONAL }
+          { roles: ["COORDINATEUR"] }
         )}
       />
 
@@ -262,7 +260,7 @@ export default function App() {
 
       <Route
         path="/finances"
-        element={protect(<Finances />)}
+        element={protect(<Finances />, { finance: true })}
       />
 
       <Route

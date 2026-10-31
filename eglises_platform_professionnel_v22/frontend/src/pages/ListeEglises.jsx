@@ -49,7 +49,8 @@ export default function ListeEglises() {
           <thead><tr>
             <th>Code</th><th>Église</th><th>Région</th><th>Préfecture</th>
             {estNational && <><th>Responsable</th><th>Membres</th></>}
-            <th>Statut</th><th></th>
+            <th>Statut</th>
+            <th className="text-end">Actions</th>
           </tr></thead>
           <tbody>
             {eglises.map((e) => (

@@ -26,6 +26,20 @@ ROLES_GESTION_EGLISE = [Role.ADMIN_LOCAL, Role.PASTEUR]
 
 
 class Nationalite(models.TextChoices):
+    GUINEE = "GN", "Guinéenne"
+    SENEGAL = "SN", "Sénégalaise"
+    COTE_IVOIRE = "CI", "Ivoirienne"
+    LIBERIA = "LR", "Libérienne"
+    SIERRA_LEONE = "SL", "Sierra Leonaise"
+    GHANA = "GH", "Ghanaenne"
+    NIGERIA = "NG", "Nigérienne"
+    BURKINA = "BF", "Burkinabé"
+    FRANCE = "FR", "Francaise"
+    USA = "US", "Américanne"
+    CANADA = "CA", "Canadienne"
+    CONGO = "CD", "Congolaise"
+    MALI = "MA", "Malienne"
+    AUTRE = "OTHER", "Autre"
     GUINEE = "GN", "Guinée"
     SENEGAL = "SN", "Sénégal"
     MALI = "ML", "Mali"
@@ -40,13 +54,15 @@ class Nationalite(models.TextChoices):
     CANADA = "CA", "Canada"
     AUTRE = "OTHER", "Autre"
 
-
 class FonctionEglise(models.TextChoices):
     MEMBRE = "MEMBRE", "Membre"
     PASTEUR = "PASTEUR", "Pasteur"
     PASTEUR_ASSISTANT = "PASTEUR_ASSISTANT", "Pasteur assistant"
-    DIACRE = "DIACRE", "Diacre"
+    DIACRE = "DIACRE", "Diacre / Diaconnaisse"
     ANCIEN = "ANCIEN", "Ancien"
+    HUISSIER = "HUISSIER", "HuisSier / Huissiere"
+    INSTRUMENTISTE = "INSTRUMENTISTE", "Instrumentiste"
+    EVANGELISTE = "EVANGELISTE", "Evangeliste"
     RESPONSABLE_DEPARTEMENT = "RESPONSABLE_DEPARTEMENT", "Responsable de département"
     SECRETAIRE = "SECRETAIRE", "Secrétaire"
     TRESORIER = "TRESORIER", "Trésorier"
@@ -54,6 +70,7 @@ class FonctionEglise(models.TextChoices):
     MONITEUR = "MONITEUR", "Moniteur / Monitrice"
     MISSIONNAIRE = "MISSIONNAIRE", "Missionnaire"
     AUTRE = "AUTRE", "Autre"
+
 
 
 class Sexe(models.TextChoices):

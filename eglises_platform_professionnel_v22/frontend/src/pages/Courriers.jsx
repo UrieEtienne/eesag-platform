@@ -47,7 +47,7 @@ export default function Courriers() {
   };
 
   return (
-    <div className="page-shell">
+    <div className="page-shell page-courriers">
       <div className="page-hero">
         <div>
           <span className="eyebrow">COURRIERS EESAG</span>
@@ -75,12 +75,19 @@ export default function Courriers() {
       {erreur && <div className="console-error">{erreur}</div>}
 
       <div className="carte">
-        <div className="section-header">
+        <div className="courriers-list-header">
           <div>
-            <span className="eyebrow">BOÎTE OFFICIELLE</span>
+            <span className="eyebrow">CORRESPONDANCES EESAG</span>
             <h3>Courriers envoyés et reçus</h3>
+            <p>
+              Consultez les correspondances officielles et suivez leur réception.
+            </p>
           </div>
-          <span className="scope-badge">{utilisateur?.eglise_nom || (estCoordinateur ? "Coordination nationale" : "—")}</span>
+
+          <span className="scope-badge">
+            {utilisateur?.eglise_nom ||
+              (estCoordinateur ? "Coordination nationale" : "—")}
+          </span>
         </div>
 
         {chargement ? <div className="empty-state">Chargement…</div> : (

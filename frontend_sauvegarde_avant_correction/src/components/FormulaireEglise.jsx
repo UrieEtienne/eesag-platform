@@ -161,7 +161,7 @@ export default function FormulaireEglise({ onFerme, onCree }) {
               <div className="form-champ"><label>District *</label><select required disabled={!form.prefecture} value={form.district} onChange={(e) => { setField("district", e.target.value); setField("commune", ""); }}><option value="">Choisir</option>{districts.map((item) => <option key={item.id} value={item.id}>{item.nom}</option>)}</select></div>
               <div className="form-champ"><label>Commune</label><select disabled={!form.district} value={form.commune} onChange={(e) => setField("commune", e.target.value)}><option value="">Choisir</option>{communes.map((item) => <option key={item.id} value={item.id}>{item.nom}</option>)}</select></div>
               <div className="form-champ"><label>Téléphone</label><input value={form.telephone} onChange={(e) => setField("telephone", e.target.value)} placeholder="+224..." /></div>
-              <div className="form-champ"><label>Email</label><input type="email" value={form.email} onChange={(e) => setField("email", e.target.value)} /></div>
+              <div className="form-champ"><label>Email</label><input type="email" value={form.email} onChange={(e) => setField( e.target.value)} /></div>
             </div>
             <div className="form-champ"><label>Adresse précise</label><input value={form.adresse_precise} onChange={(e) => setField("adresse_precise", e.target.value)} /></div>
             <div className="form-champ"><label>Date de fondation *</label><input required type="date" value={form.date_creation} onChange={(e) => setField("date_creation", e.target.value)} /></div>

@@ -124,7 +124,7 @@ export default function Courriers() {
       String(utilisateur.eglise);
 
   return (
-    <div className="page-shell">
+    <div className="page-shell page-courriers">
       <div className="page-hero">
         <div>
           <span className="eyebrow">COURRIERS EESAG</span>

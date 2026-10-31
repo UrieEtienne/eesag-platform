@@ -1,25 +1,34 @@
 name: eesag_app
+description: Application mobile EESAG
 publish_to: 'none'
-description: "EESAG — application mobile et desktop pour la gestion des églises."
 version: 1.0.0+1
 
 environment:
-  sdk: '>=3.3.0 <4.0.0'
+  sdk: ^3.9.0
 
 dependencies:
   flutter:
     sdk: flutter
   cupertino_icons: ^1.0.8
-  http: ^1.2.2
-  shared_preferences: ^2.3.2
-  image_picker: ^1.1.2
+  http: ^1.6.0
+  image_picker: ^1.2.4
+  shared_preferences: ^2.5.6
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^4.0.0
+  flutter_launcher_icons: ^0.14.4
 
 flutter:
   uses-material-design: true
   assets:
     - assets/logo_eesag.jpg
+    - assets/logo_eesag.png
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/logo_eesag.png"
+  adaptive_icon_background: "#FFFFFF"
+  adaptive_icon_foreground: "assets/logo_eesag.png"

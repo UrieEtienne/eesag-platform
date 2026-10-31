@@ -3,17 +3,6 @@ import random
 from django.db import models
 
 
-class Religion(models.Model):
-    nom = models.CharField(max_length=100, unique=True)
-    description = models.TextField(blank=True)
-
-    class Meta:
-        ordering = ["nom"]
-
-    def __str__(self):
-        return self.nom
-
-
 def generer_code_eglise():
     return "EGL" + "".join(random.choices("0123456789", k=5))
 

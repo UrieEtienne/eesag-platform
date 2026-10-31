@@ -996,3 +996,215 @@ html[data-theme="dark"] body{background:#0b1220;color:#e5e7eb}html[data-theme="d
     margin-left: 0 !important;
   }
 }
+
+
+/* =========================================================
+   EESAG — REFONTE MODERNE DE LA PAGE COURRIERS
+   ========================================================= */
+
+.page-courriers {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  min-width: 0;
+}
+
+.page-courriers .page-hero {
+  margin-top: 0;
+  min-height: 190px;
+  padding: 30px;
+  background:
+    radial-gradient(circle at 90% 10%, rgba(214,173,63,.22), transparent 32%),
+    linear-gradient(125deg, #102a43, #183b56 62%, #28556e);
+  border-radius: 20px;
+  box-shadow: 0 18px 40px rgba(16,42,67,.14);
+}
+
+.page-courriers .page-hero h1 {
+  color: #fff;
+  font-size: clamp(1.6rem, 3vw, 2.2rem);
+  font-weight: 800;
+  margin: 8px 0;
+}
+
+.page-courriers .page-hero p {
+  max-width: 720px;
+  color: rgba(255,255,255,.84);
+  line-height: 1.7;
+}
+
+.page-courriers .page-hero .eyebrow {
+  color: #ffd879;
+}
+
+.page-courriers .page-hero .btn {
+  flex-shrink: 0;
+  background: #d6ad3f;
+  color: #102a43;
+  border: 0;
+  font-weight: 800;
+  white-space: nowrap;
+  box-shadow: 0 8px 20px rgba(0,0,0,.16);
+}
+
+.page-courriers .courriers-list-card {
+  overflow: hidden;
+  border: 1px solid var(--line, #e5eaf0);
+  border-radius: 18px;
+  background: var(--surface, #fff);
+  box-shadow: 0 8px 26px rgba(16,42,67,.055);
+}
+
+.page-courriers .courriers-list-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 15px;
+  flex-wrap: wrap;
+  padding: 23px 24px;
+  border-bottom: 1px solid var(--line, #e5eaf0);
+}
+
+.page-courriers .courriers-list-header h3 {
+  margin: 6px 0;
+  color: var(--text, #1f2937);
+  font-size: 1.15rem;
+  font-weight: 800;
+}
+
+.page-courriers .courriers-list-header p {
+  margin: 0;
+  color: var(--muted, #64748b);
+  font-size: .84rem;
+  line-height: 1.6;
+}
+
+.page-courriers .scope-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 13px;
+  border-radius: 30px;
+  background: #fff5dc;
+  color: #805e13;
+  font-size: .78rem;
+  font-weight: 800;
+}
+
+.page-courriers .table-responsive {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.page-courriers .table-responsive table {
+  width: 100%;
+  min-width: 850px;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.page-courriers .table-responsive thead th {
+  padding: 15px 16px;
+  background: #f4f7fa;
+  color: #526579;
+  border-bottom: 1px solid #e5eaf0;
+  font-size: .74rem;
+  font-weight: 800;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.page-courriers .table-responsive tbody td {
+  padding: 16px;
+  color: var(--text, #1f2937);
+  font-size: .86rem;
+  border-bottom: 1px solid #edf0f4;
+  vertical-align: middle;
+}
+
+.page-courriers .table-responsive tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.page-courriers .table-responsive tbody tr:hover {
+  background: #f8fafc;
+}
+
+.page-courriers .status-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 10px;
+  border-radius: 30px;
+  font-size: .74rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.page-courriers .status-chip.ok {
+  background: #e5f7ed;
+  color: #187344;
+}
+
+.page-courriers .status-chip.pending {
+  background: #fff3d8;
+  color: #94620b;
+}
+
+.page-courriers .actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 7px;
+}
+
+.page-courriers .empty-state {
+  padding: 38px 20px;
+  text-align: center;
+  color: #718096;
+}
+
+.page-courriers .console-error {
+  border-radius: 12px;
+}
+
+@media (max-width: 700px) {
+  .page-courriers .page-hero {
+    padding: 22px 18px;
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .page-courriers .page-hero .btn {
+    width: 100%;
+  }
+
+  .page-courriers .courriers-list-header {
+    align-items: flex-start;
+    flex-direction: column;
+    padding: 18px;
+  }
+}
+
+html[data-theme="dark"] .page-courriers .courriers-list-card {
+  background: var(--surface, #172536);
+  border-color: var(--line, #304052);
+}
+
+html[data-theme="dark"] .page-courriers .table-responsive thead th {
+  background: #1b3045;
+  color: #d7e1ec;
+  border-color: #30465b;
+}
+
+html[data-theme="dark"] .page-courriers .table-responsive tbody td {
+  color: #e2e8f0;
+  border-color: #304052;
+}
+
+html[data-theme="dark"] .page-courriers .table-responsive tbody tr:hover {
+  background: #1b3045;
+}
+
+html[data-theme="dark"] .page-courriers .courriers-list-header h3 {
+  color: #e2e8f0;
+}

@@ -191,7 +191,7 @@ class Bureau(models.Model):
     type_bureau = models.CharField(
         max_length=30,
         choices=TypeBureau.choices,
-        default=TypeBureau.HOMMES,
+        default=TypeBureau.GENERAL,
     )
 
     eglise = models.ForeignKey(

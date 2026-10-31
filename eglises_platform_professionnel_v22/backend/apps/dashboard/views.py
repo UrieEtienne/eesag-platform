@@ -137,7 +137,7 @@ def _data_rapport(user, debut, fin, inclure_membres, inclure_finances, inclure_p
             "religion": meta.religion.nom if meta.religion else "",
             "adresse": getattr(meta, "adresse_precise", "") or "",
             "telephone": getattr(meta, "telephone", "") or "",
-            "email": getattr(meta, "email", "") or "",
+            "email": getattr(meta,  "") or "",
         }
     return data
 

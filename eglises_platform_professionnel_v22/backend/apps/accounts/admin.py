@@ -37,7 +37,7 @@ class UtilisateurAdminForm(forms.ModelForm):
     class Meta:
         model = Utilisateur
         fields = (
-            "nom", "prenom", "sexe", "date_naissance", "telephone", "email", "photo",
+            "nom", "prenom", "sexe", "date_naissance", "telephone",  "photo",
             "nationalite", "date_bapteme_eau", "date_bapteme_saint_esprit", "fonction_eglise",
             "role", "eglise", "departement", "role_eglise", "fonction_bureau_national", "actif", "is_staff", "is_superuser",
         )
@@ -168,7 +168,7 @@ class UtilisateurAdmin(admin.ModelAdmin):
         return (
             ("Identité", {"fields": ("identifiant", "nom", "prenom", "sexe", "date_naissance", "nationalite", "photo")} ),
             ("Contact & vie de l’église", {"fields": (
-                "telephone", "email", "date_bapteme_eau", "date_bapteme_saint_esprit", "fonction_eglise",
+                "telephone",  "date_bapteme_eau", "date_bapteme_saint_esprit", "fonction_eglise",
             )}),
             ("Rôle et rattachement", {"fields": ("role", "eglise", "departement", "role_eglise", "fonction_bureau_national")}),
             ("Mot de passe", {"fields": ("mot_de_passe", "confirmation_mot_de_passe")} ),
@@ -188,7 +188,7 @@ class UtilisateurAdmin(admin.ModelAdmin):
 
     def get_queryset(self, request):
         qs = super().get_queryset(request)
-        if request.user.role == Role.COORDINATEUR:
+        if request.user.role == Role.COORDINATEUR or request.user.is_superuser:
             # Le propriétaire du système ne doit jamais apparaître dans la liste des utilisateurs.
             # Il reste modifiable depuis le lien « Mon compte ».
             object_id = str(getattr(getattr(request, "resolver_match", None), "kwargs", {}).get("object_id", ""))
@@ -206,7 +206,7 @@ class UtilisateurAdmin(admin.ModelAdmin):
         return qs.none()
 
     def has_add_permission(self, request):
-        if request.user.role == Role.COORDINATEUR:
+        if request.user.role == Role.COORDINATEUR or request.user.is_superuser:
             return True
         if request.user.role in ROLES_BUREAU_NATIONAL:
             from apps.bureaux.models import BureauAdministrateur

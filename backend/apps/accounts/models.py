@@ -26,27 +26,32 @@ ROLES_GESTION_EGLISE = [Role.ADMIN_LOCAL, Role.PASTEUR]
 
 
 class Nationalite(models.TextChoices):
-    GUINEE = "GN", "Guinée"
-    SENEGAL = "SN", "Sénégal"
-    MALI = "ML", "Mali"
-    COTE_IVOIRE = "CI", "Côte d’Ivoire"
-    LIBERIA = "LR", "Libéria"
-    SIERRA_LEONE = "SL", "Sierra Leone"
-    GHANA = "GH", "Ghana"
-    NIGERIA = "NG", "Nigéria"
-    BURKINA = "BF", "Burkina Faso"
-    FRANCE = "FR", "France"
-    USA = "US", "États-Unis"
-    CANADA = "CA", "Canada"
+    GUINEE = "GN", "Guinéenne"
+    SENEGAL = "SN", "Sénégalaise"
+    COTE_IVOIRE = "CI", "Ivoirienne"
+    LIBERIA = "LR", "Libérienne"
+    SIERRA_LEONE = "SL", "Sierra Leonaise"
+    GHANA = "GH", "Ghanaenne"
+    NIGERIA = "NG", "Nigérienne"
+    BURKINA = "BF", "Burkinabé"
+    FRANCE = "FR", "Francaise"
+    USA = "US", "Américanne"
+    CANADA = "CA", "Canadienne"
+    CONGO = "CD", "Congolaise"
+    MALI = "MA", "Malienne"
     AUTRE = "OTHER", "Autre"
+
 
 
 class FonctionEglise(models.TextChoices):
     MEMBRE = "MEMBRE", "Membre"
     PASTEUR = "PASTEUR", "Pasteur"
     PASTEUR_ASSISTANT = "PASTEUR_ASSISTANT", "Pasteur assistant"
-    DIACRE = "DIACRE", "Diacre"
+    DIACRE = "DIACRE", "Diacre / Diaconnaisse"
     ANCIEN = "ANCIEN", "Ancien"
+    HUISSIER = "HUISSIER", "HuisSier / Huissiere"
+    INSTRUMENTISTE = "INSTRUMENTISTE", "Instrumentiste"
+    EVANGELISTE = "EVANGELISTE", "Evangeliste"
     RESPONSABLE_DEPARTEMENT = "RESPONSABLE_DEPARTEMENT", "Responsable de département"
     SECRETAIRE = "SECRETAIRE", "Secrétaire"
     TRESORIER = "TRESORIER", "Trésorier"
@@ -64,6 +69,14 @@ class Sexe(models.TextChoices):
 def generer_code_secret(longueur=6):
     return "".join(random.choices(string.digits, k=longueur))
 
+class SituationMatrimoniale(models.TextChoices):
+    CELIBATAIRE = "CELIBATAIRE", "Célibataire"
+    FIANCE = "FIANCE", "Fiancé(e)"
+    MARIE = "MARIE", "Marié(e)"
+    SEPARE = "SEPARE", "Séparé(e)"
+    DIVORCE = "DIVORCE", "Divorcé(e)"
+    VEUF = "VEUF", "Veuf / Veuve"
+    VOEUX_RELIGIEUX = "VOEUX_RELIGIEUX", "Vœux religieux"
 
 class UtilisateurManager(BaseUserManager):
     def create_user(self, identifiant, password=None, **extra_fields):
@@ -103,9 +116,22 @@ class Utilisateur(AbstractBaseUser, PermissionsMixin):
     nom = models.CharField(max_length=100)
     prenom = models.CharField(max_length=100)
     sexe = models.CharField(max_length=1, choices=Sexe.choices, default=Sexe.HOMME)
+    situation_matrimoniale = models.CharField(
+        max_length=20,
+        choices=SituationMatrimoniale.choices,
+        blank=True,
+        default="",
+        verbose_name="Situation matrimoniale",
+    )
     date_naissance = models.DateField(null=True, blank=True)
     telephone = models.CharField(max_length=20, unique=True)
-    email = models.EmailField(blank=True, null=True)
+    email = models.EmailField(
+        max_length=254,
+        blank=True,
+        default="",
+        verbose_name="Adresse e-mail",
+        help_text="Adresse e-mail personnelle du membre.",
+    )
     photo = models.ImageField(upload_to="photos_utilisateurs/", null=True, blank=True, validators=[valider_taille_photo])
     nationalite = models.CharField(max_length=20, choices=Nationalite.choices, default=Nationalite.GUINEE)
     date_bapteme_eau = models.DateField(null=True, blank=True)

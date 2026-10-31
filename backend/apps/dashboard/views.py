@@ -14,16 +14,16 @@ from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, Tabl
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
-
+from apps.finance.views import perimetre_financier_utilisateur
 from apps.accounts.models import Role, ROLES_BUREAU_NATIONAL, Utilisateur
 from apps.bureaux.models import Bureau, BureauAdministrateur
-from apps.churches.models import Departement, Eglise, Religion
+from apps.churches.models import Departement, Eglise
 from apps.finance.models import Projet, Transaction
 
 
 
 def _refuser_coordinateur_dashboard(request):
-    if request.user.role == Role.COORDINATEUR:
+    if request.user.role == Role.COORDINATEUR or request.user.is_superuser:
         return Response(
             {
                 "detail": (
@@ -98,11 +98,39 @@ def _scope_rapport(user):
         return {"type": "NATIONAL", "label": "Bureau national"}
     return {"type": "NONE", "label": "Aucun périmètre"}
 
+def _finance_autorisee_pour_scope(user, scope):
+    """
+    Vérifie que le périmètre financier attribué correspond exactement
+    au périmètre du rapport demandé.
+    """
+    finance = perimetre_financier_utilisateur(user)
+
+    if finance["type"] == "NONE":
+        return False
+
+    if scope.get("type") == "EGLISE":
+        return (
+            finance["type"] == "EGLISE"
+            and finance.get("eglise_id") == scope.get("eglise_id")
+        )
+
+    if scope.get("type") == "BUREAU":
+        return (
+            finance["type"] == "BUREAU"
+            and finance.get("bureau_id") == scope.get("bureau_id")
+        )
+
+    return False
 
 def _data_rapport(user, debut, fin, inclure_membres, inclure_finances, inclure_projets, forced_scope=None):
     scope = forced_scope or _scope_rapport(user)
     if scope["type"] == "NONE":
         raise PermissionError("Aucun périmètre de rapport autorisé.")
+
+    if inclure_finances and not _finance_autorisee_pour_scope(user, scope):
+        raise PermissionError(
+            "Vous ne disposez pas des droits financiers pour ce périmètre."
+        )
 
     if scope["type"] in ("EGLISE",):
         membres = Utilisateur.objects.filter(eglise_id=scope["eglise_id"], actif=True)
@@ -152,10 +180,9 @@ def _data_rapport(user, debut, fin, inclure_membres, inclure_finances, inclure_p
         data["identite"] = {
             "nom": meta.nom,
             "code": meta.code,
-            "religion": meta.religion.nom if meta.religion else "",
             "adresse": getattr(meta, "adresse_precise", "") or "",
             "telephone": getattr(meta, "telephone", "") or "",
-            "email": getattr(meta, "email", "") or "",
+            "email": getattr(meta,  "") or "",
         }
     return data
 
@@ -174,7 +201,7 @@ def _rapport_pdf(data):
     ]
     if data.get("identite"):
         i = data["identite"]
-        story += [Paragraph(f"Code : {i['code']} · {i['religion']}", styles["Normal"]), Paragraph(f"{i['adresse']} · {i['telephone']} · {i['email']}", styles["Normal"]), Spacer(1, 12)]
+        story += [Paragraph(f"Code : {i['code']}", styles["Normal"]), Paragraph(f"{i['adresse']} · {i['telephone']} · {i['email']}", styles["Normal"]), Spacer(1, 12)]
     rows = [["Rubrique", "Valeur"]]
     if data.get("membres") is not None:
         m = data["membres"]
@@ -222,12 +249,9 @@ class StatistiquesNationalesView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        # Le Coordinateur ne doit accéder à aucun tableau de bord.
         refus = _refuser_coordinateur_dashboard(request)
         if refus:
-            return refu
-
-    def get(self, request):
+            return refus
         if not _est_coordinateur(request.user) and not _est_national_general(request.user):
             return Response({
                 "detail": "Les statistiques nationales sont réservées au Coordinateur ou au Bureau national général."
@@ -239,13 +263,7 @@ class StatistiquesNationalesView(APIView):
             role__in=[Role.ADMIN_LOCAL, Role.PASTEUR],
             eglise__isnull=False,
         )
-        operations = (
-            Transaction.objects.all()
-            if _est_coordinateur(request.user)
-            else Transaction.objects.filter(eglise__isnull=True, bureau__isnull=True)
-        )
-        entrees = operations.exclude(type_transaction="SORTIE").aggregate(s=Sum("montant"))["s"] or 0
-        sorties = operations.filter(type_transaction="SORTIE").aggregate(s=Sum("montant"))["s"] or 0
+        finance = None
 
         # Six derniers mois, y compris les mois à zéro.
         today = timezone.localdate()
@@ -313,7 +331,6 @@ class StatistiquesNationalesView(APIView):
             "nombre_eglises": eglises.count(),
             "nombre_eglises_actives": eglises.filter(statut="ACTIVE", plateforme_active=True).count(),
             "eglises_a_activer": eglises.filter(plateforme_active=False).count(),
-            "nombre_religions": Religion.objects.count(),
             "repartition_membres": _repartition_membres(membres_eglises),
             "eglises_par_region": list(
                 eglises.values("region__nom").annotate(nb_eglises=Count("id")).order_by("-nb_eglises")
@@ -332,18 +349,16 @@ class StatistiquesNationalesView(APIView):
             ).count(),
             "bureau_national": bureau_national,
             "notifications": _safe_count_model("notifications", "Notification", destinataire=request.user),
-            "finance": {
-                "entrees": entrees,
-                "sorties": sorties,
-                "solde": entrees - sorties,
-                "transactions": operations.count(),
-            },
+            "finance": finance,
         })
 
 
 class StatistiquesEgliseView(APIView):
     permission_classes = [IsAuthenticated]
     def get(self, request, eglise_id):
+        refus = _refuser_coordinateur_dashboard(request)
+        if refus:
+            return refus
         if not _est_coordinateur(request.user) and request.user.eglise_id != eglise_id:
             return Response({"detail": "Accès refusé : cette église ne fait pas partie de votre espace."}, status=403)
         eglise = Eglise.objects.filter(pk=eglise_id).first()
@@ -370,6 +385,9 @@ class StatistiquesEgliseView(APIView):
 class RapportApercuView(APIView):
     permission_classes = [IsAuthenticated]
     def get(self, request):
+        refus = _refuser_coordinateur_dashboard(request)
+        if refus:
+            return refus
         try:
             debut, fin = _periode(request)
             data = _data_rapport(
@@ -386,27 +404,22 @@ class RapportApercuView(APIView):
 class RapportEgliseView(APIView):
     permission_classes = [IsAuthenticated]
     def get(self, request, eglise_id):
+        refus = _refuser_coordinateur_dashboard(request)
+        if refus:
+            return refus
         if not (_est_coordinateur(request.user) or (request.user.role in [Role.PASTEUR, Role.ADMIN_LOCAL] and request.user.eglise_id == eglise_id)):
             return Response({"detail": "Une église ne peut produire que son propre rapport."}, status=403)
         eglise = Eglise.objects.get(pk=eglise_id)
         debut, fin = _periode(request)
         data = _data_rapport(request.user, debut, fin, request.query_params.get("membres", "1") == "1", request.query_params.get("finances", "1") == "1", request.query_params.get("projets", "1") == "1", forced_scope={"type": "EGLISE", "eglise_id": eglise_id, "label": eglise.nom})
-        if data["scope"]["type"] == "GLOBAL":
-            # Le Coordinateur peut demander un rapport précis d'une église en lecture supervisée.
-            membres = Utilisateur.objects.filter(eglise_id=eglise_id, actif=True)
-            operations = Transaction.objects.filter(eglise_id=eglise_id, date_transaction__range=(debut, fin))
-            projets = Projet.objects.filter(eglise_id=eglise_id)
-            entrees = operations.exclude(type_transaction="SORTIE").aggregate(v=Sum("montant"))["v"] or 0
-            sorties = operations.filter(type_transaction="SORTIE").aggregate(v=Sum("montant"))["v"] or 0
-            data["label"] = eglise.nom; data["membres"] = _repartition_membres(membres) if request.query_params.get("membres", "1") == "1" else None
-            data["finances"] = {"operations": operations.count(), "entrees": entrees, "sorties": sorties, "solde": entrees-sorties} if request.query_params.get("finances", "1") == "1" else None
-            data["projets"] = {"nombre": projets.count(), "budget_prevu": sum((p.budget_prevu for p in projets), 0), "budget_utilise": sum((p.budget_utilise for p in projets), 0)} if request.query_params.get("projets", "1") == "1" else None
-        return _rapport_pdf(data)
 
 
 class RapportNationalView(APIView):
     permission_classes = [IsAuthenticated]
     def get(self, request):
+        refus = _refuser_coordinateur_dashboard(request)
+        if refus:
+            return refus
         if not (_est_coordinateur(request.user) or _est_national_general(request.user)):
             return Response({"detail": "Le rapport national général est réservé au Coordinateur ou au Bureau national général."}, status=403)
         try:
@@ -419,6 +432,9 @@ class RapportNationalView(APIView):
 class RapportBureauView(APIView):
     permission_classes = [IsAuthenticated]
     def get(self, request, bureau_id):
+        refus = _refuser_coordinateur_dashboard(request)
+        if refus:
+            return refus
         bureau = Bureau.objects.filter(pk=bureau_id, actif=True).first()
         if not bureau:
             return Response({"detail": "Bureau introuvable."}, status=404)

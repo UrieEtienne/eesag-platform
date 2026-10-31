@@ -109,7 +109,7 @@ class EgliseDetailSerializer(EgliseListSerializer):
 
     class Meta(EgliseListSerializer.Meta):
         fields = EgliseListSerializer.Meta.fields + [
-            "adresse_precise", "telephone", "email", "date_creation",
+            "adresse_precise", "telephone",  "date_creation",
             "date_enregistrement_systeme", "departements", "annexes",
         ]
 
@@ -132,14 +132,13 @@ class EgliseCreateSerializer(serializers.ModelSerializer):
     )
     responsable_nom = serializers.CharField(write_only=True, required=False, allow_blank=True, max_length=200)
     responsable_telephone = serializers.CharField(write_only=True, required=False, allow_blank=True, max_length=20)
-    responsable_email = serializers.EmailField(write_only=True, required=False, allow_blank=True)
 
     class Meta:
         model = Eglise
         fields = [
             "id", "code", "nom", "region", "prefecture", "district", "commune",
-            "adresse_precise", "telephone", "email", "date_creation", "statut", "plateforme_active", "logo",
-            "responsable_utilisateur", "responsable_nom", "responsable_telephone", "responsable_email",
+            "adresse_precise", "telephone",  "date_creation", "statut", "plateforme_active", "logo",
+            "responsable_utilisateur", "responsable_nom",
         ]
         read_only_fields = ["id", "code", "statut", "plateforme_active"]
 

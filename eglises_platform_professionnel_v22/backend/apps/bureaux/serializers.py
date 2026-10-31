@@ -89,23 +89,73 @@ class BureauAdministrateurSerializer(serializers.ModelSerializer):
     class Meta:
         model = BureauAdministrateur
         fields = [
-            "id", "bureau", "bureau_nom", "utilisateur", "nom_complet",
-            "peut_gerer_membres", "peut_gerer_finances", "peut_gerer_projets",
-            "peut_envoyer_notifications", "peut_gerer_rapports", "actif", "date_attribution",
+            "id",
+            "bureau",
+            "bureau_nom",
+            "utilisateur",
+            "nom_complet",
+
+            # Gestion des membres et des activités
+            "peut_gerer_membres",
+            "peut_gerer_finances",
+            "peut_gerer_projets",
+            "peut_envoyer_notifications",
+            "peut_gerer_rapports",
+
+            # Permissions complémentaires
+            "peut_gerer_utilisateurs",
+            "peut_creer_bureaux",
+            "peut_gerer_eglises",
+            "peut_gerer_bureaux_zonaux",
+
+            "actif",
+            "date_attribution",
         ]
-        read_only_fields = ["date_attribution"]
+
+        read_only_fields = [
+            "id",
+            "date_attribution",
+            "nom_complet",
+            "bureau_nom",
+        ]
 
     def validate(self, attrs):
-        bureau = attrs.get("bureau", getattr(self.instance, "bureau", None))
-        user = attrs.get("utilisateur", getattr(self.instance, "utilisateur", None))
+        bureau = attrs.get(
+            "bureau",
+            getattr(self.instance, "bureau", None)
+        )
+
+        user = attrs.get(
+            "utilisateur",
+            getattr(self.instance, "utilisateur", None)
+        )
+
         if bureau and user:
             if user.role == "COORDINATEUR":
-                raise serializers.ValidationError("Le Coordinateur ne doit pas être administrateur d'un bureau.")
+                raise serializers.ValidationError({
+                    "utilisateur": (
+                        "Le Coordinateur est propriétaire du système "
+                        "et ne doit pas être administrateur d'un bureau."
+                    )
+                })
+
             if bureau.niveau == "NATIONAL" and user.eglise_id:
-                raise serializers.ValidationError("Un administrateur d'un bureau national ne doit pas être rattaché à une église.")
+                raise serializers.ValidationError({
+                    "utilisateur": (
+                        "Un administrateur d'un bureau national "
+                        "ne doit pas être rattaché à une église."
+                    )
+                })
+
             if bureau.niveau == "LOCAL" and user.eglise_id != bureau.eglise_id:
-                raise serializers.ValidationError("L'administrateur local doit appartenir à la même église.")
+                raise serializers.ValidationError({
+                    "utilisateur": (
+                        "L'administrateur local doit appartenir "
+                        "à la même église que le bureau."
+                    )
+                })
+
         return attrs
 
     def get_nom_complet(self, obj):
-        return f"{obj.utilisateur.prenom} {obj.utilisateur.nom}"
+        return f"{obj.utilisateur.prenom} {obj.utilisateur.nom}".strip()

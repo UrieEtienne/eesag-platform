@@ -41,7 +41,7 @@ class UtilisateurAdminForm(forms.ModelForm):
     class Meta:
         model = Utilisateur
         fields = (
-            "nom", "prenom", "sexe", "date_naissance", "telephone", "email", "photo",
+            "nom", "prenom", "sexe", "date_naissance", "telephone", "photo",
             "nationalite", "date_bapteme_eau", "date_bapteme_saint_esprit", "fonction_eglise",
             "role", "eglise", "departement", "role_eglise", "fonction_bureau_national",
             "actif", "is_staff", "is_superuser",
@@ -91,10 +91,12 @@ class UtilisateurAdminForm(forms.ModelForm):
         if not self.instance.pk:
             self.fields["actif"].initial = False
             self.fields["is_staff"].initial = False
-            self.fields["is_superuser"].initial = False
+            if "is_superuser" in self.fields:
+                self.fields["is_superuser"].initial = False
 
         if user and not is_coordinator(user):
-            self.fields["is_superuser"].disabled = True
+            if "is_superuser" in self.fields:
+                self.fields["is_superuser"].disabled = True
 
 
     def clean(self):
@@ -185,7 +187,7 @@ class UtilisateurAdmin(EESAGScopedAdminMixin, admin.ModelAdmin):
     form = UtilisateurAdminForm
     list_display = ("miniature", "identifiant", "nom_complet", "role", "eglise", "fonction_bureau_national", "telephone", "actif")
     list_filter = ("role", "eglise", "sexe", "nationalite", "actif", "is_staff")
-    search_fields = ("identifiant", "nom", "prenom", "telephone", "email")
+    search_fields = ("identifiant", "nom", "prenom", "telephone")
     ordering = ("nom", "prenom")
     readonly_fields = ("identifiant", "last_login", "date_enregistrement")
 
@@ -274,7 +276,7 @@ class UtilisateurAdmin(EESAGScopedAdminMixin, admin.ModelAdmin):
             fields_status = ("actif", "is_staff")
         return (
             ("Identité", {"fields": ("identifiant", "nom", "prenom", "sexe", "date_naissance", "nationalite", "photo")} ),
-            ("Contact", {"fields": ("telephone", "email")} ),
+            ("Contact", {"fields": ("telephone",)}),
             ("Vie de l'église", {"fields": ("date_bapteme_eau", "date_bapteme_saint_esprit", "fonction_eglise", "eglise", "departement", "role_eglise")} ),
             ("Rôle", {"fields": ("role", "fonction_bureau_national")} ),
             ("Mot de passe", {"fields": ("mot_de_passe", "confirmation_mot_de_passe")} ),

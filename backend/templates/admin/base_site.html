@@ -147,8 +147,27 @@
             font-size: 11px;
             white-space: nowrap;
         }
+        .eesag-header-home {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 35px;
+            padding: 0 13px;
+            border: 1px solid rgba(255,255,255,.65);
+            border-radius: 7px;
+            color: #ffffff !important;
+            background: rgba(255,255,255,.16);
+            font-size: 12px;
+            font-weight: 700;
+            text-decoration: none !important;
+            white-space: nowrap;
+            transition: background .2s ease;
+        }
 
-        
+        .eesag-header-home:hover {
+            color: #075681 !important;
+            background: #ffffff !important;
+        }
 /* ===== SIDEBAR EESAG : CORRECTION DU FOND BLANC ===== */
 #nav-sidebar.eesag-sidebar {
     display: block !important;
@@ -294,6 +313,13 @@
 
     {% if user.is_active and user.is_staff %}
     <nav class="eesag-header-nav" aria-label="Navigation principale">
+        <a
+            class="eesag-header-home"
+            href="{{ EESAG_FRONTEND_URL|default:'http://127.0.0.1:5173/' }}"
+            title="Retourner à l'accueil EESAG"
+        >
+            ⌂ Accueil
+        </a>
         <a href="{% url 'admin:index' %}">Tableau</a>
 
         {% if user.role == 'COORDINATEUR' or user.is_superuser %}
@@ -365,7 +391,6 @@
             {% endif %}
         {% endif %}
     </nav>
-
     <div class="eesag-header-user">
         {% if user.photo %}
             <img class="eesag-header-avatar"
@@ -384,26 +409,6 @@
                 · {% scope_label %}
             </small>
         </span>
-
-        <button
-            type="button"
-            id="eesag-theme-toggle"
-            aria-label="Changer le thème"
-            title="Changer le thème"
-            style="
-                flex: 0 0 auto;
-                margin-left: 8px;
-                padding: 8px 12px;
-                border: 1px solid rgba(255,255,255,.45);
-                border-radius: 8px;
-                background: rgba(255,255,255,.14);
-                color: #fff;
-                font-size: 12px;
-                font-weight: 700;
-                cursor: pointer;
-                white-space: nowrap;
-            "
-        >🌙 Thème sombre</button>
 
         {% if user.has_usable_password %}
             <a class="eesag-header-logout"
@@ -496,78 +501,6 @@
 
 {% block extrajs %}
     {{ block.super }}
-    <script>
-    (function () {
-        const STORAGE_KEY = "eesag-admin-theme";
-
-        function appliquerTheme(theme) {
-            const mode = theme === "dark" ? "dark" : "light";
-
-            document.documentElement.setAttribute("data-admin-theme", mode);
-
-            const bouton = document.getElementById("eesag-theme-toggle");
-
-            if (bouton) {
-                bouton.textContent =
-                    mode === "dark" ? "☀️ Thème clair" : "🌙 Thème sombre";
-
-                bouton.setAttribute(
-                    "aria-label",
-                    mode === "dark"
-                        ? "Activer le thème clair"
-                        : "Activer le thème sombre"
-                );
-
-                bouton.setAttribute("aria-pressed", String(mode === "dark"));
-            }
-        }
-
-        function initialiserTheme() {
-            let theme = "light";
-
-            try {
-                const sauvegarde = localStorage.getItem(STORAGE_KEY);
-                if (sauvegarde === "dark" || sauvegarde === "light") {
-                    theme = sauvegarde;
-                }
-            } catch (erreur) {
-                console.warn("Le stockage du thème est indisponible.", erreur);
-            }
-
-            appliquerTheme(theme);
-
-            const bouton = document.getElementById("eesag-theme-toggle");
-
-            if (bouton && bouton.dataset.themeListener !== "active") {
-                bouton.dataset.themeListener = "active";
-
-                bouton.addEventListener("click", function (event) {
-                    event.preventDefault();
-
-                    const actuel = document.documentElement.getAttribute(
-                        "data-admin-theme"
-                    );
-
-                    const nouveau = actuel === "dark" ? "light" : "dark";
-
-                    appliquerTheme(nouveau);
-
-                    try {
-                        localStorage.setItem(STORAGE_KEY, nouveau);
-                    } catch (erreur) {
-                        console.warn("Impossible de mémoriser le thème.", erreur);
-                    }
-                });
-            }
-        }
-
-        if (document.readyState === "loading") {
-            document.addEventListener("DOMContentLoaded", initialiserTheme);
-        } else {
-            initialiserTheme();
-        }
-    })();
-    </script>
 {% endblock %}
 
 

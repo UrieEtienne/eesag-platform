@@ -101,7 +101,7 @@ export default function FormulaireMembre({ egliseId, onFerme, onCree }) {
           </div>
           <div className="form-grid">
             <div className="form-champ"><label>Téléphone *</label><input required value={form.telephone} onChange={(e) => modifier("telephone", e.target.value)} placeholder="+224..." /></div>
-            <div className="form-champ"><label>Email</label><input type="email" value={form.email} onChange={(e) => modifier("email", e.target.value)} /></div>
+            <div className="form-champ"><label>Email</label><input type="email" value={form.email} onChange={(e) => modifier( e.target.value)} /></div>
           </div>
 
           <div className="form-champ"><label>Nationalité</label><select value={form.nationalite} onChange={(e)=>modifier("nationalite",e.target.value)}><option value="GN">Guinée</option><option value="SN">Sénégal</option><option value="ML">Mali</option><option value="CI">Côte d’Ivoire</option><option value="LR">Libéria</option><option value="SL">Sierra Leone</option><option value="GH">Ghana</option><option value="NG">Nigéria</option><option value="BF">Burkina Faso</option><option value="FR">France</option><option value="US">États-Unis</option><option value="CA">Canada</option><option value="OTHER">Autre</option></select></div>

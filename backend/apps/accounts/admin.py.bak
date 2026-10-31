@@ -41,7 +41,7 @@ class UtilisateurAdminForm(forms.ModelForm):
     class Meta:
         model = Utilisateur
         fields = (
-            "nom", "prenom", "sexe", "date_naissance", "telephone", "email", "photo",
+            "nom", "prenom", "sexe", "date_naissance", "telephone",  "photo",
             "nationalite", "date_bapteme_eau", "date_bapteme_saint_esprit", "fonction_eglise",
             "role", "eglise", "departement", "role_eglise", "fonction_bureau_national",
             "actif", "is_staff", "is_superuser",

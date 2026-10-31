@@ -1,0 +1,608 @@
+import { useCallback, useEffect, useState } from "react";
+const [actionEnCours, setActionEnCours] = useState(null);
+
+const API_URL = (import.meta.env.VITE_API_URL || "/api").replace(/\/+$/, "");
+
+const ROLES = [
+  { value: "SUPERADMIN_INTL", label: "Super administrateur international" },
+  { value: "SUPERADMIN_NATIONAL", label: "Super administrateur national" },
+  { value: "ADMIN_LOCAL", label: "Administrateur local" },
+  { value: "PASTEUR", label: "Pasteur" },
+];
+
+const FORM_INITIAL = {
+  nom: "",
+  prenom: "",
+  sexe: "M",
+  telephone: "",
+  email: "",
+  role: "ADMIN_LOCAL",
+  eglise: "",
+  fonction_bureau_national: "",
+};
+
+function obtenirToken() {
+  return (
+    localStorage.getItem("access") ||
+    localStorage.getItem("access_token") ||
+    localStorage.getItem("accessToken") ||
+    localStorage.getItem("token") ||
+    ""
+  );
+}
+
+async function requeteAPI(chemin, options = {}) {
+  const token = obtenirToken();
+  const headers = {
+    Accept: "application/json",
+    ...(options.body ? { "Content-Type": "application/json" } : {}),
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...options.headers,
+  };
+
+  const response = await fetch(`${API_URL}${chemin}`, {
+    ...options,
+    headers,
+  });
+
+  const type = response.headers.get("content-type") || "";
+  const data = type.includes("application/json")
+    ? await response.json()
+    : await response.text();
+
+  if (!response.ok) {
+    const message =
+      typeof data === "string"
+        ? data
+        : data?.detail ||
+          data?.message ||
+          Object.entries(data || {})
+            .map(([champ, valeur]) => {
+              const texte = Array.isArray(valeur)
+                ? valeur.join(" ")
+                : typeof valeur === "string"
+                  ? valeur
+                  : JSON.stringify(valeur);
+              return `${champ}: ${texte}`;
+            })
+            .join(" | ") ||
+          `Erreur HTTP ${response.status}`;
+
+    throw new Error(message);
+  }
+
+  return data;
+}
+
+function listeDepuis(data) {
+  if (Array.isArray(data)) return data;
+  if (Array.isArray(data?.results)) return data.results;
+  if (Array.isArray(data?.data)) return data.data;
+  return [];
+}
+
+function nomUtilisateur(u) {
+  return [u?.prenom, u?.nom].filter(Boolean).join(" ").trim() ||
+    u?.identifiant ||
+    "Utilisateur";
+}
+
+function libelleRole(u) {
+  return u?.role_libelle || u?.role_display || u?.role || "—";
+}
+
+export default function AdministrationUtilisateurs() {
+  const [utilisateurs, setUtilisateurs] = useState([]);
+  const [eglises, setEglises] = useState([]);
+  const [chargement, setChargement] = useState(true);
+  const [envoi, setEnvoi] = useState(false);
+  const [formulaireOuvert, setFormulaireOuvert] = useState(false);
+  const [erreur, setErreur] = useState("");
+  const [message, setMessage] = useState("");
+  const [form, setForm] = useState(FORM_INITIAL);
+  const [compteCree, setCompteCree] = useState(null);
+  const [recherche, setRecherche] = useState("");
+
+  const chargerDonnees = useCallback(async () => {
+    setChargement(true);
+    setErreur("");
+
+    try {
+      const [dataUtilisateurs, dataEglises] = await Promise.all([
+        requeteAPI("/utilisateurs/"),
+        requeteAPI("/eglises/"),
+      ]);
+
+      setUtilisateurs(listeDepuis(dataUtilisateurs));
+      setEglises(
+        listeDepuis(dataEglises).filter(
+          (eglise) => eglise && eglise.id != null
+        )
+      );
+    } catch (e) {
+      setErreur(e.message || "Impossible de charger les données.");
+    } finally {
+      setChargement(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    chargerDonnees();
+  }, [chargerDonnees]);
+
+  const changerChamp = (event) => {
+    const { name, value } = event.target;
+    setForm((precedent) => ({
+      ...precedent,
+      [name]: value,
+      ...(name === "role" &&
+      ["SUPERADMIN_INTL", "SUPERADMIN_NATIONAL"].includes(value)
+        ? { eglise: "" }
+        : {}),
+    }));
+    setErreur("");
+    setMessage("");
+  };
+
+  const soumettre = async (event) => {
+    event.preventDefault();
+    setErreur("");
+    setMessage("");
+    setCompteCree(null);
+
+    if (!form.nom.trim() || !form.prenom.trim() || !form.telephone.trim()) {
+      setErreur("Renseigne le nom, le prénom et le téléphone.");
+      return;
+    }
+
+    const roleNational = [
+      "SUPERADMIN_INTL",
+      "SUPERADMIN_NATIONAL",
+    ].includes(form.role);
+
+    if (!roleNational && !form.eglise) {
+      setErreur("Sélectionne une église pour ce compte local.");
+      return;
+    }
+
+    const payload = {
+      nom: form.nom.trim(),
+      prenom: form.prenom.trim(),
+      sexe: form.sexe,
+      telephone: form.telephone.trim(),
+      email: form.email.trim(),
+      role: form.role,
+      eglise: roleNational ? null : Number(form.eglise),
+      fonction_bureau_national: form.fonction_bureau_national.trim(),
+    };
+
+    try {
+      setEnvoi(true);
+      const resultat = await requeteAPI("/utilisateurs/", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+
+      const utilisateur = resultat?.utilisateur || resultat;
+      
+      setCompteCree({
+        identifiant: resultat?.identifiant || utilisateur?.identifiant || "",
+        nom: resultat?.nom || nomUtilisateur(utilisateur),
+        role: resultat?.role_libelle || libelleRole(utilisateur),
+        detail: resultat?.detail || "Le compte a été créé.",
+        smsEnvoye: resultat?.sms_envoye === true,
+        smsMessage: resultat?.sms_message || "",
+      });
+
+
+      setMessage("Compte créé avec succès.");
+      setForm(FORM_INITIAL);
+      await chargerDonnees();
+    } catch (e) {
+      setErreur(
+        e.message ||
+          "La création a échoué. Vérifie les champs et les droits du compte connecté."
+      );
+    } finally {
+      setEnvoi(false);
+    }
+  };
+
+  const changerEtatCompte = async (utilisateur) => {
+    if (!utilisateur?.id) {
+      setErreur("Identifiant du compte introuvable.");
+      return;
+    }
+
+    if (utilisateur.role === "COORDINATEUR") {
+      setErreur("Un compte Coordinateur ne peut pas être bloqué depuis cette page.");
+      return;
+    }
+
+    const bloquer = Boolean(utilisateur.actif);
+    const action = bloquer ? "bloquer" : "debloquer";
+    const verbe = bloquer ? "bloquer" : "débloquer";
+
+    const confirme = window.confirm(
+      `Confirmer : ${verbe} le compte de ${nomUtilisateur(utilisateur)} ?`
+    );
+
+    if (!confirme) return;
+
+    setErreur("");
+    setMessage("");
+    setActionEnCours(utilisateur.id);
+
+    try {
+      const resultat = await requeteAPI(
+        `/utilisateurs/${utilisateur.id}/${action}/`,
+        { method: "POST" }
+      );
+
+      setMessage(
+        resultat?.detail ||
+        `Le compte de ${nomUtilisateur(utilisateur)} a été ${bloquer ? "bloqué" : "débloqué"}.`
+      );
+
+      await chargerDonnees();
+    } catch (e) {
+      setErreur(e.message || "Impossible de modifier l'état du compte.");
+    } finally {
+      setActionEnCours(null);
+    }
+  };
+
+  const filtrer = utilisateurs.filter((u) => {
+    const terme = recherche.toLocaleLowerCase().trim();
+    if (!terme) return true;
+    return [
+      u?.nom,
+      u?.prenom,
+      u?.identifiant,
+      u?.telephone,
+      u?.email,
+      u?.role,
+      u?.role_libelle,
+      u?.eglise_nom,
+      u?.eglise?.nom,
+    ]
+      .filter(Boolean)
+      .some((v) => String(v).toLocaleLowerCase().includes(terme));
+  });
+
+  return (
+    <main className="container-fluid px-3 px-lg-4 py-4">
+      <section className="card border-0 shadow-sm mb-4">
+        <div className="card-body p-4">
+          <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
+            <div>
+              <div className="text-uppercase small fw-bold text-primary mb-2">
+                EESAG · Administration centrale
+              </div>
+              <h2 className="mb-1">Administration des utilisateurs</h2>
+              <p className="text-muted mb-0">
+                Créer les comptes, consulter les identifiants et suivre les statuts.
+              </p>
+            </div>
+            <div className="d-flex flex-wrap gap-2">
+              <button
+                type="button"
+                className="btn btn-outline-secondary"
+                onClick={chargerDonnees}
+                disabled={chargement}
+              >
+                Actualiser
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={() => {
+                  setFormulaireOuvert((ouvert) => !ouvert);
+                  setErreur("");
+                  setMessage("");
+                  setCompteCree(null);
+                }}
+              >
+                {formulaireOuvert ? "Fermer le formulaire" : "+ Créer un utilisateur"}
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {erreur && (
+        <div className="alert alert-danger" role="alert">
+          <strong>Échec :</strong> {erreur}
+        </div>
+      )}
+
+      {message && (
+        <div className="alert alert-success" role="status">
+          {message}
+        </div>
+      )}
+
+      {compteCree && (
+        <div className="card border-success shadow-sm mb-4">
+          <div className="card-body">
+            <h5 className="text-success">Compte enregistré</h5>
+            <p className="mb-1"><strong>Nom :</strong> {compteCree.nom}</p>
+            <p className="mb-1"><strong>Rôle :</strong> {compteCree.role}</p>
+            <p className="mb-2">
+              <strong>Identifiant :</strong>{" "}
+              {compteCree.identifiant || "Consulte la fiche du compte."}
+            </p>
+            <p className="mb-0">{compteCree.detail}</p>
+            <small className="text-muted d-block mt-2">
+              Le code secret n'est pas affiché ici. Suis la procédure de confirmation ou de réinitialisation configurée sur le serveur.
+            </small>
+          </div>
+        </div>
+      )}
+
+      {formulaireOuvert && (
+        <section className="card shadow-sm border-0 mb-4">
+          <div className="card-header bg-white py-3">
+            <h5 className="mb-1">Créer un compte utilisateur</h5>
+            <small className="text-muted">
+              Les autorisations définitives sont toujours vérifiées par le serveur.
+            </small>
+          </div>
+          <div className="card-body p-4">
+            <form onSubmit={soumettre}>
+              <div className="row g-3">
+                <div className="col-12 col-md-6">
+                  <label htmlFor="prenom" className="form-label">Prénom *</label>
+                  <input
+                    id="prenom"
+                    name="prenom"
+                    className="form-control"
+                    value={form.prenom}
+                    onChange={changerChamp}
+                    maxLength={100}
+                    autoComplete="given-name"
+                    required
+                  />
+                </div>
+                <div className="col-12 col-md-6">
+                  <label htmlFor="nom" className="form-label">Nom *</label>
+                  <input
+                    id="nom"
+                    name="nom"
+                    className="form-control"
+                    value={form.nom}
+                    onChange={changerChamp}
+                    maxLength={100}
+                    autoComplete="family-name"
+                    required
+                  />
+                </div>
+                <div className="col-12 col-md-6">
+                  <label htmlFor="telephone" className="form-label">Téléphone *</label>
+                  <input
+                    id="telephone"
+                    name="telephone"
+                    type="tel"
+                    className="form-control"
+                    value={form.telephone}
+                    onChange={changerChamp}
+                    autoComplete="tel"
+                    placeholder="+224..."
+                    required
+                  />
+                </div>
+                <div className="col-12 col-md-6">
+                  <label htmlFor="email" className="form-label">Adresse e-mail</label>
+                  <input
+                    id="email"
+                    name="email"
+                    type="email"
+                    className="form-control"
+                    value={form.email}
+                    onChange={changerChamp}
+                    autoComplete="email"
+                  />
+                </div>
+                <div className="col-12 col-md-6">
+                  <label htmlFor="sexe" className="form-label">Sexe</label>
+                  <select
+                    id="sexe"
+                    name="sexe"
+                    className="form-select"
+                    value={form.sexe}
+                    onChange={changerChamp}
+                  >
+                    <option value="M">Homme</option>
+                    <option value="F">Femme</option>
+                  </select>
+                </div>
+                <div className="col-12 col-md-6">
+                  <label htmlFor="role" className="form-label">Rôle du compte *</label>
+                  <select
+                    id="role"
+                    name="role"
+                    className="form-select"
+                    value={form.role}
+                    onChange={changerChamp}
+                    required
+                  >
+                    {ROLES.map((role) => (
+                      <option key={role.value} value={role.value}>
+                        {role.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {![
+                  "SUPERADMIN_INTL",
+                  "SUPERADMIN_NATIONAL",
+                ].includes(form.role) && (
+                  <div className="col-12">
+                    <label htmlFor="eglise" className="form-label">Église de rattachement *</label>
+                    <select
+                      id="eglise"
+                      name="eglise"
+                      className="form-select"
+                      value={form.eglise}
+                      onChange={changerChamp}
+                      required
+                    >
+                      <option value="">— Sélectionner une église —</option>
+                      {eglises.map((eglise) => (
+                        <option key={eglise.id} value={eglise.id}>
+                          {eglise.nom || eglise.code || `Église ${eglise.id}`}
+                          {eglise.code ? ` (${eglise.code})` : ""}
+                        </option>
+                      ))}
+                    </select>
+                    {!chargement && eglises.length === 0 && (
+                      <small className="text-danger">
+                        Aucune église n'a été chargée. Vérifie l'accès à /api/eglises/.
+                      </small>
+                    )}
+                  </div>
+                )}
+
+                {[
+                  "SUPERADMIN_INTL",
+                  "SUPERADMIN_NATIONAL",
+                ].includes(form.role) && (
+                  <div className="col-12">
+                    <label
+                      htmlFor="fonction_bureau_national"
+                      className="form-label"
+                    >
+                      Fonction au Bureau national (facultatif)
+                    </label>
+                    <input
+                      id="fonction_bureau_national"
+                      name="fonction_bureau_national"
+                      className="form-control"
+                      value={form.fonction_bureau_national}
+                      onChange={changerChamp}
+                      maxLength={150}
+                      placeholder="Ex. : Administrateur national"
+                    />
+                  </div>
+                )}
+              </div>
+
+              <div className="d-flex flex-wrap gap-2 mt-4">
+                <button
+                  type="submit"
+                  className="btn btn-primary px-4"
+                  disabled={envoi || chargement}
+                >
+                  {envoi ? "Création en cours..." : "Créer le compte"}
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-outline-secondary"
+                  disabled={envoi}
+                  onClick={() => {
+                    setForm(FORM_INITIAL);
+                    setErreur("");
+                  }}
+                >
+                  Réinitialiser
+                </button>
+              </div>
+            </form>
+          </div>
+        </section>
+      )}
+
+      <section className="card border-0 shadow-sm">
+        <div className="card-header bg-white py-3">
+          <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
+            <h5 className="mb-0">Comptes utilisateurs</h5>
+            <div className="d-flex align-items-center gap-3">
+              <span className="badge bg-primary">
+                {filtrer.length} compte{filtrer.length !== 1 ? "s" : ""}
+              </span>
+              <input
+                type="search"
+                className="form-control"
+                style={{ maxWidth: 300 }}
+                placeholder="Rechercher un compte..."
+                value={recherche}
+                onChange={(e) => setRecherche(e.target.value)}
+                aria-label="Rechercher un utilisateur"
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="card-body p-0">
+          {chargement ? (
+            <div className="p-4 text-center text-muted">
+              Chargement des utilisateurs...
+            </div>
+          ) : filtrer.length === 0 ? (
+            <div className="p-4 text-center text-muted">
+              Aucun compte ne correspond à la recherche.
+            </div>
+          ) : (
+            <div className="table-responsive">
+              <table className="table table-hover table-striped align-middle mb-0">
+                <thead className="table-light">
+                  <tr>
+                    <th>Nom complet</th>
+                    <th>Identifiant</th>
+                    <th>Rôle</th>
+                    <th>Église</th>
+                    <th>Téléphone</th>
+                   <td>
+                      {u.actif ? (
+                        <span className="badge bg-success">Actif</span>
+                      ) : (
+                        <span className="badge bg-warning text-dark">Inactif</span>
+                      )}
+                    </td>
+                    <td className="text-end">
+                      {u.role === "COORDINATEUR" ? (
+                        <span className="text-muted small">Compte protégé</span>
+                      ) : (
+                        <button
+                          type="button"
+                          className={`btn btn-sm ${u.actif ? "btn-outline-danger" : "btn-outline-success"}`}
+                          disabled={actionEnCours === u.id}
+                          onClick={() => changerEtatCompte(u)}
+                        >
+                          {actionEnCours === u.id
+                            ? "Traitement..."
+                            : u.actif
+                              ? "Bloquer"
+                              : "Débloquer"}
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtrer.map((u) => (
+                    <tr key={u.id ?? u.identifiant}>
+                      <td><strong>{nomUtilisateur(u)}</strong></td>
+                      <td>{u.identifiant || "—"}</td>
+                      <td><span className="badge bg-secondary">{libelleRole(u)}</span></td>
+                      <td>{u.eglise_nom || u.eglise?.nom || "Administration nationale"}</td>
+                      <td>{u.telephone || "—"}</td>
+                      <td>
+                        {u.actif ? (
+                          <span className="badge bg-success">Actif</span>
+                        ) : (
+                          <span className="badge bg-warning text-dark">Inactif</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </section>
+    </main>
+  );
+}

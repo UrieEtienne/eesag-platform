@@ -18,16 +18,16 @@ class NiveauBureau(models.TextChoices):
 
 class TypeBureau(models.TextChoices):
     GENERAL = "GENERAL", "Bureau national général"
+    HOMMES = "HOMMES", "Bureau national des hommes"
     FEMMES = "FEMMES", "Bureau national des femmes"
     JEUNESSE = "JEUNESSE", "Bureau national de la jeunesse"
     ENFANTS = "ENFANTS", "Bureau national des enfants"
+    FAMILLES = "FAMILLES", "Bureau national des familles"
     EVANGELISATION = "EVANGELISATION", "Équipe nationale d'évangélisation"
-    HOMMES = "HOMMES", "Bureau national des hommes"
     COMMUNICATION = "COMMUNICATION", "Bureau de la communication"
     MUSIQUE = "MUSIQUE", "Bureau de la musique / chorale"
-    MISSIONS = "MISSIONS", "Bureau des missions"
-    AUTRE = "AUTRE", "Autre bureau / commission"
-
+    MISSIONS = "MISSIONS", "Bureau national des missions"
+    AUTRE = "AUTRE", "Autre bureau national"
 
 # ============================================================
 # ZONES GÉOGRAPHIQUES
@@ -154,7 +154,7 @@ class Bureau(models.Model):
     type_bureau = models.CharField(
         max_length=30,
         choices=TypeBureau.choices,
-        default=TypeBureau.AUTRE,
+        default=TypeBureau.GENERAL,
     )
 
     eglise = models.ForeignKey(
@@ -313,18 +313,27 @@ class Bureau(models.Model):
                     })
 
                 if parent and parent.type_bureau not in {
-                    TypeBureau.HOMMES,
                     TypeBureau.FEMMES,
                     TypeBureau.JEUNESSE,
                     TypeBureau.ENFANTS,
                 }:
                     raise ValidationError({
                         "bureau_parent": (
-                            "Ce type de bureau national "
-                            "ne possède pas de structure zonale."
+                            "Seuls les bureaux nationaux des Femmes, "
+                            "de la Jeunesse et des Enfants peuvent "
+                            "posséder des bureaux zonaux."
                         )
                     })
-
+                if (
+                    parent
+                    and self.type_bureau != parent.type_bureau
+                ):
+                    raise ValidationError({
+                        "type_bureau": (
+                            "Le type du bureau zonal doit correspondre "
+                            "à celui de son bureau national parent."
+                        )
+                    })
         # ----------------------------------------------------
         # BUREAU LOCAL
         # ----------------------------------------------------

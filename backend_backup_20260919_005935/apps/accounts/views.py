@@ -67,7 +67,7 @@ class UtilisateurViewSet(viewsets.ModelViewSet):
         user = self.request.user
         qs = Utilisateur.objects.select_related("eglise", "departement", "role_eglise")
         if user.role == Role.COORDINATEUR or user.is_superuser:
-            return qs.exclude(role=Role.COORDINATEUR)
+            return qs
         if user.role in [Role.SUPERADMIN_INTL, Role.SUPERADMIN_NATIONAL]:
             from apps.bureaux.models import BureauAdministrateur
             assigned = BureauAdministrateur.objects.filter(utilisateur=user, actif=True).values_list("bureau_id", flat=True)

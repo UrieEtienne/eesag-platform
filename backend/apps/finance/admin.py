@@ -1,8 +1,7 @@
 from apps.core.admin_scopes import EESAGScopedAdminMixin
 from django import forms
 from django.contrib import admin
-from django.core.exceptions import ValidationError
-
+from django.core.exceptions import PermissionDenied, ValidationError
 from .models import Transaction, Projet
 from .views import perimetre_financier_utilisateur, perimetre_projet_utilisateur
 
@@ -54,103 +53,132 @@ class TransactionAdminForm(PerimetreFormMixin, forms.ModelForm):
 
 
 @admin.register(Transaction)
-class TransactionAdmin(EESAGScopedAdminMixin, admin.ModelAdmin):
-    admin_scopes = {"COORDINATEUR", "BUREAU_GENERAL", "BUREAU_SPECIAL", "EGLISE"}
-
+class TransactionAdmin(admin.ModelAdmin):
     form = TransactionAdminForm
-    list_display = ("date_transaction", "type_transaction", "montant_formate", "devise", "perimetre", "enregistre_par")
+
+    list_display = (
+        "date_transaction",
+        "type_transaction",
+        "montant_formate",
+        "devise",
+        "perimetre",
+        "enregistre_par",
+    )
     list_filter = ("type_transaction", "devise", "date_transaction")
-    search_fields = ("description", "eglise__nom", "eglise__code", "bureau__nom", "bureau__code", "enregistre_par__nom", "enregistre_par__prenom")
+    search_fields = (
+        "description",
+        "eglise__nom",
+        "eglise__code",
+        "bureau__nom",
+        "bureau__code",
+        "enregistre_par__nom",
+        "enregistre_par__prenom",
+    )
     date_hierarchy = "date_transaction"
     ordering = ("-date_transaction", "-id")
     readonly_fields = ("date_enregistrement", "enregistre_par")
 
     def get_form(self, request, obj=None, **kwargs):
         BaseForm = super().get_form(request, obj, **kwargs)
+
         class RequestAwareForm(BaseForm):
             def __init__(self, *args, **form_kwargs):
                 form_kwargs["request"] = request
                 super().__init__(*args, **form_kwargs)
+
         return RequestAwareForm
 
-    def get_queryset(self, request):
-        qs = super().get_queryset(request).select_related("eglise", "bureau", "enregistre_par")
-        scope = perimetre_financier_utilisateur(request.user)
-        if scope["type"] == "GLOBAL":
-            return qs
+    def _scope(self, request):
+        return perimetre_financier_utilisateur(request.user)
+
+    def _in_scope(self, request, obj):
+        scope = self._scope(request)
+
         if scope["type"] == "EGLISE":
-            return qs.filter(eglise_id=scope["eglise_id"], bureau__isnull=True)
+            return (
+                obj.eglise_id == scope["eglise_id"]
+                and obj.bureau_id is None
+            )
+
         if scope["type"] == "BUREAU":
-            return qs.filter(bureau_id=scope["bureau_id"], eglise__isnull=True)
-        if scope["type"] == "NATIONAL":
-            return qs.filter(eglise__isnull=True, bureau__isnull=True)
+            return (
+                obj.bureau_id == scope["bureau_id"]
+                and obj.eglise_id is None
+            )
+
+        return False
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request).select_related(
+            "eglise", "bureau", "enregistre_par"
+        )
+        scope = self._scope(request)
+
+        if scope["type"] == "EGLISE":
+            return qs.filter(
+                eglise_id=scope["eglise_id"],
+                bureau__isnull=True,
+            )
+
+        if scope["type"] == "BUREAU":
+            return qs.filter(
+                bureau_id=scope["bureau_id"],
+                eglise__isnull=True,
+            )
+
         return qs.none()
 
     def has_module_permission(self, request):
-        if request.user.role == "COORDINATEUR":
-            return False
-        return super().has_module_permission(request)
+        return self._scope(request)["type"] != "NONE"
 
     def has_view_permission(self, request, obj=None):
-        if request.user.role == "COORDINATEUR":
+        if self._scope(request)["type"] == "NONE":
             return False
-        return super().has_view_permission(request, obj)
+        return obj is None or self._in_scope(request, obj)
 
     def has_add_permission(self, request):
-        if request.user.role == "COORDINATEUR":
-            return False
-        return super().has_add_permission(request)
+        return self._scope(request)["type"] != "NONE"
 
     def has_change_permission(self, request, obj=None):
-        if request.user.role == "COORDINATEUR":
+        if self._scope(request)["type"] == "NONE":
             return False
-        return super().has_change_permission(request, obj)
+        return obj is None or self._in_scope(request, obj)
 
     def has_delete_permission(self, request, obj=None):
-        if request.user.role == "COORDINATEUR":
+        if self._scope(request)["type"] == "NONE":
             return False
-        return super().has_delete_permission(request, obj)
-
-
-    def has_add_permission(self, request):
-        return perimetre_financier_utilisateur(request.user)["type"] != "NONE"
-
-    def _in_scope(self, request, obj):
-        scope = perimetre_financier_utilisateur(request.user)
-        if scope["type"] == "GLOBAL":
-            return True
-        if scope["type"] == "EGLISE":
-            return obj.eglise_id == scope["eglise_id"] and obj.bureau_id is None
-        if scope["type"] == "BUREAU":
-            return obj.bureau_id == scope["bureau_id"] and obj.eglise_id is None
-        if scope["type"] == "NATIONAL":
-            return obj.eglise_id is None and obj.bureau_id is None
-        return False
-
-    def has_change_permission(self, request, obj=None):
-        return True if obj is None else self._in_scope(request, obj)
-
-    def has_delete_permission(self, request, obj=None):
-        return True if obj is None else self._in_scope(request, obj)
+        return obj is None or self._in_scope(request, obj)
 
     def save_model(self, request, obj, form, change):
-        scope = perimetre_financier_utilisateur(request.user)
+        scope = self._scope(request)
+
         if scope["type"] == "EGLISE":
-            obj.eglise_id, obj.bureau_id = scope["eglise_id"], None
+            obj.eglise_id = scope["eglise_id"]
+            obj.bureau_id = None
         elif scope["type"] == "BUREAU":
-            obj.eglise_id, obj.bureau_id = None, scope["bureau_id"]
-        elif scope["type"] == "NATIONAL":
-            obj.eglise_id = obj.bureau_id = None
+            obj.eglise_id = None
+            obj.bureau_id = scope["bureau_id"]
+        else:
+            raise PermissionDenied(
+                "Aucun périmètre financier autorisé."
+            )
+
         obj.enregistre_par = request.user
         obj.full_clean()
         super().save_model(request, obj, form, change)
 
     def montant_formate(self, obj):
         return f"{obj.montant:,.0f} {obj.devise}".replace(",", " ")
+
     montant_formate.short_description = "Montant"
 
     def perimetre(self, obj):
-        return obj.bureau.nom if obj.bureau else obj.eglise.nom if obj.eglise else "Bureau national"
+        if obj.bureau:
+            return obj.bureau.nom
+        if obj.eglise:
+            return obj.eglise.nom
+        return "Ancienne opération sans périmètre"
+
     perimetre.short_description = "Périmètre"
 
 
@@ -201,6 +229,8 @@ class ProjetAdmin(EESAGScopedAdminMixin, admin.ModelAdmin):
         return qs.none()
 
     def has_add_permission(self, request):
+        if getattr(request.user, "role", None) == "COORDINATEUR":
+            return False
         return perimetre_projet_utilisateur(request.user)["type"] != "NONE"
 
     def _in_scope(self, request, obj):
@@ -216,9 +246,13 @@ class ProjetAdmin(EESAGScopedAdminMixin, admin.ModelAdmin):
         return False
 
     def has_change_permission(self, request, obj=None):
+        if getattr(request.user, "role", None) == "COORDINATEUR":
+            return False
         return True if obj is None else self._in_scope(request, obj)
 
     def has_delete_permission(self, request, obj=None):
+        if getattr(request.user, "role", None) == "COORDINATEUR":
+            return False
         return True if obj is None else self._in_scope(request, obj)
 
     def save_model(self, request, obj, form, change):

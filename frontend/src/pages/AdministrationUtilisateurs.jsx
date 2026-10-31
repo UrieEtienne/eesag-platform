@@ -1,24 +1,7 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import "../styles/AdministrationGlobale.css";
 
 const API_URL = (import.meta.env.VITE_API_URL || "/api").replace(/\/+$/, "");
-
-const ROLES = [
-  { value: "SUPERADMIN_INTL", label: "Super administrateur international" },
-  { value: "SUPERADMIN_NATIONAL", label: "Super administrateur national" },
-  { value: "ADMIN_LOCAL", label: "Administrateur local" },
-  { value: "PASTEUR", label: "Pasteur" },
-];
-
-const FORM_INITIAL = {
-  nom: "",
-  prenom: "",
-  sexe: "M",
-  telephone: "",
-  email: "",
-  role: "ADMIN_LOCAL",
-  eglise: "",
-  fonction_bureau_national: "",
-};
 
 function obtenirToken() {
   return (
@@ -32,16 +15,15 @@ function obtenirToken() {
 
 async function requeteAPI(chemin, options = {}) {
   const token = obtenirToken();
-  const headers = {
-    Accept: "application/json",
-    ...(options.body ? { "Content-Type": "application/json" } : {}),
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    ...options.headers,
-  };
 
   const response = await fetch(`${API_URL}${chemin}`, {
     ...options,
-    headers,
+    headers: {
+      Accept: "application/json",
+      ...(options.body ? { "Content-Type": "application/json" } : {}),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...options.headers,
+    },
   });
 
   const type = response.headers.get("content-type") || "";
@@ -50,7 +32,7 @@ async function requeteAPI(chemin, options = {}) {
     : await response.text();
 
   if (!response.ok) {
-    const message =
+    const detail =
       typeof data === "string"
         ? data
         : data?.detail ||
@@ -67,7 +49,7 @@ async function requeteAPI(chemin, options = {}) {
             .join(" | ") ||
           `Erreur HTTP ${response.status}`;
 
-    throw new Error(message);
+    throw new Error(detail);
   }
 
   return data;
@@ -90,449 +72,284 @@ function libelleRole(u) {
   return u?.role_libelle || u?.role_display || u?.role || "—";
 }
 
+function badgeRole(role) {
+  const valeur = String(role || "").toUpperCase();
+
+  if (valeur === "COORDINATEUR") {
+    return <span className="ag-badge ag-badge-purple ag-badge-blue">Coordinateur</span>;
+  }
+  if (valeur.includes("SUPERADMIN")) {
+    return <span className="ag-badge ag-badge-blue">{libelleRole({ role })}</span>;
+  }
+  if (valeur === "ADMIN_LOCAL") {
+    return <span className="ag-badge ag-badge-orange">Administrateur local</span>;
+  }
+  if (valeur === "PASTEUR") {
+    return <span className="ag-badge ag-badge-green">Pasteur</span>;
+  }
+
+  return <span className="ag-badge ag-badge-gray">{role || "—"}</span>;
+}
+
 export default function AdministrationUtilisateurs() {
   const [utilisateurs, setUtilisateurs] = useState([]);
-  const [eglises, setEglises] = useState([]);
   const [chargement, setChargement] = useState(true);
-  const [envoi, setEnvoi] = useState(false);
-  const [formulaireOuvert, setFormulaireOuvert] = useState(false);
-  const [erreur, setErreur] = useState("");
-  const [message, setMessage] = useState("");
-  const [form, setForm] = useState(FORM_INITIAL);
-  const [compteCree, setCompteCree] = useState(null);
   const [recherche, setRecherche] = useState("");
+  const [filtreRole, setFiltreRole] = useState("TOUS");
+  const [filtreEtat, setFiltreEtat] = useState("TOUS");
+  const [actionEnCours, setActionEnCours] = useState(null);
+  const [message, setMessage] = useState("");
+  const [erreur, setErreur] = useState("");
 
-  const chargerDonnees = useCallback(async () => {
+  const chargerUtilisateurs = useCallback(async () => {
     setChargement(true);
     setErreur("");
 
     try {
-      const [dataUtilisateurs, dataEglises] = await Promise.all([
-        requeteAPI("/utilisateurs/"),
-        requeteAPI("/eglises/"),
-      ]);
-
-      setUtilisateurs(listeDepuis(dataUtilisateurs));
-      setEglises(
-        listeDepuis(dataEglises).filter(
-          (eglise) => eglise && eglise.id != null
-        )
-      );
+      const data = await requeteAPI("/utilisateurs/");
+      setUtilisateurs(listeDepuis(data));
     } catch (e) {
-      setErreur(e.message || "Impossible de charger les données.");
+      setErreur(e.message || "Impossible de charger les utilisateurs.");
     } finally {
       setChargement(false);
     }
   }, []);
 
   useEffect(() => {
-    chargerDonnees();
-  }, [chargerDonnees]);
+    chargerUtilisateurs();
+  }, [chargerUtilisateurs]);
 
-  const changerChamp = (event) => {
-    const { name, value } = event.target;
-    setForm((precedent) => ({
-      ...precedent,
-      [name]: value,
-      ...(name === "role" &&
-      ["SUPERADMIN_INTL", "SUPERADMIN_NATIONAL"].includes(value)
-        ? { eglise: "" }
-        : {}),
-    }));
-    setErreur("");
-    setMessage("");
-  };
-
-  const soumettre = async (event) => {
-    event.preventDefault();
-    setErreur("");
-    setMessage("");
-    setCompteCree(null);
-
-    if (!form.nom.trim() || !form.prenom.trim() || !form.telephone.trim()) {
-      setErreur("Renseigne le nom, le prénom et le téléphone.");
+  const changerEtatCompte = async (utilisateur) => {
+    if (!utilisateur?.id) {
+      setErreur("Identifiant du compte introuvable.");
       return;
     }
 
-    const roleNational = [
-      "SUPERADMIN_INTL",
-      "SUPERADMIN_NATIONAL",
-    ].includes(form.role);
-
-    if (!roleNational && !form.eglise) {
-      setErreur("Sélectionne une église pour ce compte local.");
+    if (utilisateur.role === "COORDINATEUR") {
+      setErreur("Un compte Coordinateur ne peut pas être bloqué depuis cette page.");
       return;
     }
 
-    const payload = {
-      nom: form.nom.trim(),
-      prenom: form.prenom.trim(),
-      sexe: form.sexe,
-      telephone: form.telephone.trim(),
-      email: form.email.trim(),
-      role: form.role,
-      eglise: roleNational ? null : Number(form.eglise),
-      fonction_bureau_national: form.fonction_bureau_national.trim(),
-    };
+    const bloquer = Boolean(utilisateur.actif);
+    const action = bloquer ? "bloquer" : "debloquer";
+    const verbe = bloquer ? "bloquer" : "débloquer";
+
+    if (
+      !window.confirm(
+        `Confirmer : ${verbe} le compte de ${nomUtilisateur(utilisateur)} ?`
+      )
+    ) return;
+
+    setErreur("");
+    setMessage("");
+    setActionEnCours(utilisateur.id);
 
     try {
-      setEnvoi(true);
-      const resultat = await requeteAPI("/utilisateurs/", {
-        method: "POST",
-        body: JSON.stringify(payload),
-      });
-
-      const utilisateur = resultat?.utilisateur || resultat;
-      
-      setCompteCree({
-        identifiant: resultat?.identifiant || utilisateur?.identifiant || "",
-        nom: resultat?.nom || nomUtilisateur(utilisateur),
-        role: resultat?.role_libelle || libelleRole(utilisateur),
-        detail: resultat?.detail || "Le compte a été créé.",
-        smsEnvoye: resultat?.sms_envoye === true,
-        smsMessage: resultat?.sms_message || "",
-      });
-
-
-      setMessage("Compte créé avec succès.");
-      setForm(FORM_INITIAL);
-      await chargerDonnees();
-    } catch (e) {
-      setErreur(
-        e.message ||
-          "La création a échoué. Vérifie les champs et les droits du compte connecté."
+      const resultat = await requeteAPI(
+        `/utilisateurs/${utilisateur.id}/${action}/`,
+        { method: "POST" }
       );
+
+      setMessage(
+        resultat?.detail ||
+          `Le compte de ${nomUtilisateur(utilisateur)} a été ${bloquer ? "bloqué" : "débloqué"}.`
+      );
+
+      await chargerUtilisateurs();
+    } catch (e) {
+      setErreur(e.message || "Impossible de modifier l'état du compte.");
     } finally {
-      setEnvoi(false);
+      setActionEnCours(null);
     }
   };
 
-  const filtrer = utilisateurs.filter((u) => {
-    const terme = recherche.toLocaleLowerCase().trim();
-    if (!terme) return true;
-    return [
-      u?.nom,
-      u?.prenom,
-      u?.identifiant,
-      u?.telephone,
-      u?.email,
-      u?.role,
-      u?.role_libelle,
-      u?.eglise_nom,
-      u?.eglise?.nom,
-    ]
-      .filter(Boolean)
-      .some((v) => String(v).toLocaleLowerCase().includes(terme));
-  });
+  const utilisateursFiltres = useMemo(() => {
+    const terme = recherche.trim().toLocaleLowerCase();
+
+    return utilisateurs.filter((u) => {
+      const correspondRecherche =
+        !terme ||
+        [
+          u?.nom,
+          u?.prenom,
+          u?.identifiant,
+          u?.telephone,
+          u?.email,
+          u?.role,
+          u?.role_libelle,
+          u?.eglise_nom,
+          u?.eglise?.nom,
+        ]
+          .filter(Boolean)
+          .some((v) => String(v).toLocaleLowerCase().includes(terme));
+
+      const correspondRole =
+        filtreRole === "TOUS" || u.role === filtreRole;
+
+      const correspondEtat =
+        filtreEtat === "TOUS" ||
+        (filtreEtat === "ACTIF" && Boolean(u.actif)) ||
+        (filtreEtat === "BLOQUE" && !u.actif);
+
+      return correspondRecherche && correspondRole && correspondEtat;
+    });
+  }, [utilisateurs, recherche, filtreRole, filtreEtat]);
+
+  const comptesActifs = utilisateurs.filter((u) => u.actif).length;
+  const comptesBloques = utilisateurs.length - comptesActifs;
+  const administrateurs = utilisateurs.filter(
+    (u) => ["ADMIN_LOCAL", "SUPERADMIN_INTL", "SUPERADMIN_NATIONAL", "COORDINATEUR"].includes(u.role)
+  ).length;
+  const pasteurs = utilisateurs.filter((u) => u.role === "PASTEUR").length;
 
   return (
-    <main className="container-fluid px-3 px-lg-4 py-4">
-      <section className="card border-0 shadow-sm mb-4">
-        <div className="card-body p-4">
-          <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
-            <div>
-              <div className="text-uppercase small fw-bold text-primary mb-2">
-                EESAG · Administration centrale
-              </div>
-              <h2 className="mb-1">Administration des utilisateurs</h2>
-              <p className="text-muted mb-0">
-                Créer les comptes, consulter les identifiants et suivre les statuts.
-              </p>
-            </div>
-            <div className="d-flex flex-wrap gap-2">
-              <button
-                type="button"
-                className="btn btn-outline-secondary"
-                onClick={chargerDonnees}
-                disabled={chargement}
-              >
-                Actualiser
-              </button>
-              <button
-                type="button"
-                className="btn btn-primary"
-                onClick={() => {
-                  setFormulaireOuvert((ouvert) => !ouvert);
-                  setErreur("");
-                  setMessage("");
-                  setCompteCree(null);
-                }}
-              >
-                {formulaireOuvert ? "Fermer le formulaire" : "+ Créer un utilisateur"}
-              </button>
-            </div>
-          </div>
+    <main className="admin-global">
+      <header className="ag-heading">
+        <div>
+          <div className="ag-eyebrow">EESAG · Administration centrale</div>
+          <h2>Gestion des utilisateurs</h2>
+          <p>Consulter les comptes et contrôler leur accès à la plateforme EESAG.</p>
+        </div>
+
+        <button
+          type="button"
+          className="btn btn-outline-secondary btn-sm"
+          onClick={chargerUtilisateurs}
+          disabled={chargement}
+        >
+          {chargement ? "Chargement..." : "↻ Actualiser"}
+        </button>
+      </header>
+
+      {erreur && <div className="alert alert-danger ag-alert">{erreur}</div>}
+      {message && <div className="alert alert-success ag-alert">{message}</div>}
+
+      <section className="ag-stats">
+        <div className="ag-stat ag-blue">
+          <span className="ag-stat-label">Comptes enregistrés</span>
+          <span className="ag-stat-value">{utilisateurs.length}</span>
+        </div>
+        <div className="ag-stat ag-green">
+          <span className="ag-stat-label">Comptes actifs</span>
+          <span className="ag-stat-value">{comptesActifs}</span>
+        </div>
+        <div className="ag-stat ag-red">
+          <span className="ag-stat-label">Comptes bloqués</span>
+          <span className="ag-stat-value">{comptesBloques}</span>
+        </div>
+        <div className="ag-stat ag-purple">
+          <span className="ag-stat-label">Administrateurs et pasteurs</span>
+          <span className="ag-stat-value">{administrateurs + pasteurs}</span>
         </div>
       </section>
 
-      {erreur && (
-        <div className="alert alert-danger" role="alert">
-          <strong>Échec :</strong> {erreur}
-        </div>
-      )}
+      <section className="ag-panel">
+        <div className="ag-toolbar">
+          <h5>Liste de tous les utilisateurs</h5>
 
-      {message && (
-        <div className="alert alert-success" role="status">
-          {message}
-        </div>
-      )}
+          <div className="ag-filters">
+            <input
+              type="search"
+              className="ag-control ag-search"
+              placeholder="Nom, identifiant, téléphone, église..."
+              value={recherche}
+              onChange={(e) => setRecherche(e.target.value)}
+              aria-label="Rechercher un utilisateur"
+            />
 
-      {compteCree && (
-        <div className="card border-success shadow-sm mb-4">
-          <div className="card-body">
-            <h5 className="text-success">Compte enregistré</h5>
-            <p className="mb-1"><strong>Nom :</strong> {compteCree.nom}</p>
-            <p className="mb-1"><strong>Rôle :</strong> {compteCree.role}</p>
-            <p className="mb-2">
-              <strong>Identifiant :</strong>{" "}
-              {compteCree.identifiant || "Consulte la fiche du compte."}
-            </p>
-            <p className="mb-0">{compteCree.detail}</p>
-            <small className="text-muted d-block mt-2">
-              Le code secret n'est pas affiché ici. Suis la procédure de confirmation ou de réinitialisation configurée sur le serveur.
-            </small>
-          </div>
-        </div>
-      )}
+            <select
+              className="ag-control"
+              value={filtreRole}
+              onChange={(e) => setFiltreRole(e.target.value)}
+              aria-label="Filtrer par rôle"
+            >
+              <option value="TOUS">Tous les rôles</option>
+              <option value="COORDINATEUR">Coordinateur</option>
+              <option value="SUPERADMIN_INTL">Super administrateur international</option>
+              <option value="SUPERADMIN_NATIONAL">Super administrateur national</option>
+              <option value="ADMIN_LOCAL">Administrateur local</option>
+              <option value="PASTEUR">Pasteur</option>
+              <option value="MEMBRE">Membre</option>
+            </select>
 
-      {formulaireOuvert && (
-        <section className="card shadow-sm border-0 mb-4">
-          <div className="card-header bg-white py-3">
-            <h5 className="mb-1">Créer un compte utilisateur</h5>
-            <small className="text-muted">
-              Les autorisations définitives sont toujours vérifiées par le serveur.
-            </small>
-          </div>
-          <div className="card-body p-4">
-            <form onSubmit={soumettre}>
-              <div className="row g-3">
-                <div className="col-12 col-md-6">
-                  <label htmlFor="prenom" className="form-label">Prénom *</label>
-                  <input
-                    id="prenom"
-                    name="prenom"
-                    className="form-control"
-                    value={form.prenom}
-                    onChange={changerChamp}
-                    maxLength={100}
-                    autoComplete="given-name"
-                    required
-                  />
-                </div>
-                <div className="col-12 col-md-6">
-                  <label htmlFor="nom" className="form-label">Nom *</label>
-                  <input
-                    id="nom"
-                    name="nom"
-                    className="form-control"
-                    value={form.nom}
-                    onChange={changerChamp}
-                    maxLength={100}
-                    autoComplete="family-name"
-                    required
-                  />
-                </div>
-                <div className="col-12 col-md-6">
-                  <label htmlFor="telephone" className="form-label">Téléphone *</label>
-                  <input
-                    id="telephone"
-                    name="telephone"
-                    type="tel"
-                    className="form-control"
-                    value={form.telephone}
-                    onChange={changerChamp}
-                    autoComplete="tel"
-                    placeholder="+224..."
-                    required
-                  />
-                </div>
-                <div className="col-12 col-md-6">
-                  <label htmlFor="email" className="form-label">Adresse e-mail</label>
-                  <input
-                    id="email"
-                    name="email"
-                    type="email"
-                    className="form-control"
-                    value={form.email}
-                    onChange={changerChamp}
-                    autoComplete="email"
-                  />
-                </div>
-                <div className="col-12 col-md-6">
-                  <label htmlFor="sexe" className="form-label">Sexe</label>
-                  <select
-                    id="sexe"
-                    name="sexe"
-                    className="form-select"
-                    value={form.sexe}
-                    onChange={changerChamp}
-                  >
-                    <option value="M">Homme</option>
-                    <option value="F">Femme</option>
-                  </select>
-                </div>
-                <div className="col-12 col-md-6">
-                  <label htmlFor="role" className="form-label">Rôle du compte *</label>
-                  <select
-                    id="role"
-                    name="role"
-                    className="form-select"
-                    value={form.role}
-                    onChange={changerChamp}
-                    required
-                  >
-                    {ROLES.map((role) => (
-                      <option key={role.value} value={role.value}>
-                        {role.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {![
-                  "SUPERADMIN_INTL",
-                  "SUPERADMIN_NATIONAL",
-                ].includes(form.role) && (
-                  <div className="col-12">
-                    <label htmlFor="eglise" className="form-label">Église de rattachement *</label>
-                    <select
-                      id="eglise"
-                      name="eglise"
-                      className="form-select"
-                      value={form.eglise}
-                      onChange={changerChamp}
-                      required
-                    >
-                      <option value="">— Sélectionner une église —</option>
-                      {eglises.map((eglise) => (
-                        <option key={eglise.id} value={eglise.id}>
-                          {eglise.nom || eglise.code || `Église ${eglise.id}`}
-                          {eglise.code ? ` (${eglise.code})` : ""}
-                        </option>
-                      ))}
-                    </select>
-                    {!chargement && eglises.length === 0 && (
-                      <small className="text-danger">
-                        Aucune église n'a été chargée. Vérifie l'accès à /api/eglises/.
-                      </small>
-                    )}
-                  </div>
-                )}
-
-                {[
-                  "SUPERADMIN_INTL",
-                  "SUPERADMIN_NATIONAL",
-                ].includes(form.role) && (
-                  <div className="col-12">
-                    <label
-                      htmlFor="fonction_bureau_national"
-                      className="form-label"
-                    >
-                      Fonction au Bureau national (facultatif)
-                    </label>
-                    <input
-                      id="fonction_bureau_national"
-                      name="fonction_bureau_national"
-                      className="form-control"
-                      value={form.fonction_bureau_national}
-                      onChange={changerChamp}
-                      maxLength={150}
-                      placeholder="Ex. : Administrateur national"
-                    />
-                  </div>
-                )}
-              </div>
-
-              <div className="d-flex flex-wrap gap-2 mt-4">
-                <button
-                  type="submit"
-                  className="btn btn-primary px-4"
-                  disabled={envoi || chargement}
-                >
-                  {envoi ? "Création en cours..." : "Créer le compte"}
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-outline-secondary"
-                  disabled={envoi}
-                  onClick={() => {
-                    setForm(FORM_INITIAL);
-                    setErreur("");
-                  }}
-                >
-                  Réinitialiser
-                </button>
-              </div>
-            </form>
-          </div>
-        </section>
-      )}
-
-      <section className="card border-0 shadow-sm">
-        <div className="card-header bg-white py-3">
-          <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
-            <h5 className="mb-0">Comptes utilisateurs</h5>
-            <div className="d-flex align-items-center gap-3">
-              <span className="badge bg-primary">
-                {filtrer.length} compte{filtrer.length !== 1 ? "s" : ""}
-              </span>
-              <input
-                type="search"
-                className="form-control"
-                style={{ maxWidth: 300 }}
-                placeholder="Rechercher un compte..."
-                value={recherche}
-                onChange={(e) => setRecherche(e.target.value)}
-                aria-label="Rechercher un utilisateur"
-              />
-            </div>
+            <select
+              className="ag-control"
+              value={filtreEtat}
+              onChange={(e) => setFiltreEtat(e.target.value)}
+              aria-label="Filtrer par état du compte"
+            >
+              <option value="TOUS">Tous les états</option>
+              <option value="ACTIF">Comptes actifs</option>
+              <option value="BLOQUE">Comptes bloqués</option>
+            </select>
           </div>
         </div>
 
-        <div className="card-body p-0">
-          {chargement ? (
-            <div className="p-4 text-center text-muted">
-              Chargement des utilisateurs...
-            </div>
-          ) : filtrer.length === 0 ? (
-            <div className="p-4 text-center text-muted">
-              Aucun compte ne correspond à la recherche.
-            </div>
-          ) : (
-            <div className="table-responsive">
-              <table className="table table-hover table-striped align-middle mb-0">
-                <thead className="table-light">
-                  <tr>
-                    <th>Nom complet</th>
-                    <th>Identifiant</th>
-                    <th>Rôle</th>
-                    <th>Église</th>
-                    <th>Téléphone</th>
-                    <th>Statut</th>
+        {chargement ? (
+          <div className="ag-empty">Chargement des utilisateurs...</div>
+        ) : utilisateursFiltres.length === 0 ? (
+          <div className="ag-empty">Aucun compte ne correspond aux filtres.</div>
+        ) : (
+          <div className="ag-table-wrap">
+            <table className="ag-table">
+              <thead>
+                <tr>
+                  <th>Utilisateur</th>
+                  <th>Identifiant</th>
+                  <th>Rôle</th>
+                  <th>Église de rattachement</th>
+                  <th>Téléphone</th>
+                  <th>État du compte</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {utilisateursFiltres.map((u) => (
+                  <tr key={u.id ?? u.identifiant}>
+                    <td>
+                      <span className="ag-primary-text">{nomUtilisateur(u)}</span>
+                      <span className="ag-secondary-text">{u.email || "E-mail non renseigné"}</span>
+                    </td>
+                    <td>{u.identifiant || "—"}</td>
+                    <td>{badgeRole(u.role)}</td>
+                    <td>{u.eglise_nom || u.eglise?.nom || "Administration nationale"}</td>
+                    <td>{u.telephone || "—"}</td>
+                    <td>
+                      {u.actif ? (
+                        <span className="ag-badge ag-badge-green">Actif</span>
+                      ) : (
+                        <span className="ag-badge ag-badge-red">Bloqué / inactif</span>
+                      )}
+                    </td>
+                    <td>
+                      {u.role === "COORDINATEUR" ? (
+                        <span className="ag-badge ag-badge-gray">Compte protégé</span>
+                      ) : (
+                        <button
+                          type="button"
+                          className={`ag-action ${u.actif ? "ag-action-red" : "ag-action-green"}`}
+                          disabled={actionEnCours === u.id}
+                          onClick={() => changerEtatCompte(u)}
+                        >
+                          {actionEnCours === u.id
+                            ? "Traitement..."
+                            : u.actif
+                              ? "Bloquer"
+                              : "Débloquer"}
+                        </button>
+                      )}
+                    </td>
                   </tr>
-                </thead>
-                <tbody>
-                  {filtrer.map((u) => (
-                    <tr key={u.id ?? u.identifiant}>
-                      <td><strong>{nomUtilisateur(u)}</strong></td>
-                      <td>{u.identifiant || "—"}</td>
-                      <td><span className="badge bg-secondary">{libelleRole(u)}</span></td>
-                      <td>{u.eglise_nom || u.eglise?.nom || "Administration nationale"}</td>
-                      <td>{u.telephone || "—"}</td>
-                      <td>
-                        {u.actif ? (
-                          <span className="badge bg-success">Actif</span>
-                        ) : (
-                          <span className="badge bg-warning text-dark">Inactif</span>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        <footer className="ag-footer">
+          {utilisateursFiltres.length} résultat(s) affiché(s) sur {utilisateurs.length} compte(s).
+          {" "}La création et la modification des comptes restent gérées dans Django Admin.
+        </footer>
       </section>
     </main>
   );
